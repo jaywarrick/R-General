@@ -11,48 +11,69 @@ st <- function(...)
     return(out)
 }
 
-reorganizeTable <- function(data, baseName=NA, convertToNumeric=TRUE)
+#' Take an arff file and reorganize it into a more standard 'table' format. Specifically this is used to
+#' import an arff file from JEX as JEX uses a column called 'Measurement' to define the type of measurment
+#' or property being stored and 'Value', the value of that property.
+#'
+#' @param data An object that is the result of using foreign::read.arff(file) on an arff file
+#' @param baseName An optional basename to add to whatever label is in the \code{nameCol} portion of each row entry
+#' @param convertToNumeric An option to convert the columns of information within \code{data} leading up to
+#' \code{nameCol} and \code{valueCol} to numeric or to leave as text. Default is to convert to numeric (i.e., TRUE)
+#' @param nameCol The name of the column that describes the nature of the value in the \code{valueCol}
+#' @param valueCol The name of the column with the values of the properties listed in the \code{nameCol}
+reorganizeTable <- function (data, baseName = NA, convertToNumeric = TRUE, nameCol = "Measurement", valueCol = "Value")
 {
-    library(plyr)
-    idCols <- names(data)
-    idCols <- idCols[-which(idCols %in% c('Measurement','Value'))]
-    newData <- data.frame(stringsAsFactors=FALSE)
-    measurements <- unique(data$Measurement)
-    #     m <- measurements[1]
-    #     browser()
-    for(m in measurements)
-    {
-        if(is.na(baseName))
-        {
-            newColName <- m
-            newColName <- gsub(' ','.',newColName, fixed=TRUE) # Get rid of extraneous spaces
-        }else
-        {
-            newColName <- paste(baseName,'.',m, sep='')
-            newColName <- gsub(' ','.',newColName, fixed=TRUE) # Get rid of extraneous spaces
-        }
-        
-        temp <- subset(data, Measurement==m)
-        temp2 <- temp[,c(idCols,'Value')]
-        names(temp2)[names(temp2)=="Value"] <- newColName
-        if(nrow(newData) == 0)
-        {
-            newData <- temp2
-        }else
-        {
-            newData <- merge(newData, temp2, by=idCols)
-        }
-    }
-    
-    if(convertToNumeric)
-    {
-        for(n in idCols)
-        {
-            newData[,n] <- as.numeric(as.character(newData[,n]))
-        }
-    }
-    
-    return(newData)
+     require(plyr)
+     idCols <- names(data)
+     idCols <- idCols[-which(idCols %in% c(nameCol, valueCol))]
+     newData <- data.frame(stringsAsFactors = FALSE)
+     measurements <- unique(data[, nameCol])
+     for (m in measurements) {
+          if (is.na(baseName)) {
+               newColName <- m
+               newColName <- gsub(" ", ".", newColName, fixed = TRUE)
+          }
+          else {
+               newColName <- paste(baseName, ".", m, sep = "")
+               newColName <- gsub(" ", ".", newColName, fixed = TRUE)
+          }
+          temp <- data[data[, nameCol] == m, ]
+          temp2 <- temp[, c(idCols, valueCol)]
+          if(length(idCols) == 0)
+          {
+               temp2 <- data.frame(ReallyRandomNameYo=temp2)
+               names(temp2) <- newColName
+          }
+          else
+          {
+               names(temp2)[names(temp2) == valueCol] <- newColName
+          }
+          if (nrow(newData) == 0)
+          {
+               newData <- temp2
+          }
+          else
+          {
+               newData <- merge(newData, temp2, by = idCols)
+          }
+     }
+     if (convertToNumeric) {
+          for (n in idCols) {
+               newData[, n] <- as.numeric(as.character(newData[, n]))
+          }
+     }
+     return(newData)
+}
+
+first <- function(x)
+{
+     return(x[1])
+}
+
+last <- function(x)
+{
+     require(pracma)
+     return(x[numel(x)])
 }
 
 getWeightedR2 <- function(y, model)
@@ -395,6 +416,30 @@ getDensityColors <- function(x, y)
     theColors <- rev(rainbow(max(xync$n), end=0.6))
     xync$c <- theColors[xync$n]
     return(list(colors=theColors, data=xync))
+}
+
+multi.mixedorder <- function(..., na.last = TRUE, decreasing = FALSE){
+	# For example...
+	# data <- data[with(data, multi.mixedorder(Day, Conc, Sample.ID, relTimeStamp)), ]
+    do.call(order, c(
+        lapply(list(...), function(l){
+            if(is.character(l)){
+                factor(l, levels=mixedsort(unique(l)))
+            } else {
+                l
+            }
+        }),
+        list(na.last = na.last, decreasing = decreasing)
+    ))
+}
+
+merge.lists <- function(list1, list2)
+{
+     for(name in names(list2))
+     {
+          list1[[name]] <- list2[[name]]
+     }
+     return(list1)
 }
 
 # Be sure to have a trailing line or carriage return after last closing bracket.
