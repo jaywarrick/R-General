@@ -79,7 +79,7 @@ reorganizeFeatureTable <- function (data, baseName = NA, specialNames = c("Chann
      for(specialName in specialNames)
      {
           data[,specialName] <- gsub(" ", "", data[,specialName])
-          data[,nameCol] <- paste0(data[,'Measurement'], '.', data[,specialName])
+          data[,'Measurement'] <- paste0(data[,'Measurement'], '.', data[,specialName])
      }
      data <- data[, !(names(data) %in% specialNames)]
 
