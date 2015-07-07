@@ -65,6 +65,41 @@ reorganizeTable <- function (data, baseName = NA, convertToNumeric = TRUE, nameC
      return(newData)
 }
 
+reorganizeFeatureTable <- function (data, baseName = NA, specialNames = c("Channel"), convertToNumeric = TRUE)
+{
+     require(data.table)
+
+     myfunc <- function(keys, values, allKeys)
+     {
+          names(values) <- keys
+          return(as.list(values[allKeys]))
+     }
+
+     # First collapse specialName columns into the nameCol column
+     for(specialName in specialNames)
+     {
+          data[,specialName] <- gsub(" ", "", data[,specialName])
+          data[,nameCol] <- paste0(data[,'Measurement'], '.', data[,specialName])
+     }
+     data <- data[, !(names(data) %in% specialNames)]
+
+     # Grab the nameCol, idCols, and valueCol
+     idCols <- names(data)
+     idCols <- idCols[-which(idCols %in% c('Measurement', 'Value'))]
+     measurements <- unique(data[, 'Measurement'])
+
+     data <- data.table(data)
+     data <- data[,myfunc(keys=Measurement,values=Value,allKeys=unique(data$Measurement)),by=idCols]
+     data <- data.frame(data)
+
+     if (convertToNumeric) {
+          for (n in idCols) {
+               data[, n] <- as.numeric(as.character(data[, n]))
+          }
+     }
+     return(data)
+}
+
 first <- function(x)
 {
      return(x[1])
