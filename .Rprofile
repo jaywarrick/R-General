@@ -1,5 +1,5 @@
-print('Hi, Jay. Defining your default suite of favorite functions...')
-print('Change these in the file ~/.Rprofile')
+'Hi, Jay. Defining your default suite of favorite functions...'
+'Change these in the file ~/.Rprofile'
 
 getData <- function(db, ds, x, y, type, name)
 {
@@ -25,6 +25,16 @@ st <- function(...)
     return(out)
 }
 
+#' Take an arff file and reorganize it into a more standard 'table' format. Specifically this is used to
+#' import an arff file from JEX as JEX uses a column called 'Measurement' to define the type of measurment
+#' or property being stored and 'Value', the value of that property.
+#'
+#' @param data An object that is the result of using foreign::read.arff(file) on an arff file
+#' @param baseName An optional basename to add to whatever label is in the \code{nameCol} portion of each row entry
+#' @param convertToNumeric An option to convert the columns of information within \code{data} leading up to
+#' \code{nameCol} and \code{valueCol} to numeric or to leave as text. Default is to convert to numeric (i.e., TRUE)
+#' @param nameCol The name of the column that describes the nature of the value in the \code{valueCol}
+#' @param valueCol The name of the column with the values of the properties listed in the \code{nameCol}
 reorganizeTable <- function (data, baseName = NA, convertToNumeric = TRUE, nameCol = "Measurement", valueCol = "Value")
 {
      require(plyr)
