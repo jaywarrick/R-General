@@ -493,6 +493,24 @@ merge.lists <- function(list1, list2)
      return(list1)
 }
 
+source_https <- function(url, ...)
+{
+	# load package
+	require(RCurl)
+	
+	# parse and evaluate each .R script
+	sapply(c(url, ...), function(u)
+	{
+		eval(parse(text = getURL(u, followlocation = TRUE, cainfo = system.file("CurlSSL", "cacert.pem", package = "RCurl"))), envir = .GlobalEnv)
+	})
+}
+
+sourceGitHubFile <- function(user, repo, branch, file)
+{
+	fileToGet <- paste0("https://github.com/", user, "/", repository, "/raw/", branch, "/", fileName)
+	source_https(fileToGet)
+}
+
 lseq <- function(from, to, length.out)
 {
 	exp(seq(log(from), log(to), length.out = length.out))
