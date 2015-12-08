@@ -507,7 +507,7 @@ source_https <- function(url, ...)
 
 sourceGitHubFile <- function(user, repo, branch, file)
 {
-	fileToGet <- paste0("https://github.com/", user, "/", repository, "/raw/", branch, "/", fileName)
+	fileToGet <- paste0("https://github.com/", user, "/", repo, "/raw/", branch, "/", file)
 	source_https(fileToGet)
 }
 
