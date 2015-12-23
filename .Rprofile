@@ -511,8 +511,11 @@ source_https <- function(url, ...)
 
 sourceGitHubFile <- function(user, repo, branch, file)
 {
+     require(curl)
+     destfile <- tempfile()
      fileToGet <- paste0("https://raw.githubusercontent.com/", user, "/", repo, "/", branch, "/", file)
-     source_https(fileToGet)
+     curl_download(url=fileToGet, destfile)
+     source(destfile)
 }
 
 lseq <- function(from, to, length.out)
