@@ -2,7 +2,21 @@ library(shiny)
 library(plotly)
 
 
-shinyServer(function(input, output) {
+myServer <- shinyServer(function(input, output, session) {
+
+     ##### General reactives #####
+     observe({
+          if(input$closeButton1 > 0)
+          {
+               stopApp()
+          }
+     })
+     observe({
+          if(input$closeButton2 > 0)
+          {
+               stopApp()
+          }
+     })
 
      output$plot <- renderPlotly({
 

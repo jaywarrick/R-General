@@ -1,11 +1,12 @@
+rm(list=ls())
+source('~/.Rprofile')
 library(foreign)
 library(shiny)
 library(plotly)
+library(data.table)
 fileTable <- read.arff('/Users/jaywarrick/Documents/JEX/Feature Extraction/temp/JEXData0000000055.arff')
-data <- read.arff(fileTable$Value[1])
 
-data <- data.table(data)
-setorder(data, Id, Label, MaskChannel_ImageChannel, Measurement)
-
-shinyData <- reorganize(data, idCols = c('Id'), measurementCols=c('Measurement','MaskChannel_ImageChannel'), valueCols=c('Value'))
+temp <- read.arff(fileTable$Value[1])
+setorder(temp, Id, Label, MaskChannel_ImageChannel, Measurement)
+shinyData <- data.table(reorganize(temp, idCols = c('Id'), measurementCols=c('Measurement','MaskChannel_ImageChannel'), valueCols=c('Value')))
 runApp('/Users/jaywarrick/Public/DropBox/GitHub/R-General/DataBrowser')
