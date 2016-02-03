@@ -1,5 +1,6 @@
 library(shiny)
 library(plotly)
+library(data.table)
 
 myUI <- shinyUI(fluidPage(
      titlePanel("Data Browser"),
