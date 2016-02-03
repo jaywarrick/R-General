@@ -533,4 +533,12 @@ lseq <- function(from, to, length.out)
      exp(seq(log(from), log(to), length.out = length.out))
 }
 
+jplot <- function(x, y, text=c())
+{
+     xlab <- list(title = deparse(substitute(x)))
+     ylab <- list(title = deparse(substitute(y)))
+     plot_ly(mode='markers', x=x, y=y, text=text) %>%
+          layout(xaxis = xlab, yaxis = ylab)
+}
+
 # Be sure to have a trailing line or carriage return after last closing bracket.
