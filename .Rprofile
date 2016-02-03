@@ -25,6 +25,16 @@ st <- function(...)
      return(out)
 }
 
+reorganize <- function(data, idCols, measurementCols='Measurement', valueCols='Value')
+{
+     library(data.table)
+     data <- data.table(data)
+     formula <- as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+')))
+     print(formula)
+     data <- dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols)
+     return(data)
+}
+
 #' Take an arff file and reorganize it into a more standard 'table' format. Specifically this is used to
 #' import an arff file from JEX as JEX uses a column called 'Measurement' to define the type of measurment
 #' or property being stored and 'Value', the value of that property.
