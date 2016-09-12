@@ -69,6 +69,12 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
      {
           data <- data.table(data)
      }
+     
+     # Parse commas to indicate that the string should be split into multiple items.
+     measurementCols <- strsplit(measurementCols, ',', fixed=T)
+     
+     # Leading and trailing spaces are not good so remove them in case (makes it easier for JEX)
+     measurementCols <- mapply(gsub, '^\\s+|\\s+$', '', measurementCols)
 
      # If idCols = NULL, then use all remaining cols except measurementCols and valueCols
      if(is.null(idCols))
