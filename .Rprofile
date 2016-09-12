@@ -254,12 +254,12 @@ siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
      #   performed if it affects
      # the ranks of observations.
 
-     #  arguments passed on to the Wilcoxon test. See
+     # arguments passed on to the Wilcoxon test. See
      #   ?wilcox.test
 
      # Value: Among other output, the function returns the data,
      #   the Siegel-Tukey
-     # ranks, the associated Wilcoxons W and the p-value for a
+     # ranks, the associated Wilcoxon's W and the p-value for a
      #   Wilcoxon test on
      # tie-adjusted Siegel-Tukey ranks (i.e., it performs and
      #   returns a
@@ -267,14 +267,14 @@ siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
      #   smaller rank sum has
      # greater variability.
 
-     # References: Sidney Siegel and John Wilder Tukey (1960) A
+     # References: Sidney Siegel and John Wilder Tukey (1960) A
      #   nonparametric sum
      # of ranks procedure for relative spread in unpaired
-     #   samples. Journal of the
+     #   samples. Journal of the
      # American Statistical Association. See also, David J.
      #   Sheskin (2004)
-     # Handbook of parametric and nonparametric statistical
-     #   procedures. 3rd
+     # Handbook of parametric and nonparametric statistical
+     #   procedures. 3rd
      # edition. Chapman and Hall/CRC. Boca Raton, FL.
 
      # Notes: The Siegel-Tukey test has relatively low power and
