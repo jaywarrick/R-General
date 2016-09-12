@@ -1,17 +1,37 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
-getData <- function(db, ds, x, y, type, name)
+error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
+{
+     # if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
+     #      stop("vectors must be same length")
+     if(lower)
+     {
+          arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+     }
+     else
+     {
+          arrows(x,y+upper, x, y, angle=90, code=1, length=length, ...)
+     }
+}
+
+getData <- function(dbPath, ds, x, y, type, name)
 {
      ret <- list()
-     ret$db <- db
-     ret$tmp <- '/Users/jaywarrick/Desktop/A Sandbox/TrackingOutput/' #file.path(db,'temp','RScriptTempFolder')
      ret$ds <- ds
      ret$x <- x
      ret$y <- y
      ret$type <- type
      ret$name <- name
-     ret$value <- read.arff(file.path(db, ds, paste0('Cell_x',x,'_y',y), paste0(type,'-',name), paste0('x',x,'_y',y,'.jxd')))
+     ret$dbPath <- dbPath
+     ret$tmpPath <- file.path(dbPath,'temp','RScriptTempFolder')
+     ret$jxdDir <- file.path(dbPath, ds, paste0('Cell_x',x,'_y',y), paste0(type,'-',name))
+     ret$jxdFilePath <- file.path(ret$jxdDir, paste0('x',x,'_y',y,'.jxd'))
+     ret$jxdTable <- read.arff(ret$jxdFilePath)
+     if(type == 'File')
+     {
+          ret$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
+     }
      return(ret)
 }
 
@@ -25,14 +45,48 @@ st <- function(...)
      return(out)
 }
 
-reorganize <- function(data, idCols, measurementCols='Measurement', valueCols='Value')
+#' Reorganize a table from long form to wide form.
+#'
+#' This function can be applied to data.frame objects or data.table objects. It
+#' returns the same type as given.
+#'
+#' @param data A data.table or data.frame
+#' @param idCols A character vector of id column names (e.g., 'Id')
+#' @param measurementCols A character vector of column names that describe measurements (e.g., a column
+#' called 'Measurement' with values such as 'Min', 'Max', 'Mean', etc.
+#' @param valueCols A character vector of column names (typically one) that contains the numeric data
+#' to reorganize into wide format (e.g., 'Value')
+#'
+#' @export
+reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCols='Value')
 {
-     library(data.table)
-     data <- data.table(data)
+     isDataTable <- FALSE
+     if(is.data.table(data))
+     {
+          isDataTable <- TRUE
+     }
+     else
+     {
+          data <- data.table(data)
+     }
+
+     # If idCols = NULL, then use all remaining cols except measurementCols and valueCols
+     if(is.null(idCols))
+     {
+          idCols <- names(data)[!(names(data) %in% c(measurementCols, valueCols))]
+     }
+
      formula <- as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+')))
      print(formula)
      data <- dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols)
-     return(data)
+     if(isDataTable)
+     {
+          return(data)
+     }
+     else
+     {
+          return(data.frame(data))
+     }
 }
 
 #' Take an arff file and reorganize it into a more standard 'table' format. Specifically this is used to
