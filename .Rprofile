@@ -60,6 +60,7 @@ st <- function(...)
 #' @export
 reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCols='Value')
 {
+	library(data.table)
      isDataTable <- FALSE
      if(is.data.table(data))
      {
