@@ -5,13 +5,13 @@ error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
 {
      # if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
      #      stop("vectors must be same length")
-     if(lower)
+     if(drawlower)
      {
-          arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+          suppressWarnings(arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...))
      }
      else
      {
-          arrows(x,y+upper, x, y, angle=90, code=1, length=length, ...)
+          suppressWarnings(arrows(x,y+upper, x, y, angle=90, code=1, length=length, ...))
      }
 }
 
