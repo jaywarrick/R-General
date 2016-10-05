@@ -17,6 +17,7 @@ error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
 
 getData <- function(dbPath, ds, x, y, type, name)
 {
+	library(foreign)
      ret <- list()
      ret$ds <- ds
      ret$x <- x
@@ -27,12 +28,20 @@ getData <- function(dbPath, ds, x, y, type, name)
      ret$tmpPath <- file.path(dbPath,'temp','RScriptTempFolder')
      ret$jxdDir <- file.path(dbPath, ds, paste0('Cell_x',x,'_y',y), paste0(type,'-',name))
      ret$jxdFilePath <- file.path(ret$jxdDir, paste0('x',x,'_y',y,'.jxd'))
-     ret$jxdTable <- read.arff(ret$jxdFilePath)
-     if(type == 'File')
+     if(file.exists(ret$jxdFilePath))
      {
-          ret$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
+     	ret$jxdTable <- read.arff(ret$jxdFilePath)
+     	if(type == 'File')
+     	{
+     		ret$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
+     	}
+     	return(ret)
      }
-     return(ret)
+     else
+     {
+     	warning(paste('Could not find the specified file:', ret$jxdFilePath))
+     	return(NULL)
+     }
 }
 
 st <- function(...)
@@ -58,7 +67,7 @@ st <- function(...)
 #' to reorganize into wide format (e.g., 'Value')
 #'
 #' @export
-reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCols='Value')
+reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCols='Value', ...)
 {
 	library(data.table)
      isDataTable <- FALSE
@@ -85,7 +94,7 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 
      formula <- as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+')))
      print(formula)
-     data <- dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols)
+     data <- dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols, ...)
      if(isDataTable)
      {
           return(data)
