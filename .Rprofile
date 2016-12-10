@@ -1,6 +1,52 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRUE)
+{
+     require(data.table)
+     x1 <- data.table(data)
+
+     getStats <- function(x, y, ...)
+     {
+          temp <- wilcox.test(x=x, y=y, ...)
+          W <- as.numeric(temp$statistic)
+
+          counts <- table(c(x, y))
+
+          n <- min(length(x), length(y))
+          m <- max(length(x), length(y))
+          N <- n + m
+
+          # Taken from R source code for wilcox.test
+          z <- W - n * m / 2
+          z <- z - sign(z)*0.5
+          SIGMA <- sqrt((n * m / 12) * ((n + m + 1) - sum(counts^3 - counts) / ((n + m) * (n + m - 1))))
+          z <- z/SIGMA
+
+          p.approx <- 2*pnorm(-abs(z))
+          return(list(W=W, p.value=temp$p.value, N=length(x) + length(y), E=n * m / 2, V=SIGMA^2, p.approx=p.approx))
+     }
+
+     x2 <- x1[,getStats(x=.SD[get(condCol)==1][[valCol]], y=.SD[get(condCol)==2][[valCol]]), by=replCols]
+
+     x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=.(expt)]
+
+     Wtot <- sum(duh3$Wi)
+     Etot <- sum(duh3$Ei)
+     Vtot <- sum(duh3$Vi)
+
+     if(two.tailed)
+     {
+          p.overall <- 2*pnorm((Wtot-Etot)/(sqrt(Vtot)))
+     }
+     else
+     {
+          p.overall <- pnorm((Wtot-Etot)/(sqrt(Vtot)))
+     }
+
+     return(list(details=x2, p.overall=p.overall))
+}
+
 error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
 {
      # if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
