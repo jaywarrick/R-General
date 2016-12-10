@@ -8,6 +8,11 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
 
      getStats <- function(x, y, ...)
      {
+          if(length(x) == 0 || length(y) == 0)
+          {
+               # This results in a missing row in the results details table for the experiment with either missing x or y data
+               return(NULL)
+          }
           temp <- wilcox.test(x=x, y=y, ...)
           W <- as.numeric(temp$statistic)
 
@@ -44,8 +49,9 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
           p.overall <- pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
      }
 
-     return(list(details=x2, p.overall=p.overall))
+     return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2))))
 }
+
 error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
 {
      # if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
