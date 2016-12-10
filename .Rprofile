@@ -31,22 +31,21 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
 
      x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=.(expt)]
 
-     Wtot <- sum(duh3$Wi)
-     Etot <- sum(duh3$Ei)
-     Vtot <- sum(duh3$Vi)
+     Wtot <- sum(x2$Wi)
+     Etot <- sum(x2$Ei)
+     Vtot <- sum(x2$Vi)
 
      if(two.tailed)
      {
-          p.overall <- 2*pnorm((Wtot-Etot)/(sqrt(Vtot)))
+          p.overall <- 2*pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
      }
      else
      {
-          p.overall <- pnorm((Wtot-Etot)/(sqrt(Vtot)))
+          p.overall <- pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
      }
 
      return(list(details=x2, p.overall=p.overall))
 }
-
 error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
 {
      # if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
