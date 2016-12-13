@@ -32,9 +32,14 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
           return(list(W=W, p.value=temp$p.value, N=length(x) + length(y), E=n * m / 2, V=SIGMA^2, p.approx=p.approx))
      }
 
-     x2 <- x1[,getStats(x=.SD[get(condCol)==1][[valCol]], y=.SD[get(condCol)==2][[valCol]]), by=replCols]
+     conds <- unique(x1[[condCol]])
+     if(length(conds) != 2)
+     {
+     	stop("Must have 2 and only 2 conditions to compare.")
+     }
+     x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]]), by=replCols]
 
-     x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=.(expt)]
+     x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=replCols]
 
      Wtot <- sum(x2$Wi)
      Etot <- sum(x2$Ei)
