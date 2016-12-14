@@ -1,6 +1,46 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+loopingPalette <- function(k, cols=palette()[-1])
+{
+	n <- length(cols)
+	return(cols[((k-1) %% (n)) + 1])
+}
+
+getColors <- function(x, cols, conds)
+{
+	return(cols[match(x, conds)])
+}
+
+getAlphas <- function(x, alphas, conds)
+{
+	return(alphas[match(x, conds)])
+}
+
+writePlots <- function(x, y, index, folder='/Users/jaywarrick/Downloads', filePrefix='SingleChannel_', ...)
+{
+	path <- file.path(folder, paste0(filePrefix,'.pdf'))
+	pdf(path, width=7, height=5)
+	data.table.plot(x, y, ...)
+	legend('topright', legend=c('MM.1R', 'RPMI'), pch=20, bg='white', col=adjustcolor(c('red','blue'), alpha.f=0.5), title='Cell Type')
+	dev.off()
+	print(paste0('Plotted to file - ', path))
+}
+
+# This function is needed to plot within data.table because the graphics devices
+# get confused while looping/grouping causing the wrong data to be plotted or co-plotted
+# Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
+# variables as arguments in '...' as this problem will again arise for that parameter
+# (e.g., col=variable, the color will be wrong at times)
+data.table.plot <- function(x, y, ...)
+{
+	if(length(which(is.finite(x))) > 0)
+	{
+		plot(x=copy(x), y=copy(y), ...)
+		print('Made a plot')
+	}
+}
+
 wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRUE)
 {
      require(data.table)
