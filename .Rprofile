@@ -46,7 +46,7 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
      require(data.table)
      x1 <- data.table(data)
 
-     getStats <- function(x, y, ...)
+     getStats <- function(x, y, cond1, cond2, ...)
      {
           if(length(x) == 0 || length(y) == 0)
           {
@@ -58,8 +58,8 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
 
           counts <- table(c(x, y))
 
-          n <- min(length(x), length(y))
-          m <- max(length(x), length(y))
+          n <- length(x)
+          m <- length(y)
           N <- n + m
 
           # Taken from R source code for wilcox.test
@@ -67,9 +67,11 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
           z <- z - sign(z)*0.5
           SIGMA <- sqrt((n * m / 12) * ((n + m + 1) - sum(counts^3 - counts) / ((n + m) * (n + m - 1))))
           z <- z/SIGMA
+          
+          p1 <- 2*pnorm(-abs(z))
 
           p.approx <- 2*pnorm(-abs(z))
-          return(list(W=W, p.value=temp$p.value, N=length(x) + length(y), E=n * m / 2, V=SIGMA^2, p.approx=p.approx))
+          return(list(W=W, p.value=temp$p.value, N=length(x) + length(y), E=n * m / 2, V=SIGMA^2, z.approx=z, p.approx=p.approx))
      }
 
      conds <- unique(x1[[condCol]])
@@ -84,6 +86,8 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
      Wtot <- sum(x2$Wi)
      Etot <- sum(x2$Ei)
      Vtot <- sum(x2$Vi)
+     
+     ztot <- (Wtot-Etot)/(sqrt(Vtot))
 
      if(two.tailed)
      {
@@ -94,7 +98,7 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
           p.overall <- pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
      }
 
-     return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2))))
+     return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2)), cond1=conds[1], cond2=conds[2], z.score=ztot))
 }
 
 error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
