@@ -71,7 +71,8 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
           p1 <- 2*pnorm(-abs(z))
 
           p.approx <- 2*pnorm(-abs(z))
-          return(list(W=W, p.value=temp$p.value, N=length(x) + length(y), E=n * m / 2, V=SIGMA^2, z.approx=z, p.approx=p.approx))
+
+          return(list(W=W, p.value=temp$p.value, N=length(x) + length(y), E=n * m / 2, V=SIGMA^2, z.score=z, p.approx=p.approx))
      }
 
      conds <- unique(x1[[condCol]])
