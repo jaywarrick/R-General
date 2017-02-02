@@ -1,6 +1,30 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+# m1, m2: the sample means
+# s1, s2: the sample standard deviations
+# n1, n2: the same sizes
+# m0: the null value for the difference in means to be tested for. Default is 0.
+# equal.variance: whether or not to assume equal variance. Default is FALSE.
+t.test2 <- function(m1,s1,n1,m2,s2,n2,m0=0,equal.variance=FALSE)
+{
+	if( equal.variance==FALSE )
+	{
+		se <- sqrt( (s1^2/n1) + (s2^2/n2) )
+		# welch-satterthwaite df
+		df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
+	} else
+	{
+		# pooled standard deviation, scaled by the sample sizes
+		se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) )
+		df <- n1+n2-2
+	}
+	t <- (m1-m2-m0)/se
+	dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))
+	names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
+	return(dat)
+}
+
 loopingPalette <- function(k, cols=palette()[-1])
 {
 	n <- length(cols)
@@ -41,13 +65,15 @@ data.table.plot <- function(x, y, ...)
 	}
 }
 
-wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRUE)
+wilcox.test.combined <- function(data, replCols, condCol, valCol, exact=NULL, two.tailed=TRUE)
 {
      require(data.table)
      x1 <- data.table(data)
 
      getStats <- function(x, y, cond1, cond2, ...)
      {
+     	x <- x[is.finite(x)]
+     	y <- y[is.finite(y)]
           if(length(x) == 0 || length(y) == 0)
           {
                # This results in a missing row in the results details table for the experiment with either missing x or y data
@@ -58,21 +84,21 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
 
           counts <- table(c(x, y))
 
-          n <- length(x)
-          m <- length(y)
-          N <- n + m
+          n.x <- length(x)
+          n.y <- length(y)
+          N <- n.x + n.y
 
           # Taken from R source code for wilcox.test
-          z <- W - n * m / 2
+          z <- W - n.x * n.y / 2
           z <- z - sign(z)*0.5
-          SIGMA <- sqrt((n * m / 12) * ((n + m + 1) - sum(counts^3 - counts) / ((n + m) * (n + m - 1))))
+          SIGMA <- sqrt((n.x * n.y / 12) * ((n.x + n.y + 1) - sum(counts^3 - counts) / ((n.x + n.y) * (n.x + n.y - 1))))
           z <- z/SIGMA
-          
+
           p1 <- 2*pnorm(-abs(z))
 
           p.approx <- 2*pnorm(-abs(z))
 
-          return(list(W=W, p.value=temp$p.value, N=length(x) + length(y), E=n * m / 2, V=SIGMA^2, z.score=z, p.approx=p.approx))
+          return(list(W=W, p.value=temp$p.value, N=N, median.x=median(x), median.y=median(y), n.x=n.x, n.y=n.y, E=n.x * n.y / 2, V=SIGMA^2, z.score=z, p.value.approx=p.approx))
      }
 
      conds <- unique(x1[[condCol]])
@@ -80,14 +106,19 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
      {
      	stop("Must have 2 and only 2 conditions to compare.")
      }
-     x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]]), by=replCols]
+     if(conds[1] < conds[2])
+     {
+     	conds <- rev(conds)
+     }
+     x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]], exact=exact), by=replCols]
+     # x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]])$p.value, by=replCols]
 
      x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=replCols]
 
      Wtot <- sum(x2$Wi)
      Etot <- sum(x2$Ei)
      Vtot <- sum(x2$Vi)
-     
+
      ztot <- (Wtot-Etot)/(sqrt(Vtot))
 
      if(two.tailed)
@@ -98,8 +129,102 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
      {
           p.overall <- pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
      }
+     cat('p =', p.overall)
+     return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2)), cond1=conds[1], cond2=conds[2], Wtot=Wtot, Etot=Etot, Vtot=Vtot, z.score=ztot))
+}
 
-     return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2)), cond1=conds[1], cond2=conds[2], z.score=ztot))
+writeLatexWilcoxCombinedTable <- function(x, captionAddition='', includeVals=F, file=NULL)
+{
+	library(xtable)
+	prettyTest <- getPrettySummary(x$details, x$cond1, x$cond2, includeVals=includeVals)
+	prettyX <- data.frame(prettyTest)
+	print(prettyX)
+	if(!is.null(file))
+	{
+		sink(file=file)
+	}
+	cat('%%%% OVERALL STATS %%%%\n')
+	cat('% ', x$cond1, ' vs. ', x$cond2, '\n', sep='')
+	cat('% Overall p.value =', x$p.overall, '\n')
+	cat('% Overall W =', x$Wtot, '\n')
+	cat('% Overall E =', x$Etot, '\n')
+	cat('% Overall V =', x$Vtot, '\n')
+	cat('% Overall z.score =', x$z.score, '\n')
+	cat('% alpha.prime =', x$alpha.prime, '\n')
+	if(x$p.overall < 1e-3)
+	{
+		formatted.p.value <- formatC(signif(x$p.overall,digits=3), digits=1, format="e", flag="#")
+	}
+	else
+	{
+		formatted.p.value <- formatC(signif(x$p.overall,digits=3), digits=2, format="fg", flag="#")
+	}
+
+	theCaption <- paste('{\\bf ', x$cond1, ' vs. ', x$cond2, '.} Overall p-value = ', formatted.p.value, '.', sep='')
+	if(captionAddition != '')
+	{
+		theCaption <- paste0(theCaption, ' ', captionAddition)
+	}
+	print.xtable(xtable(prettyX, caption=theCaption, align=rep('c',length(names(prettyX))+1)), type='latex', include.rownames = F)
+	if(!is.null(file))
+	{
+		sink()
+	}
+}
+
+getPSymbol <- function(pval)
+{
+	ret <- rep('', length(pval))
+	ret[pval <= 0.05] <- '*'
+	ret[pval <= 0.01] <- '**'
+	ret[pval <= 0.001] <- '***'
+	return(ret)
+}
+
+getDeltaSymbol <- function(V1, V2)
+{
+	ret <- rep('=', length(V1))
+	ret[V1 < V2] <- '<'
+	ret[V1 > V2] <- '>'
+	return(ret)
+}
+
+getSignSymbol <- function(V1)
+{
+	ret <- rep('=', length(V1))
+	ret[V1 > 0] <- '+'
+	ret[V1 < 0] <- '-'
+	return(ret)
+}
+
+getFirstSplit <- function(x)
+{
+	temp <- strsplit(x, ' ')
+	return(temp[[1]][1])
+}
+
+getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
+{
+	idcols <- names(deets)[!(names(deets) %in% c('W','p.value','N','median.x','median.y','n.x','n.y','E','V','z.score','p.value.approx','Wi','Ei','Vi'))]
+	ret <- copy(deets[,c(idcols, 'W','z.score','p.value','n.x','n.y','median.x','median.y'), with=F])
+	ret$p.symbol <- getPSymbol(ret$p.value)
+	ret$p.value <- sprintf('%1.3f', deets$p.value)
+	ret$difference.symbol <- getDeltaSymbol(ret$median.x, ret$median.y)
+	ret$log2.ratio <- log2(ret$median.x/ret$median.y)
+	setcolorder(ret, c(idcols,'W','n.x','n.y','median.x','difference.symbol','median.y','log2.ratio','z.score','p.value','p.symbol'))
+	if(includeVals)
+	{
+		setnames(ret, c(idcols,'W','n.x','n.y','median.x','median.y','difference.symbol'), c(idcols,'U',paste0('n.',cond.x),paste0('n.',cond.y),paste0('median.',cond.x),paste0('median.',cond.y),'.'))
+	}
+	else
+	{
+		ret$median.x <- NULL
+		ret$median.y <- NULL
+		ret$difference.symbol <- NULL
+		setnames(ret, c(idcols,'W','n.x','n.y'), c(idcols,'U',paste0('n.',cond.x),paste0('n.',cond.y)))
+	}
+	ret$log2.ratio <- sprintf('%1.2f', ret$log2.ratio)
+	return(ret)
 }
 
 error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
@@ -180,10 +305,10 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
      {
           data <- data.table(data)
      }
-     
+
      # Parse commas to indicate that the string should be split into multiple items.
      measurementCols <- strsplit(measurementCols, ',', fixed=T)
-     
+
      # Leading and trailing spaces are not good so remove them in case (makes it easier for JEX)
      measurementCols <- mapply(gsub, '^\\s+|\\s+$', '', measurementCols)
 
