@@ -1,6 +1,6 @@
 bar <- function(dv, factors, dataframe, percentage=FALSE, errbar=!percentage, half.errbar=TRUE, conf.level=.95,
                 xlab=NULL, ylab=NULL, main=NULL, names.arg=NULL, bar.col="black", whisker=.015,args.errbar=NULL,
-                legend=TRUE, legend.text=NULL, args.legend=NULL,legend.border=FALSE, box=TRUE, args.yaxis=NULL,
+                legend=TRUE, legend.text=NULL, args.legend=NULL,legend.border=FALSE, box=TRUE, x.orientation=c(1,2,3), args.yaxis=NULL,
                 mar=c(5,4,3,2),...){
      axes=!percentage
      dv.name<-substitute(dv)
@@ -21,12 +21,18 @@ bar <- function(dv, factors, dataframe, percentage=FALSE, errbar=!percentage, ha
           warning("percentage=TRUE; error bars were not plotted")
           errbar<-FALSE
      }
-     if(!percentage) xbars<-tapply(dv, dataframe[,factors], mean, na.rm=TRUE)
-     else {
+     if(!percentage)
+     {
+     	xbars<-tapply(dv, dataframe[,factors], mean, na.rm=TRUE)
+     	xbars <- xbars[unique(dataframe[,factors[1]]),]
+     }
+     else
+     {
           xbars<-tapply(dv, list(interaction(dataframe[,factors], lex.order=TRUE)), mean, na.rm=TRUE)
           if(sum(na.omit(dv)!=0&na.omit(dv)!=1)>0)
                stop("Data points in 'dv' need to be 0 or 1 in order to set 'percentage' to TRUE")
           xbars<-rbind(xbars, 1-xbars)*100
+          xbars <- xbars[unique(dataframe[,factors[1]]),]
      }
      if(nf == 2)
      {
@@ -45,7 +51,7 @@ bar <- function(dv, factors, dataframe, percentage=FALSE, errbar=!percentage, ha
      extras<-list(...)
      if(legend & !percentage){
           if(is.null(legend.text))
-               legend.text<-sort(unique(dataframe[[factors[1]]]))
+               legend.text<-unique(dataframe[[factors[1]]])
           args.legend.temp<-list(x="topright", bty=if(!legend.border)"n" else "o",
                                  inset=c(0,0))
           if(is.list(args.legend))
@@ -109,6 +115,10 @@ bar <- function(dv, factors, dataframe, percentage=FALSE, errbar=!percentage, ha
           invisible(do.call(mapply, allArgs.bar.hi))
      }
      par(mar=mar)
+
+     # Rotate x-axis labels if desired
+     args.barplot <- modifyList(args.barplot, list(las=x.orientation[1]))
+
      errloc<-as.vector(do.call(barplot, args.barplot))
      errlocRet <- errloc
      if(errbar){
@@ -129,5 +139,6 @@ bar <- function(dv, factors, dataframe, percentage=FALSE, errbar=!percentage, ha
           args.yaxis<-if(!is.list(args.yaxis)) args.yaxis.temp else modifyList(args.yaxis.temp, args.yaxis)
           do.call(axis, c(side=2, args.yaxis))
      }
+
      return(errlocRet)
 }
