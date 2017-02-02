@@ -57,11 +57,11 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 
 # Plot results of clustering. 'data' is the vector of data that was clustered. 'cluster' is the
 # corresponding vector of cluster assignments.
-plotClusters <- function(data, cluster, thresh=NULL, ...)
+plotClusters <- function(data, cluster, thresh=NULL, breaks=40, ...)
 {
 	add <- FALSE
 	col <- list(red=0, green=0, blue=0, alpha=0.5)
-	tempHist <- hist(data, breaks=40, plot=FALSE)
+	tempHist <- hist(data, breaks=breaks, plot=FALSE)
 	myBreaks <- tempHist$breaks
 	myLim <- max(tempHist$counts)
 	for(i in unique(cluster))
@@ -71,7 +71,7 @@ plotClusters <- function(data, cluster, thresh=NULL, ...)
 			tempCol <- col
 			tempCol[(i%%3)+1] <- 1
 			freshCol <- do.call(rgb, tempCol)
-			hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim))
+			hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
 			add <- TRUE
 		}
 	}
@@ -84,6 +84,14 @@ plotClusters <- function(data, cluster, thresh=NULL, ...)
 normalizeToQuartile <- function(x, quartile=1.0)
 {
 	return(x/quantile(x, quartile))
+}
+
+# Filter order is n, and critical frequency W (digital must be between 0 and 1), and type
+filterVector <- function(x, n=3, W=0.5, type='low')
+{
+	library(signal)
+	bf <- butter(n, W)
+	return(filtfilt(bf, x))
 }
 
 makeNumeric <- function(x)
