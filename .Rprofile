@@ -1,6 +1,38 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+#' Read table from the clipboard
+#'
+#' Tis is a cool way to import data using the clipboard. The clipboard table
+#' is typically copied as a tab delimited text 'file' connection
+#'
+#' @param os - c('mac','win'), string value indicating the platform to use
+#' @param header - TRUE or FALSE, whether the header is included in the copied table
+#' @param sep - text, defining the separator character used between values (needs to be in double quotes)
+#' @param use.data.table - TRUE or FALSE, whether to return a data.table (default)
+#' @param ... - additional variables supplied are passed onto the underlying read.table function (e.g., stringsAsFactors, comment.char, col.names)
+#'
+#' @export
+read.clipboard <- function(os=c('mac','win'), header=T, sep="\t", use.data.table=T, ...)
+{
+	if(os[1]=='mac')
+	{
+		ret <- read.table(pipe('pbpaste'), header=header, sep=sep, ...) # Mac
+	}
+	else
+	{
+		ret <- read.table('clipboard', header=header, sep=sep, ...) # Windows
+	}
+	if(use.data.table)
+	{
+		return(data.table(ret))
+	}
+	else
+	{
+		return(ret)
+	}
+}
+
 # m1, m2: the sample means
 # s1, s2: the sample standard deviations
 # n1, n2: the same sizes
@@ -23,6 +55,136 @@ t.test2 <- function(m1,s1,n1,m2,s2,n2,m0=0,equal.variance=FALSE)
 	dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))
 	names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
 	return(dat)
+}
+
+assignToClusters <- function(data, nClusters=2, rndSeed=1234)
+{
+	library(EMCluster)
+	set.seed(rndSeed)
+	yo <- data[!is.na(data)]
+	x <- data.frame(x=yo)
+
+	# Get basic cluster results (results are potentiall out of order)
+	emobj <- simple.init(x, nclass = nClusters)
+	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
+					  fixed.iter = 1, n.candidate = 3,
+					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
+
+	# Create a data.frame to return
+	temp <- data.frame(x=x$x, Cluster.Raw=as.numeric(as.character(ret$class)))
+	tempMu <- data.frame(mu=as.vector(ret$Mu), Cluster.Raw=1:nrow(ret$Mu))
+
+	# Order the mu table so we can go through sequentially and rename the clusters in ascending order
+	tempMu <- tempMu[order(tempMu$mu),]
+
+	# Create two copies so that you can use one as an original and another as an edited version
+	# Originals will be without the '2' while news will be with the '2'
+	temp2 <- temp
+	tempMu2 <- tempMu
+	for(i in 1:nrow(tempMu))
+	{
+		# Go through mu's in ascending order and assign the ascending order class
+		temp2[temp$Cluster.Raw==tempMu$Cluster.Raw[i],'Cluster.Raw'] <- i
+		# Also rename the clusters in the duplicate mu table
+		tempMu2$Cluster.Raw[i] <- i
+	}
+
+	duh <- max(temp2$Cluster.Raw)[1]
+	temp2$Cluster.Clean <- duh
+
+	thresh <- list()
+	# Go in reverse order from the max cluster number down to 1
+	for(i in nrow(tempMu2):2)
+	{
+		# Find the value that discriminates between each pair of clusters
+		tempThresh <- max(temp2[temp2$Cluster.Raw == i-1 & temp2$x < tempMu2$mu[i],'x'])
+		if(!length(tempThresh)==0 && !is.infinite(tempThresh[1]))
+		{
+			# Then we found a threshold
+			thresh[[i]] <- tempThresh[1]
+			# Assign everything below that threshold to the next lowest cluster
+			temp2$Cluster.Clean[temp2$x <= tempThresh[1]] <- i-1
+		}
+	}
+
+	return(list(data=temp2, mu=tempMu2$mu, thresh=thresh, emclusterObj=ret))
+}
+
+# Plot results of clustering. 'data' is the vector of data that was clustered. 'cluster' is the
+# corresponding vector of cluster assignments.
+plotClusters <- function(data, cluster, thresh=NULL, breaks=40, ...)
+{
+	add <- FALSE
+	col <- list(red=0, green=0, blue=0, alpha=0.5)
+	tempHist <- hist(data, breaks=breaks, plot=FALSE)
+	myBreaks <- tempHist$breaks
+	myLim <- max(tempHist$counts)
+	for(i in unique(cluster))
+	{
+		if(length(data[cluster==i])>0)
+		{
+			tempCol <- col
+			tempCol[(i%%3)+1] <- 1
+			freshCol <- do.call(rgb, tempCol)
+			hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			add <- TRUE
+		}
+	}
+	if(!is.null(thresh))
+	{
+		abline(v=thresh, lwd=2, col='blue')
+	}
+}
+
+normalizeToQuartile <- function(x, quartile=1.0)
+{
+	return(x/quantile(x, quartile))
+}
+
+# Filter order is n, and critical frequency W (digital must be between 0 and 1), and type
+filterVector <- function(x, n=3, W=0.5, type='low')
+{
+	library(signal)
+	bf <- butter(n, W)
+	return(filtfilt(bf, x))
+}
+
+makeNumeric <- function(x)
+{
+	if(is.numeric(x))
+	{
+		return(x)
+	}
+	if(is.factor(x))
+	{
+		return(as.numeric(as.character(x)))
+	}
+	if(is.character(x) || is.logical(x))
+	{
+		return(as.numeric(x))
+	}
+}
+
+convertColsToNumeric <- function(x, specifically=c(), exceptions=c())
+{
+	for(col in names(x))
+	{
+		if(length(specifically) > 0)
+		{
+			if(col %in% specifically && !is.numeric(x))
+			{
+				x[, (col):=makeNumeric(get(col))]
+			}
+		}
+		else
+		{
+			if(!(col %in% exceptions) && !is.numeric(x))
+			{
+				x[, (col):=makeNumeric(get(col))]
+			}
+		}
+	}
 }
 
 loopingPalette <- function(k, cols=palette()[-1])
@@ -62,6 +224,34 @@ data.table.plot <- function(x, y, ...)
 	{
 		plot(x=copy(x), y=copy(y), ...)
 		print('Made a plot')
+	}
+}
+
+# This function is needed to plot within data.table because the graphics devices
+# get confused while looping/grouping causing the wrong data to be plotted or co-plotted
+# Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
+# variables as arguments in '...' as this problem will again arise for that parameter
+# (e.g., col=variable, the color will be wrong at times)
+data.table.lines <- function(x, y, ...)
+{
+	if(length(which(is.finite(x))) > 0)
+	{
+		lines(x=copy(x), y=copy(y), ...)
+		print('Added lines to a plot')
+	}
+}
+
+# This function is needed to plot within data.table because the graphics devices
+# get confused while looping/grouping causing the wrong data to be plotted or co-plotted
+# Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
+# variables as arguments in '...' as this problem will again arise for that parameter
+# (e.g., col=variable, the color will be wrong at times)
+data.table.points <- function(x, y, ...)
+{
+	if(length(which(is.finite(x))) > 0)
+	{
+		points(x=copy(x), y=copy(y), ...)
+		print('Added points to a plot')
 	}
 }
 
@@ -227,11 +417,21 @@ getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
 	return(ret)
 }
 
-error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
+#' Draw error bars on a graph
+#'
+#' @param x - x locations to draw center point of the error bars
+#' @param y - y corresponding y locations to draw the center point of the error bars
+#' @param upper - the upper distance to draw the error bars
+#' @param lower - the lower distance to draw the error bars (by default, drawn the same distance as defined by "upper")
+#' @param length - the width/length of the error bar tops and bottoms
+#' @param draw.lower - true or false, whether to draw the lower bar or not
+#'
+#' @export
+error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, ...)
 {
      # if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
      #      stop("vectors must be same length")
-     if(drawlower)
+     if(draw.lower)
      {
           suppressWarnings(arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...))
      }
