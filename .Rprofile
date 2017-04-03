@@ -246,6 +246,22 @@ data.table.lines <- function(x, y, ...)
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
+## Same as above, but histogram specific
+data.table.hist <- function(x, ...)
+{
+     if(length(which(is.finite(x))) > 0)
+     {
+          hist(x=copy(x), ...)
+          print('Made a histogram')
+     }
+}
+
+
+# This function is needed to plot within data.table because the graphics devices
+# get confused while looping/grouping causing the wrong data to be plotted or co-plotted
+# Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
+# variables as arguments in '...' as this problem will again arise for that parameter
+# (e.g., col=variable, the color will be wrong at times)
 data.table.points <- function(x, y, ...)
 {
 	if(length(which(is.finite(x))) > 0)
