@@ -8,7 +8,7 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 	yo <- data[!is.na(data)]
 	x <- data.frame(x=yo)
 	
-	# Get basic cluster results (results are potentiall out of order)
+	# Get basic cluster results (results are potentially out of order)
 	emobj <- simple.init(x, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
