@@ -1,27 +1,182 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+#' repmat
+#'
+#' A function that is meant to recapitulate the repmat function of matlab.
+#' This function is used here to make replicated versions of two point sets
+#' so that 2D matrix math can be used to calculate the difference between
+#' all possible combinations of points in the two point sets.
+#'
+#' @param x matrix to repeat/replicate
+#' @param m integer number of rows of replication
+#' @param n integer number of cols of replication
+#' @param loopRows boolean indicating whether the each row should represent a looping sequence of the rows of x (loopRows==T produces a matrix that starts with x[1,], then x[2,]... while loopRows==F produces a matrix that starts with x[1,], then x[1,] repeated m times before switchin to x[2,])
+#' @param loopCols boolean indicating whether the each col should represent a looping sequence of the cols of x (loopCols==T produces a matrix that starts with x[,1], then x[,2]... while loopRows==F produces a matrix that starts with x[,1], then x[,1] repeated n times before switchin to x[,2])
+#'
+#' @return matrix made by 'copying' the x matrix m-by-n times
+#' @export
+repmat <- function(x, m, n, loopRows=T, loopCols=T)
+{
+	if(loopRows & loopCols)
+	{
+		return(x[rep(1:nrow(x), times=m), rep(1:ncol(x), times=n)])
+	}
+	else if(loopRows & !loopCols)
+	{
+		return(x[rep(1:nrow(x), times=m), rep(1:ncol(x), each=n)])
+	}
+	else if(!loopRows & loopCols)
+	{
+		return(x[rep(1:nrow(x), each=m), rep(1:ncol(x), times=n)])
+	}
+	else
+	{
+		return(x[rep(1:nrow(x), each=m), rep(1:ncol(x), each=n)])
+	}
+}
+
+#' \%=\%
+#'
+#' Internal interface for the %=% assignment. This will be used to enable
+#' Matlab-like assignment of variables from functions that return lists.
+#'
+#' E.g.,
+#'   Matlab: [a, b] = dim(A)
+#'   R: l(a, b) \%=\% dim(A)
+#'
+#' @param l left hand side of the assignment
+#' @param r right hand side of the assignment
+#'
+#' @rdname equals
+#'
+#' @export
+'%=%' <- function(l, r)
+{
+	UseMethod('%=%')
+}
+
+#' \%=\%.lbunch
+#'
+#' Internal function will be used to enable
+#' Matlab-like assignment of variables from functions that return lists.
+#'
+#' E.g.,
+#'
+#'   Matlab: [m, n] = dim(A)
+#'   R: l(m, n) \%=\% dim(A)
+#'
+#' @param l left hand side of the assignment
+#' @param r right hand side of the assignment
+#'
+#' @rdname lbunch
+#'
+#' @export
+#'
+#' @examples A <- matrix(1:4, ncol=2); l(m, n) \%=\% dim(A);
+'%=%.lbunch' <- function(l, r)
+{
+	Names = lapply(l, as.character)
+	Envir = as.environment(-1)
+
+	for (II in 1:length(Names)) {
+		Name = Names[[II]]
+		assign(Name, r[[II]], pos=Envir)
+	}
+}
+
+#' l
+#'
+#' Internal function used with %=% to perform Matlab-like assignment
+#' of variables from functions that return a list.
+#'
+#' @param ... variable to be gathered ans assigned in the list
+#'
+#' @export
+l <- function(...)
+{
+	List = as.list(substitute(list(...)))[-1L]
+	class(List) = 'lbunch'
+	List
+}
+
+#' Read table from the clipboard
+#'
+#' Tis is a cool way to import data using the clipboard. The clipboard table
+#' is typically copied as a tab delimited text 'file' connection
+#'
+#' @param os - c('mac','win'), string value indicating the platform to use
+#' @param header - TRUE or FALSE, whether the header is included in the copied table
+#' @param sep - text, defining the separator character used between values (needs to be in double quotes)
+#' @param use.data.table - TRUE or FALSE, whether to return a data.table (default)
+#' @param ... - additional variables supplied are passed onto the underlying read.table function (e.g., stringsAsFactors, comment.char, col.names)
+#'
+#' @export
+read.clipboard <- function(os=c('mac','win'), header=T, sep="\t", use.data.table=T, ...)
+{
+	if(os[1]=='mac')
+	{
+		ret <- read.table(pipe('pbpaste'), header=header, sep=sep, ...) # Mac
+	}
+	else
+	{
+		ret <- read.table('clipboard', header=header, sep=sep, ...) # Windows
+	}
+	if(use.data.table)
+	{
+		return(data.table(ret))
+	}
+	else
+	{
+		return(ret)
+	}
+}
+
+# m1, m2: the sample means
+# s1, s2: the sample standard deviations
+# n1, n2: the same sizes
+# m0: the null value for the difference in means to be tested for. Default is 0.
+# equal.variance: whether or not to assume equal variance. Default is FALSE.
+t.test2 <- function(m1,s1,n1,m2,s2,n2,m0=0,equal.variance=FALSE)
+{
+	if( equal.variance==FALSE )
+	{
+		se <- sqrt( (s1^2/n1) + (s2^2/n2) )
+		# welch-satterthwaite df
+		df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
+	} else
+	{
+		# pooled standard deviation, scaled by the sample sizes
+		se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) )
+		df <- n1+n2-2
+	}
+	t <- (m1-m2-m0)/se
+	dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))
+	names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
+	return(dat)
+}
+
 assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 {
 	library(EMCluster)
 	set.seed(rndSeed)
 	yo <- data[!is.na(data)]
 	x <- data.frame(x=yo)
-	
+
 	# Get basic cluster results (results are potentially out of order)
 	emobj <- simple.init(x, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
 					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
-	
+
 	# Create a data.frame to return
 	temp <- data.frame(x=x$x, Cluster.Raw=as.numeric(as.character(ret$class)))
 	tempMu <- data.frame(mu=as.vector(ret$Mu), Cluster.Raw=1:nrow(ret$Mu))
-	
+
 	# Order the mu table so we can go through sequentially and rename the clusters in ascending order
 	tempMu <- tempMu[order(tempMu$mu),]
-	
+
 	# Create two copies so that you can use one as an original and another as an edited version
 	# Originals will be without the '2' while news will be with the '2'
 	temp2 <- temp
@@ -33,10 +188,10 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 		# Also rename the clusters in the duplicate mu table
 		tempMu2$Cluster.Raw[i] <- i
 	}
-	
+
 	duh <- max(temp2$Cluster.Raw)[1]
 	temp2$Cluster.Clean <- duh
-	
+
 	thresh <- list()
 	# Go in reverse order from the max cluster number down to 1
 	for(i in nrow(tempMu2):2)
@@ -46,13 +201,238 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 		if(!length(tempThresh)==0 && !is.infinite(tempThresh[1]))
 		{
 			# Then we found a threshold
-			thresh[[i]] <- tempThresh[1]
+			thresh[[i-1]] <- tempThresh[1]
 			# Assign everything below that threshold to the next lowest cluster
 			temp2$Cluster.Clean[temp2$x <= tempThresh[1]] <- i-1
 		}
 	}
-	
+
 	return(list(data=temp2, mu=tempMu2$mu, thresh=thresh, emclusterObj=ret))
+}
+
+#' Grouped Bar Plots
+#'
+#' Allows you to plot grouped bar plots based upon a 'grouping' variable or column in the data
+#' Requires the error.bar function
+#'
+#' @param dt - the table with the data
+#' @param y.column - name of the columne with the y-values you would like to plot
+#' @param color.column - name of the column that should be associated with different bar colors
+#' @param group.column - name of the column that should be associated with different groups
+#' @param error.upper.column - name of the column with the magnitudes of the upper error bars (use NULL to avoid plotting, default)
+#' @param error.lower.column - name of the column with the magnitudes of the lower error bars (default is error.upper.Column, use NULL to avoid plotting)
+#' @param main - title for the plot
+#' @param ylab - y label
+#' @param xlab - x label
+#' @param color.names - vector of names to override the color names contained in the table (must be the same length as produced by the table)
+#' @param group.names - vector of names to override the group names contained in the table (must be the same length as produced by the table)
+#' @param color.color - vector of color values (e.g., c('black', rgb(...), gray(...))) to override the automatically produced colors
+#' @param rotate.x.labels - TRUE or FALSE whether to rotate the x labels 90 degrees or not so they fit (default FALSE)
+#' @param plot.border - TRUE or FALSE whether to plot a black line around the plot (default TRUE)
+#' @param args.error.bar - list with arguments for the error.bar function (default list(length=0.1)) (See error.bar specified in this file)
+#' @param legend - TRUE or FALSE, whether to include a legend or not in the graph (only when a group.column is specified and present)
+#' @param legend.border - TRUE or FALSE whether to plot a border around the legend
+#' @param args.legend - list of parameters to pass to the 'legend' function (overrides automatically determined parameters) (see ?legend)
+#' @param mar - numeric vector indicating the margins our the plot border. Units are lines (default c(4.5,4.5,2,2) = c(lower, left, upper, right))
+#' @param ... - additional arguments that are passed to the barplot function (see ?barplot)
+#'
+#' @export
+bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.column=NULL, error.lower.column=error.upper.column,
+			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, group.names=NULL, color.colors=NULL, rotate.x.labels=F, plot.border=T,
+			 args.error.bar=list(length=0.1),
+			 legend=TRUE, legend.border=F, args.legend=list(),
+			 mar=c(4.5,4.5,2,2), ...)
+{
+	# Store the display names
+	color.names.display <- color.names
+	group.names.display <- group.names
+
+	# Convert the table to a data.table
+	dt <- data.table(dt)
+
+	# Get the y values to plot
+	y <- dt[[y.column]]
+
+	# Get check the specified color and group columns
+	if(is.null(color.column) || !(color.column %in% names(dt)))
+	{
+		stop("At least a color.column must be specified and must be present in the provided table of data. Aborting.")
+	}
+	if(!is.null(group.column) && !(group.column %in% names(dt)))
+	{
+		stop("The specified group column is not present in the provided table of data")
+	}
+
+	# Get the matrix needed for barplot
+	if(!is.null(group.column))
+	{
+		subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column, error.lower.column))]
+		tempCast <- dcast(subDT, as.formula(paste(color.column, '~', group.column)), value.var=y.column)
+		color.names <- tempCast[[1]]
+		group.names <- names(tempCast)[2:ncol(tempCast)]
+		mat <- as.matrix(tempCast[, 2:ncol(tempCast)])# Get error bar magnitudes if possible
+	}
+	else
+	{
+		subDT <- dt[, mget(c(color.column, y.column, error.upper.column, error.lower.column))]
+		mat <- y
+		color.names <- dt[[color.column]]
+	}
+
+	# Copy over group and color names from the table if not specified or if specified incorrectly
+	if(is.null(color.names.display))
+	{
+		color.names.display <- color.names
+	}
+	else if(length(color.names.display) != length(color.names))
+	{
+		warning("The number of provided color names does not match the number being plotted. Using the color names in the color.column.")
+		color.names.display <- color.names
+	}
+	if(!is.null(group.column))
+	{
+		if(is.null(group.names.display))
+		{
+			group.names.display <- group.names
+		}
+		else if(length(group.names.display) != length(group.names))
+		{
+			warning("The number of provided group names does not match the number being plotted. Using the group names in the group.column.")
+			group.names.display <- group.names
+		}
+	}
+
+	# Detect whether or not upper and lower error bars will be plotted
+	has.upper <- FALSE
+	if(!is.null(error.upper.column) && error.upper.column %in% names(dt))
+	{
+		has.upper <- TRUE
+	}
+	has.lower <- FALSE
+	if(!is.null(error.lower.column) && error.lower.column %in% names(dt))
+	{
+		has.lower <- TRUE
+	}
+
+	if(legend && !is.null(group.column))
+	{
+		args.legend.temp <- list(x="topright", bty=if(!legend.border)"n" else "o", inset=c(0,0))
+
+		if(is.list(args.legend))
+		{
+			args.legend <- modifyList(args.legend.temp, args.legend)
+		}
+		else
+		{
+			args.legend <- args.legend.temp
+		}
+	}
+	else
+	{
+		args.legend <- NULL
+		group.names.display <- NULL
+	}
+
+	# Determine the extents of the axes to plot
+	if(has.upper)
+	{
+		ymax <- max(y + dt[[error.upper.column]])*21/20
+	}
+	else
+	{
+		ymax <- max(y)
+	}
+	if(has.lower)
+	{
+		ymin <- min(y - dt[[error.lower.column]])*21/20
+	}
+	else
+	{
+		ymin <- min(y)
+	}
+
+	# Compile the arguments to give to barplot
+	if(is.null(color.colors))
+	{
+		color.colors <- hcl(h=seq(0,270, 270/(length(color.names)))[-length(color.names)])
+	}
+	else if(length(color.colors) != length(color.names))
+	{
+		warning("The number of colors does not match the number of color.names for the table.")
+	}
+
+	if(!is.null(group.column))
+	{
+		args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
+						 col=color.colors,
+						 legend.text=color.names.display, args.legend=args.legend, xpd=TRUE,
+						 xlab=if(is.null(xlab)) group.column else xlab,
+						 ylab=if(is.null(ylab)) y.column else ylab)
+	}
+	else
+	{
+		args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=color.names.display,
+						 col=color.colors,
+						 legend.text=NULL, args.legend=NULL, xpd=TRUE,
+						 xlab=if(is.null(xlab)) group.column else xlab,
+						 ylab=if(is.null(ylab)) y.column else ylab)
+	}
+
+	args.barplot <- modifyList(args.barplot, list(...))
+
+	# Rotate x-axis labels if desired
+	if(rotate.x.labels)
+	{
+		args.barplot <- modifyList(args.barplot, list(las=2))
+	}
+
+	# Set the plot margins
+	par(mar=mar)
+
+	# If we need to, plot error bars
+	if(has.upper || has.lower)
+	{
+		# Then plot some errobars
+		# Sort things appropriately if we have a grouped bar plot, otherwise, no need to
+		if(!is.null(group.column))
+		{
+			# First turn the color and group columns into factors so we can order things 'manually'
+			subDT[[color.column]] <- factor( as.character(subDT[[color.column]]), levels=color.names)
+			subDT[[group.column]] <- factor( as.character(subDT[[group.column]]), levels=group.names)
+			subDT <- subDT[order(subDT[[group.column]], subDT[[color.column]])]
+		}
+
+		# Get error bar magnitudes if possible
+		upper <- NULL
+		if(has.upper)
+		{
+			upper <- subDT[[error.upper.column]]
+		}
+		lower <- NULL
+		if(has.lower)
+		{
+			lower <- subDT[[error.lower.column]]
+		}
+
+		# Get the xlocations of where to place the error bars
+		errloc <- as.vector(do.call(barplot, args.barplot))
+
+		# Compile the error bar arguments
+		upper
+		args.error.final <- list(x=errloc, y=subDT[[y.column]], upper=subDT[[error.upper.column]], lower=lower)
+		args.error.final <- modifyList(args.error.final, args.error.bar)
+
+		# Draw the error bars
+		do.call(error.bar, args.error.final)
+	}
+	else
+	{
+		# Just plot the bars
+		do.call(barplot, args.barplot)
+	}
+
+	# If a plot border is desired, draw it
+	if(plot.border) box()
 }
 
 # Plot results of clustering. 'data' is the vector of data that was clustered. 'cluster' is the
@@ -176,6 +556,20 @@ data.table.plot <- function(x, y, ...)
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
+data.table.plotClusters <- function(data, cluster, thresh=NULL, breaks, ...)
+{
+	if(length(which(is.finite(data))) > 0)
+	{
+		plotClusters(data=copy(data), cluster=cluster, thresh=thresh, breaks=breaks, ...)
+		print('Made a plot')
+	}
+}
+
+# This function is needed to plot within data.table because the graphics devices
+# get confused while looping/grouping causing the wrong data to be plotted or co-plotted
+# Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
+# variables as arguments in '...' as this problem will again arise for that parameter
+# (e.g., col=variable, the color will be wrong at times)
 data.table.lines <- function(x, y, ...)
 {
 	if(length(which(is.finite(x))) > 0)
@@ -184,6 +578,22 @@ data.table.lines <- function(x, y, ...)
 		print('Added lines to a plot')
 	}
 }
+
+# This function is needed to plot within data.table because the graphics devices
+# get confused while looping/grouping causing the wrong data to be plotted or co-plotted
+# Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
+# variables as arguments in '...' as this problem will again arise for that parameter
+# (e.g., col=variable, the color will be wrong at times)
+## Same as above, but histogram specific
+data.table.hist <- function(x, ...)
+{
+     if(length(which(is.finite(x))) > 0)
+     {
+          hist(x=copy(x), ...)
+          print('Made a histogram')
+     }
+}
+
 
 # This function is needed to plot within data.table because the graphics devices
 # get confused while looping/grouping causing the wrong data to be plotted or co-plotted
@@ -199,13 +609,15 @@ data.table.points <- function(x, y, ...)
 	}
 }
 
-wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRUE)
+wilcox.test.combined <- function(data, replCols, condCol, valCol, exact=NULL, two.tailed=TRUE)
 {
      require(data.table)
      x1 <- data.table(data)
 
      getStats <- function(x, y, cond1, cond2, ...)
      {
+     	x <- x[is.finite(x)]
+     	y <- y[is.finite(y)]
           if(length(x) == 0 || length(y) == 0)
           {
                # This results in a missing row in the results details table for the experiment with either missing x or y data
@@ -216,21 +628,21 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
 
           counts <- table(c(x, y))
 
-          n <- length(x)
-          m <- length(y)
-          N <- n + m
+          n.x <- length(x)
+          n.y <- length(y)
+          N <- n.x + n.y
 
           # Taken from R source code for wilcox.test
-          z <- W - n * m / 2
+          z <- W - n.x * n.y / 2
           z <- z - sign(z)*0.5
-          SIGMA <- sqrt((n * m / 12) * ((n + m + 1) - sum(counts^3 - counts) / ((n + m) * (n + m - 1))))
+          SIGMA <- sqrt((n.x * n.y / 12) * ((n.x + n.y + 1) - sum(counts^3 - counts) / ((n.x + n.y) * (n.x + n.y - 1))))
           z <- z/SIGMA
-          
+
           p1 <- 2*pnorm(-abs(z))
 
           p.approx <- 2*pnorm(-abs(z))
 
-          return(list(W=W, p.value=temp$p.value, N=length(x) + length(y), E=n * m / 2, V=SIGMA^2, z.score=z, p.approx=p.approx))
+          return(list(W=W, p.value=temp$p.value, N=N, median.x=median(x), median.y=median(y), n.x=n.x, n.y=n.y, E=n.x * n.y / 2, V=SIGMA^2, z.score=z, p.value.approx=p.approx))
      }
 
      conds <- unique(x1[[condCol]])
@@ -238,14 +650,19 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
      {
      	stop("Must have 2 and only 2 conditions to compare.")
      }
-     x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]]), by=replCols]
+     if(conds[1] < conds[2])
+     {
+     	conds <- rev(conds)
+     }
+     x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]], exact=exact), by=replCols]
+     # x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]])$p.value, by=replCols]
 
      x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=replCols]
 
      Wtot <- sum(x2$Wi)
      Etot <- sum(x2$Ei)
      Vtot <- sum(x2$Vi)
-     
+
      ztot <- (Wtot-Etot)/(sqrt(Vtot))
 
      if(two.tailed)
@@ -256,15 +673,119 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, two.tailed=TRU
      {
           p.overall <- pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
      }
-
-     return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2)), cond1=conds[1], cond2=conds[2], z.score=ztot))
+     cat('p =', p.overall)
+     return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2)), cond1=conds[1], cond2=conds[2], Wtot=Wtot, Etot=Etot, Vtot=Vtot, z.score=ztot))
 }
 
-error.bar <- function(x, y, upper, lower=upper, length=0.1, drawlower=TRUE, ...)
+writeLatexWilcoxCombinedTable <- function(x, captionAddition='', includeVals=F, file=NULL)
+{
+	library(xtable)
+	prettyTest <- getPrettySummary(x$details, x$cond1, x$cond2, includeVals=includeVals)
+	prettyX <- data.frame(prettyTest)
+	print(prettyX)
+	if(!is.null(file))
+	{
+		sink(file=file)
+	}
+	cat('%%%% OVERALL STATS %%%%\n')
+	cat('% ', x$cond1, ' vs. ', x$cond2, '\n', sep='')
+	cat('% Overall p.value =', x$p.overall, '\n')
+	cat('% Overall W =', x$Wtot, '\n')
+	cat('% Overall E =', x$Etot, '\n')
+	cat('% Overall V =', x$Vtot, '\n')
+	cat('% Overall z.score =', x$z.score, '\n')
+	cat('% alpha.prime =', x$alpha.prime, '\n')
+	if(x$p.overall < 1e-3)
+	{
+		formatted.p.value <- formatC(signif(x$p.overall,digits=3), digits=1, format="e", flag="#")
+	}
+	else
+	{
+		formatted.p.value <- formatC(signif(x$p.overall,digits=3), digits=2, format="fg", flag="#")
+	}
+
+	theCaption <- paste('{\\bf ', x$cond1, ' vs. ', x$cond2, '.} Overall p-value = ', formatted.p.value, '.', sep='')
+	if(captionAddition != '')
+	{
+		theCaption <- paste0(theCaption, ' ', captionAddition)
+	}
+	print.xtable(xtable(prettyX, caption=theCaption, align=rep('c',length(names(prettyX))+1)), type='latex', include.rownames = F)
+	if(!is.null(file))
+	{
+		sink()
+	}
+}
+
+getPSymbol <- function(pval)
+{
+	ret <- rep('', length(pval))
+	ret[pval <= 0.05] <- '*'
+	ret[pval <= 0.01] <- '**'
+	ret[pval <= 0.001] <- '***'
+	return(ret)
+}
+
+getDeltaSymbol <- function(V1, V2)
+{
+	ret <- rep('=', length(V1))
+	ret[V1 < V2] <- '<'
+	ret[V1 > V2] <- '>'
+	return(ret)
+}
+
+getSignSymbol <- function(V1)
+{
+	ret <- rep('=', length(V1))
+	ret[V1 > 0] <- '+'
+	ret[V1 < 0] <- '-'
+	return(ret)
+}
+
+getFirstSplit <- function(x)
+{
+	temp <- strsplit(x, ' ')
+	return(temp[[1]][1])
+}
+
+getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
+{
+	idcols <- names(deets)[!(names(deets) %in% c('W','p.value','N','median.x','median.y','n.x','n.y','E','V','z.score','p.value.approx','Wi','Ei','Vi'))]
+	ret <- copy(deets[,c(idcols, 'W','z.score','p.value','n.x','n.y','median.x','median.y'), with=F])
+	ret$p.symbol <- getPSymbol(ret$p.value)
+	ret$p.value <- sprintf('%1.3f', deets$p.value)
+	ret$difference.symbol <- getDeltaSymbol(ret$median.x, ret$median.y)
+	ret$log2.ratio <- log2(ret$median.x/ret$median.y)
+	setcolorder(ret, c(idcols,'W','n.x','n.y','median.x','difference.symbol','median.y','log2.ratio','z.score','p.value','p.symbol'))
+	if(includeVals)
+	{
+		setnames(ret, c(idcols,'W','n.x','n.y','median.x','median.y','difference.symbol'), c(idcols,'U',paste0('n.',cond.x),paste0('n.',cond.y),paste0('median.',cond.x),paste0('median.',cond.y),'.'))
+	}
+	else
+	{
+		ret$median.x <- NULL
+		ret$median.y <- NULL
+		ret$difference.symbol <- NULL
+		setnames(ret, c(idcols,'W','n.x','n.y'), c(idcols,'U',paste0('n.',cond.x),paste0('n.',cond.y)))
+	}
+	ret$log2.ratio <- sprintf('%1.2f', ret$log2.ratio)
+	return(ret)
+}
+
+#' Draw error bars on a graph
+#'
+#' @param x - x locations to draw center point of the error bars
+#' @param y - y corresponding y locations to draw the center point of the error bars
+#' @param upper - the upper distance to draw the error bars
+#' @param lower - the lower distance to draw the error bars (by default, drawn the same distance as defined by "upper")
+#' @param length - the width/length of the error bar tops and bottoms
+#' @param draw.lower - true or false, whether to draw the lower bar or not
+#'
+#' @export
+error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, ...)
 {
      # if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
      #      stop("vectors must be same length")
-     if(drawlower)
+     if(draw.lower)
      {
           suppressWarnings(arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...))
      }
@@ -338,10 +859,10 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
      {
           data <- data.table(data)
      }
-     
+
      # Parse commas to indicate that the string should be split into multiple items.
      measurementCols <- strsplit(measurementCols, ',', fixed=T)
-     
+
      # Leading and trailing spaces are not good so remove them in case (makes it easier for JEX)
      measurementCols <- mapply(gsub, '^\\s+|\\s+$', '', measurementCols)
 
@@ -815,6 +1336,7 @@ getDensityColors <- function(x, y)
 multi.mixedorder <- function(..., na.last = TRUE, decreasing = FALSE){
      # For example...
      # data <- data[with(data, multi.mixedorder(Day, Conc, Sample.ID, relTimeStamp)), ]
+	library(gtools)
      do.call(order, c(
           lapply(list(...), function(l){
                if(is.character(l)){
