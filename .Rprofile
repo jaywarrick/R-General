@@ -1392,4 +1392,10 @@ jplot <- function(x, y, text=c())
           layout(xaxis = xlab, yaxis = ylab)
 }
 
+##### Loren's brief additions #####
+se <- function(x)
+{
+     sd(x)/sqrt(length(x))
+}
+
 # Be sure to have a trailing line or carriage return after last closing bracket.
