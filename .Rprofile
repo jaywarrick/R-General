@@ -1,6 +1,9 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+# Store default par settings for recalling later if needed.
+.pardefault <- par(no.readonly = T)
+
 #' repmat
 #'
 #' A function that is meant to recapitulate the repmat function of matlab.
@@ -34,6 +37,159 @@ repmat <- function(x, m, n, loopRows=T, loopCols=T)
 	{
 		return(x[rep(1:nrow(x), each=m), rep(1:ncol(x), each=n)])
 	}
+}
+
+#' Apply a function to a subset of columns in a data.table
+#'
+#' This function applyes another function to a subset of the columns
+#' in a data.table. The parameter cols takes precedent over the
+#' parameter col.filter.
+#'
+#' Note 1: When both ret.unique and in.place are F, then not all the
+#' columns of the table are guaranteed to be returned in the result.
+#'
+#' Note 2: If in.place=T & ret.unique=T, then only first row of the
+#' result is returned.
+#'
+#' @param x the data.table to apply the function to
+#' @param FUN the function to apply
+#' @param by row grouping of the data.table for the operation. Use this to retain information from other columns such as Id's. Default = NULL
+#' @param cols the columns to which FUN will be applied. Default = NULL
+#' @param col.filter a function that returns T or F for each column whether FUN should be applied. Default = is.numeric
+#' @param in.place logical whether to perform the calculation by reference, which affects speed and what happens to other columns in the data.table that aren't being calculated upon. When false, only by columns are returned. Default = T
+#' @param ret.unique logical whether to return only rows that have unique combinations of the 'by' columns ONLY when in.place=T. Otherwise, by default calculations not done in place only return unique combinations of 'by' columns. Useful when aggregating in.place such as with mean. Default = F
+#' @param ... arguments to be passed to FUN
+#'
+#' @return the resultant data table is EDITED BY REFERENCE only if in.place=T & ret.unique=F, otherwise a copy is returned ('unique' function to remove duplicate rows returns a copy forcing this behavior when ret.unique=T).
+#' @export
+lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric, in.place=T, ret.unique=F, ...)
+{
+     if(is.null(cols) && is.function(col.filter))
+     {
+          cols <- names(x)[as.logical(as.vector(lapply(x, col.filter)))]
+     }
+
+     if(ret.unique)
+     {
+          if(in.place)
+          {
+               x <- copy(x)
+               x[, c(cols):=lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+               if(is.null(by))
+               {
+                    x <- x[1]
+               }
+               else
+               {
+                    x <- unique(x, by=by)
+               }
+          }
+          else
+          {
+               x <- x[, lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+               # x <- unique(x, by=by) # not needed as this is done be default with the above call
+          }
+     }
+     else
+     {
+          if(in.place)
+          {
+               x[, c(cols):=lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+          }
+          else
+          {
+               x <- x[, lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+               # Produces the same result as if ret.unique=T due to behavior of previous call.
+          }
+     }
+     return(x)
+}
+
+#' Make a complex ID column based on other columns
+#'
+#' This function pastes the values of the specified columns together
+#' with a user-defined separator and assigns it to a user-defined
+#' column name.
+#'
+#' @param x the data.table
+#' @param cols the cols that define the complex ID
+#' @param idName string defining the name of the complex ID column, default is cId
+#' @param sep the string that will be used to separate the complex ID components
+#'
+#' @return edits the table by reference so no return value
+#' @export
+makeComplexId <- function(x, cols, sep='.', idName='cId')
+{
+     require(data.table)
+     if(!is.data.table(x))
+     {
+          stop('This function requires a data.table')
+     }
+     x[, c(idName):=paste(mget(cols), collapse=sep), by=cols]
+}
+
+#' Fill missing rows in a data.table
+#'
+#' After merging tables, sometimes there are combinations of column
+#' values that exist in one table but not in another and it is necessary
+#' to make rows for these values. This is often helpful for creating
+#' a matrix from this initially incomplete data.table.
+#'
+#' @param x the data.table
+#' @param by the columns that uniquely define the rows
+#' @param fill the value to fill when data is missing
+#'
+#' @return a new filled data.table
+#' @export
+fillMissingRows <- function(x, cols, fill=NULL, tempIdColName='tempId')
+{
+     require(data.table)
+     if(!is.data.table(x))
+     {
+          stop('This function requires a data.table')
+     }
+     setkeyv(x, cols=cols)
+     ret <- x[J(do.call(CJ,lapply(cols,function(y){unique(get(y))})))]
+
+     if(!is.null(fill))
+     {
+          # Figure out the types of each column
+          blah <- sapply(x, FUN=is.logical)
+          blah.log <- data.table(log=blah, name=names(blah))
+
+          blah <- sapply(x, FUN=is.numeric)
+          blah.num <- data.table(num=blah, name=names(blah))
+
+          blah <- sapply(x, FUN=is.character)
+          blah.char <- data.table(char=blah, name=names(blah))
+
+          blah <- merge(blah.log, blah.num, by=c('name'))
+          blah <- merge(blah, blah.char, by=c('name'))
+
+          filler = function(DT, types)
+          {
+               for (i in names(DT))
+               {
+                    if(types[name==i][['num']])
+                    {
+                         DT[is.na(get(i)), (i):=as.numeric(fill)][]
+                    }
+                    else
+                    {
+                         if(types[name==i][['char']])
+                         {
+                              DT[is.na(get(i)), (i):=as.character(fill)][]
+                         }
+                         else
+                         {
+                              DT[is.na(get(i)), (i):=as.logical(fill)][]
+                         }
+                    }
+               }
+          }
+          filler(DT=ret, types=blah)
+     }
+     return(ret)
 }
 
 #' \%=\%
@@ -102,7 +258,7 @@ l <- function(...)
 
 #' Read table from the clipboard
 #'
-#' Tis is a cool way to import data using the clipboard. The clipboard table
+#' This is a cool way to import data using the clipboard. The clipboard table
 #' is typically copied as a tab delimited text 'file' connection
 #'
 #' @param os - c('mac','win'), string value indicating the platform to use
@@ -207,7 +363,14 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 		}
 	}
 
-	return(list(data=temp2, mu=tempMu2$mu, thresh=thresh, emclusterObj=ret))
+	pi <- c()
+	n <- nrow(temp2)
+	for(i in 1:max(temp2$Cluster.Clean))
+	{
+		pi <- c(pi, sum(temp2$Cluster.Clean == i)/n)
+	}
+
+	return(list(data=temp2, mu=tempMu2$mu, thresh=thresh, emclusterObj=ret, pi=pi))
 }
 
 #' Grouped Bar Plots
@@ -243,12 +406,24 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 			 legend=TRUE, legend.border=F, args.legend=list(),
 			 mar=c(4.5,4.5,2,2), ...)
 {
+     # Detect whether or not upper and lower error bars will be plotted
+     has.upper <- FALSE
+     if(!is.null(error.upper.column) && error.upper.column %in% names(dt))
+     {
+          has.upper <- TRUE
+     }
+     has.lower <- FALSE
+     if(!is.null(error.lower.column) && error.lower.column %in% names(dt))
+     {
+          has.lower <- TRUE
+     }
+
 	# Store the display names
 	color.names.display <- color.names
 	group.names.display <- group.names
 
 	# Convert the table to a data.table
-	dt <- data.table(dt)
+	dt <- as.data.table(dt)
 
 	# Get the y values to plot
 	y <- dt[[y.column]]
@@ -266,7 +441,23 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	# Get the matrix needed for barplot
 	if(!is.null(group.column))
 	{
-		subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column, error.lower.column))]
+	     if(!has.upper && !has.lower)
+	     {
+	          subDT <- dt[, mget(c(color.column, group.column, y.column))]
+	     }
+	     if(!has.lower)
+	     {
+	          subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column))]
+	     }
+	     if(!has.upper)
+	     {
+	          subDT <- dt[, mget(c(color.column, group.column, y.column, error.lower.column))]
+	     }
+	     else
+	     {
+	          subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column, error.lower.column))]
+	     }
+
 		tempCast <- dcast(subDT, as.formula(paste(color.column, '~', group.column)), value.var=y.column)
 		color.names <- tempCast[[1]]
 		group.names <- names(tempCast)[2:ncol(tempCast)]
@@ -274,7 +465,18 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	}
 	else
 	{
-		subDT <- dt[, mget(c(color.column, y.column, error.upper.column, error.lower.column))]
+	     if(!has.upper && !has.lower)
+	     {
+	          subDT <- dt[, mget(c(color.column, y.column))]
+	     }
+	     if(!has.lower)
+	     {
+	          subDT <- dt[, mget(c(color.column, y.column, error.upper.column))]
+	     }
+	     if(!has.upper)
+	     {
+	          subDT <- dt[, mget(c(color.column, y.column, error.lower.column))]
+	     }
 		mat <- y
 		color.names <- dt[[color.column]]
 	}
@@ -302,18 +504,6 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 		}
 	}
 
-	# Detect whether or not upper and lower error bars will be plotted
-	has.upper <- FALSE
-	if(!is.null(error.upper.column) && error.upper.column %in% names(dt))
-	{
-		has.upper <- TRUE
-	}
-	has.lower <- FALSE
-	if(!is.null(error.lower.column) && error.lower.column %in% names(dt))
-	{
-		has.lower <- TRUE
-	}
-
 	if(legend && !is.null(group.column))
 	{
 		args.legend.temp <- list(x="topright", bty=if(!legend.border)"n" else "o", inset=c(0,0))
@@ -336,19 +526,24 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	# Determine the extents of the axes to plot
 	if(has.upper)
 	{
-		ymax <- max(y + dt[[error.upper.column]])*21/20
+	     temp <- y + dt[[error.upper.column]]
+	     temp <- temp[is.finite(temp)]
+		ymax <- max(temp)*21/20
 	}
 	else
 	{
-		ymax <- max(y)
+	     temp <- y[is.finite(y)]
+		ymax <- max(y[is.finite(y)])*21/20
 	}
 	if(has.lower)
 	{
-		ymin <- min(y - dt[[error.lower.column]])*21/20
+	     temp <- y - dt[[error.lower.column]]
+	     temp <- temp[is.finite(temp)]
+		ymin <- min(temp)*21/20
 	}
 	else
 	{
-		ymin <- min(y)
+		ymin <- min(y[is.finite(y)])*21/20
 	}
 
 	# Compile the arguments to give to barplot
@@ -379,6 +574,13 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	}
 
 	args.barplot <- modifyList(args.barplot, list(...))
+	if(!is.null(args.barplot[['log']]))
+	{
+	     if(grepl('y', args.barplot$log, fixed=T) & min(args.barplot$ylim) <= 0)
+	     {
+	          args.barplot$ylim[1] <- 0.9*min(mat)
+	     }
+	}
 
 	# Rotate x-axis labels if desired
 	if(rotate.x.labels)
@@ -418,8 +620,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 		errloc <- as.vector(do.call(barplot, args.barplot))
 
 		# Compile the error bar arguments
-		upper
-		args.error.final <- list(x=errloc, y=subDT[[y.column]], upper=subDT[[error.upper.column]], lower=lower)
+		args.error.final <- list(x=errloc, y=subDT[[y.column]], upper=subDT[[error.upper.column]], lower=lower, draw.lower=has.lower)
 		args.error.final <- modifyList(args.error.final, args.error.bar)
 
 		# Draw the error bars
@@ -435,23 +636,49 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	if(plot.border) box()
 }
 
+plotPolygon <- function(x, y, ...)
+{
+	xx <- c(x, rev(x))
+	yy <- c(rep(0, length(x)), rev(y))
+	polygon(xx, yy, ...)
+}
+
 # Plot results of clustering. 'data' is the vector of data that was clustered. 'cluster' is the
 # corresponding vector of cluster assignments.
-plotClusters <- function(data, cluster, thresh=NULL, breaks=40, ...)
+plotClusters <- function(data, cluster, thresh=NULL, breaks=40, density=F, polygon=F, ...)
 {
 	add <- FALSE
-	col <- list(red=0, green=0, blue=0, alpha=0.5)
+	col <- list(red=0, blue=0, green=0, alpha=0.5)
 	tempHist <- hist(data, breaks=breaks, plot=FALSE)
+	histMax <- which.max(tempHist$counts)
 	myBreaks <- tempHist$breaks
 	myLim <- max(tempHist$counts)
+	scale <- 1
+	if(density)
+	{
+		tempLab <- pretty(c(0, tempHist$density))
+		scale <- tempHist$counts[histMax]/tempHist$density[histMax]
+		tempAt <- tempLab*scale
+	}
 	for(i in unique(cluster))
 	{
 		if(length(data[cluster==i])>0)
 		{
 			tempCol <- col
-			tempCol[(i%%3)+1] <- 1
+			tempCol[((i+2)%%3)+1] <- 1
 			freshCol <- do.call(rgb, tempCol)
-			hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			if(!density)
+			{
+				hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			}
+			else
+			{
+				duh <- hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Prob. Density', yaxt='n', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+				if(!add)
+				{
+					axis(2, at=tempAt, labels=tempLab)
+				}
+			}
 			add <- TRUE
 		}
 	}
@@ -459,6 +686,7 @@ plotClusters <- function(data, cluster, thresh=NULL, breaks=40, ...)
 	{
 		abline(v=thresh, lwd=2, col='blue')
 	}
+	return(list(hist=tempHist, scale=scale))
 }
 
 normalizeToQuartile <- function(x, quartile=1.0)
@@ -874,7 +1102,7 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 
      formula <- as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+')))
      print(formula)
-     data <- dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols, ...)
+     data <- as.data.table(dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols, ...))
      if(isDataTable)
      {
           return(data)
