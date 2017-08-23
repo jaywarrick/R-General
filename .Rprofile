@@ -62,7 +62,7 @@ repmat <- function(x, m, n, loopRows=T, loopCols=T)
 #'
 #' @return the resultant data table is EDITED BY REFERENCE only if in.place=T & ret.unique=F, otherwise a copy is returned ('unique' function to remove duplicate rows returns a copy forcing this behavior when ret.unique=T).
 #' @export
-lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric, in.place=T, ret.unique=F, ...)
+lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric, in.place=F, ret.unique=F, ...)
 {
      if(is.null(cols) && is.function(col.filter))
      {
@@ -745,6 +745,15 @@ loopingPalette <- function(k, cols=palette()[-1])
 	return(cols[((k-1) %% (n)) + 1])
 }
 
+adjustColor <- function(my.colors, alpha.factor)
+{
+	require(grDevices)
+	x <- col2rgb(my.colors, alpha = TRUE)/255
+	x[4L,] <- x[4L,]*alpha.factor
+	ret <- rgb(x[1L,],x[2L,],x[3L,],x[4L,])
+	return(ret)
+}
+
 getColors <- function(x, cols, conds)
 {
 	return(cols[match(x, conds)])
@@ -770,12 +779,209 @@ writePlots <- function(x, y, index, folder='/Users/jaywarrick/Downloads', filePr
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.plot <- function(x, y, ...)
+data.table.plot <- function(x, y, log='', xlim=NULL, ylim=NULL, transX=1, transY=1, tickSepX=100, tickSepY=100, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
-		plot(x=copy(x), y=copy(y), ...)
+		plot.logicle(x=copy(x), y=copy(y), log=log, xlim=xlim, ylim=ylim, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, ...)
 		print('Made a plot')
+	}
+}
+
+#' This is a wrapper function to data.table.plot to allow plotting of
+#' many things at once.
+#' save.file should be everything but the '.pdf' extension to leave room for alterning the file name with the plot.by statement if necessary
+#' by is used to determine which groups are plotted per plot while plot.by is used to split plotting into multiple plots
+#'
+#' @param sample.size -1 = sample all, 0 = equal sample sizes of the same size of the smallest grouping, any number > 0 defines the sampled size, e.g. 100
+data.table.plot.all <- function(data, xcol, ycol, errcol=NULL, alphacol=NULL, alpha.rank=T, alpha=1, by=NULL, plot.by=NULL, log='', transX=1, transY=1, tickSepX=10, tickSepY=10, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, plot.type=c('plot','lines','points'), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, save.file=NULL, save.width=5, save.height=4, sample.size=-1, ...)
+{
+	# Determine point colors
+	if(is.null(by))
+	{
+		my.colors='black'
+	}
+	else
+	{
+		conds <- as.character(data[[by[1]]])
+		if(length(by) > 1)
+		{
+			for(i in 2:length(by))
+			{
+				conds <- paste(conds, data[[by[i]]], sep='.')
+			}
+		}
+		conds.unique <- unique(conds)
+		my.colors <- getColors(conds, cols=loopingPalette(k=1:length(conds.unique)), conds=conds.unique)
+	}
+
+	# Store base colors
+	data[, my.temp.color:=my.colors]
+
+	# Determine alphas
+	if(!is.null(alphacol))
+	{
+		if(alpha.rank)
+		{
+			ranks <- rank(data[[alphacol]])
+			alphas <- ranks/max(ranks)
+		}
+		else
+		{
+			xRange <- (max(data[[alphacol]]) - min(data[[alphacol]]))
+			if(xRange == 0)
+			{
+				warning("The min and the max of the data were the same so plotting all data as the default alpha transparency.")
+				alphas <- alpha
+			}
+			else
+			{
+				alphas <- (data[[alphacol]]-min(data[[alphacol]]))/xRange
+			}
+		}
+	}
+	else
+	{
+		alphas <- alpha
+	}
+
+	# Do not apply alpha to legend.
+	legend.colors <- data[, list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1]), by=by]
+
+	# Now apply alpha
+	data[, my.temp.color:=adjustColor(my.temp.color, alpha.factor=alphas)]
+
+	if(is.null(xlab))
+	{
+		xlab <- xcol
+	}
+	if(is.null(ylab))
+	{
+		ylab <- ycol
+	}
+
+	my.by=by # Just in case the naming is wierd when using with data.table
+
+	if(is.null(save.file))
+	{
+		if(!is.null(plot.by))
+		{
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, ...), by=plot.by]
+		}
+		else
+		{
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, ...)]
+		}
+	}
+	else
+	{
+		if(is.null(plot.by))
+		{
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, ...), by=plot.by]
+		}
+		else
+		{
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, ...)]
+		}
+	}
+
+	data[, my.temp.color:=NULL]
+}
+
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, main, by, plot.by=NULL, main.col=plot.by, pch.outline=rgb(0,0,0,0), log='', transX=1, transY=1, tickSepX=10, tickSepY=10, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, plot.type=c('lines','points'), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, randomize.points=T, sample.size=-1, ...)
+{
+	if(!is.null(save.file))
+	{
+		pdf(save.file, width=save.width, height=save.height)
+	}
+
+	if(is.null(main))
+	{
+		main=''
+	}
+
+	start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, main=main, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, ...)
+
+	if(plot.type[1] == 'lines')
+	{
+		data[, data.table.lines(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=my.temp.color[1], ...), by=by]
+		if(!is.null(errcol))
+		{
+			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
+			data[, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY), by=by]
+		}
+		finish.logicle(log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
+		if(!is.null(by))
+		{
+			legend(legend.pos, legend=legend.colors$grp, col=legend.colors$my.color, lty=1, cex=legend.cex)
+		}
+	}
+	else
+	{
+		if(randomize.points)
+		{
+			if(sample.size >= 0)
+			{
+				if(!is.null(by))
+				{
+					minNs <- data[, list(n=.N), by=by]
+					minN <- min(minNs$n)
+					if(sample.size == 0)
+					{
+						sampling <- data[, list(i=sample(.I, minN)), by=by]$i
+						sampling <- sample(sampling) # Randomize the order of the sampling so not all groups are plotted one after another.
+					}
+					else
+					{
+						if(sample.size > minN)
+						{
+							warning(paste0('The specified sample.size was larger than the size of the smallest population being samples. The size of the smallest population was ', minN, '. Setting the sample.size to ', minN, ' and continuing.'))
+							sample.size <- minN
+						}
+						sampling <- data[, list(i=sample(.I, sample.size)), by=by]$i
+						sampling <- sample(sampling) # Randomize the order of the sampling so not all groups are plotted one after another.
+					}
+				}
+				else
+				{
+					if(sample.size == 0)
+					{
+						# Sample everything because there is only one group.
+						sampling <- sample.int(length(data[[xcol]]))
+					}
+					else
+					{
+						# Sample the specified amount
+						sampling <- sample.int(length(data[[xcol]]), size=sample.size)
+					}
+				}
+			}
+			else
+			{
+				# Sample everything.
+				# This randomizes the order of the points so that
+				# on group isn't plotted completely over the top of
+				# another group.
+				sampling <- sample.int(length(data[[xcol]]))
+			}
+		}
+		plot.logicle(x=data[[xcol]][sampling], y=data[[ycol]][sampling], type='p', log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, add=T, col=pch.outline, bg=data[['my.temp.color']][sampling], pch=21, ...)
+		# data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
+		if(!is.null(errcol))
+		{
+			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10))
+			data[, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY), by=by]
+		}
+		finish.logicle(log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
+		if(!is.null(by))
+		{
+			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex)
+		}
+	}
+
+	if(!is.null(save.file))
+	{
+		dev.off()
 	}
 }
 
@@ -798,12 +1004,13 @@ data.table.plotClusters <- function(data, cluster, thresh=NULL, breaks, ...)
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.lines <- function(x, y, ...)
+data.table.lines <- function(x, y, log='', xlim=NULL, ylim=NULL, transX=1, transY=1, tickSepX=10, tickSepY=10, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
-		lines(x=copy(x), y=copy(y), ...)
-		print('Added lines to a plot')
+		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY)
+		lines(x=x1, y=y1, ...)
+		print('Made a plot')
 	}
 }
 
@@ -828,12 +1035,47 @@ data.table.hist <- function(x, ...)
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.points <- function(x, y, ...)
+data.table.points <- function(x, y, log='', xlim=NULL, ylim=NULL, transX=1, transY=1, tickSepX=10, tickSepY=10, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
-		points(x=copy(x), y=copy(y), ...)
+		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY)
+		points(x=x1, y=y1, ...)
 		print('Added points to a plot')
+	}
+}
+
+# This function is needed to plot within data.table because the graphics devices
+# get confused while looping/grouping causing the wrong data to be plotted or co-plotted
+# Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
+# variables as arguments in '...' as this problem will again arise for that parameter
+# (e.g., col=variable, the color will be wrong at times)
+data.table.error.bar <- function(x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10, ...)
+{
+	if(length(which(is.finite(x))) > 0)
+	{
+		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY)
+		if(!is.null(upper))
+		{
+			l(xUpper, yUpper) %=% get.logicle(x=copy(x), y=copy(y+upper), log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY)
+			upper1 <- yUpper-y1
+		}
+		else
+		{
+			upper1 <- NULL
+		}
+		if(!is.null(lower))
+		{
+			l(xLower, yLower) %=% get.logicle(x=copy(x), y=copy(y-lower), log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY)
+			lower1 <- y1-yLower
+		}
+		else
+		{
+			lower1 <- NULL
+		}
+
+		error.bar(x=x1, y=y1, upper=upper1, lower=lower1, length=length, draw.lower=draw.lower, ...)
+		print('Added error bars to a plot')
 	}
 }
 
@@ -1618,6 +1860,238 @@ jplot <- function(x, y, text=c())
      ylab <- list(title = deparse(substitute(y)))
      plot_ly(mode='markers', x=x, y=y, text=text) %>%
           layout(xaxis = xlab, yaxis = ylab)
+}
+
+##### Logicle Plotting #####
+
+get.logicle <- function(x, y, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
+{
+	logX <- grepl('x',x=log,fixed=T)
+	logY <- grepl('y',x=log,fixed=T)
+	if(logX)
+	{
+		x1 <- logicle(x, transition=transX, tickSep=tickSepX)
+	}
+	else
+	{
+		x1 <- x
+	}
+
+	if(logY)
+	{
+		y1 <- logicle(y, transition=transY, tickSep=tickSepY)
+	}
+	else
+	{
+		y1 <- y
+	}
+	return(list(x=x1, y=y1))
+}
+
+start.logicle <- function(x, y, log='xy', xlim=NULL, ylim=NULL, transX=1, transY=1, tickSepX=10, tickSepY=10, ...)
+{
+	logX <- grepl('x',x=log,fixed=T)
+	logY <- grepl('y',x=log,fixed=T)
+
+	l(x1, y1) %=% get.logicle(x=x, y=y, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY)
+
+	if(is.null(xlim))
+	{
+		xlim <- range(x1, na.rm=T)
+	}
+	else
+	{
+		if(logX)
+		{
+			xlim <- logicle(x=xlim, transition=transX, tickSep=tickSepX)
+		}
+	}
+	if(is.null(ylim))
+	{
+		ylim <- range(y1, na.rm=T)
+	}
+	else
+	{
+		if(logY)
+		{
+			ylim <- logicle(x=ylim, transition=transY, tickSep=tickSepY)
+		}
+	}
+
+	plot(c(),c(), xlim=xlim, ylim=ylim, axes=FALSE, ...)
+	box(col='black',lwd=2)
+
+	return(list(x=x1, y=y1))
+}
+
+finish.logicle <- function(log, transX, transY, tickSepX, tickSepY, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd)
+{
+	# Determine which axes to transform
+	logX <- grepl('x',x=log,fixed=T)
+	logY <- grepl('y',x=log,fixed=T)
+
+	# Draw axes
+	if(logX == 1)
+	{
+		drawLogicleAxis(axisNum=1, transition=transX, tickSep=tickSepX)
+	}
+	else
+	{
+		axis(1)
+	}
+	if(logY == 1)
+	{
+		drawLogicleAxis(axisNum=2, transition=transY, tickSep=tickSepY)
+	}
+	else
+	{
+		axis(2)
+	}
+
+	# Plot transition lines
+	if(logX == 1)
+	{
+		abline(v=logicle(transX), lty=2, col='gray', lwd=1)
+	}
+	else
+	{
+		abline(v=transX, lty=2, col='gray', lwd=1)
+	}
+	if(logY == 1)
+	{
+		abline(h=logicle(transY), lty=2, col='gray', lwd=1)
+	}
+	else
+	{
+		abline(h=transX, lty=2, col='gray', lwd=1)
+	}
+
+	# Plot h and v lines
+	if(!is.null(h))
+	{
+		if(logY)
+		{
+			abline(h=logicle(h, transition=transY, tickSep=tickSepY), col=h.col, lty=h.lty, lwd=h.lwd)
+		}
+		else
+		{
+			abline(h=h, col=h.col, lty=h.lty, lwd=h.lwd)
+		}
+	}
+	if(!is.null(v))
+	{
+		if(logX)
+		{
+			abline(v=logicle(v, transition=transX, tickSep=tickSepX), col=v.col, lty=v.lty, lwd=v.lwd)
+		}
+		else
+		{
+			abline(v=v, col=v.col, lty=v.lty, lwd=v.lwd)
+		}
+	}
+}
+
+plot.logicle <- function(x, y, type='p', log='', xlim=NULL, ylim=NULL, transX=1, transY=1, tickSepX=100, tickSepY=100, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, add=F, randomize=T, ...)
+{
+	if(!add)
+	{
+		l(x1, y1)%=%start.logicle(x=x, y=y, log=log, xlim=xlim, ylim=ylim, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, ...)
+	}
+	else
+	{
+		if(grepl('x',log,fixed=T))
+		{
+			x1 <- logicle(x=x, transition=transX, tickSep=tickSepX)
+		}
+		else
+		{
+			x1 <- x
+		}
+		if(grepl('y',log,fixed=T))
+		{
+			y1 <- logicle(x=y, transition=transY, tickSep=tickSepY)
+		}
+		else
+		{
+			y1 <- y
+		}
+	}
+	if(type == 'p')
+	{
+		points(x1, y1, ...)
+	}
+	else
+	{
+		lines(x1, y1, ...)
+	}
+	if(!add)
+	{
+		finish.logicle(log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
+	}
+}
+
+unlogicle <- function(x, transition=1, tickSep=100)
+{
+	valsToAdjust <- (x > transition) & !is.na(x)
+	ordersDifferenceOnDisplay = (x[valsToAdjust] - transition) / tickSep
+	x[valsToAdjust] <- transition*10^(ordersDifferenceOnDisplay)
+	return(x)
+}
+
+logicle <- function(x, transition=1, tickSep=100)
+{
+	if(transition <= 0)
+	{
+		warning('Transition must be greater than 0. Setting to 1.')
+		transition <- 1
+	}
+	# Just do it for the right indicies
+	valsToAdjust <- (x > transition) & !is.na(x)
+	x[valsToAdjust] <- transition + log10(x[valsToAdjust]/transition)*tickSep
+	return(x)
+}
+
+drawLogicleAxis <- function(axisNum=1, transition=1, tickSep=100)
+{
+	linNums <- c((-10:10)*tickSep)
+	linNums <- linNums[linNums < transition]
+	logNums=c(10^(-10:10))
+	logNums <- logNums[logNums >= transition]
+
+	prettyNums <- c(linNums, logNums)
+
+	logSidePrettyLabels <- parse(text=paste("10^", log10(logNums), sep=""))
+	prettyLabels <- c(as.character(linNums), logSidePrettyLabels)
+	ticks <- logicle(prettyNums, transition, tickSep)
+	if(axisNum == 2)
+	{
+		axis(axisNum, at=ticks, labels=prettyLabels, las=2)
+	}
+	else
+	{
+		axis(axisNum, at=ticks, labels=prettyLabels)
+	}
+
+}
+
+getLogParam <- function(logX, logY)
+{
+	if(logX == 1 & logY == 1)
+	{
+		'xy'
+	}
+	else if(logX == 1)
+	{
+		'x'
+	}
+	else if(logY == 1)
+	{
+		'y'
+	}
+	else
+	{
+		''
+	}
 }
 
 ##### Loren's brief additions #####
