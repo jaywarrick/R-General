@@ -64,45 +64,45 @@ repmat <- function(x, m, n, loopRows=T, loopCols=T)
 #' @export
 lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric, in.place=F, ret.unique=F, ...)
 {
-     if(is.null(cols) && is.function(col.filter))
-     {
-          cols <- names(x)[as.logical(as.vector(lapply(x, col.filter)))]
-     }
+	if(is.null(cols) && is.function(col.filter))
+	{
+		cols <- names(x)[as.logical(as.vector(lapply(x, col.filter)))]
+	}
 
-     if(ret.unique)
-     {
-          if(in.place)
-          {
-               x <- copy(x)
-               x[, c(cols):=lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
-               if(is.null(by))
-               {
-                    x <- x[1]
-               }
-               else
-               {
-                    x <- unique(x, by=by)
-               }
-          }
-          else
-          {
-               x <- x[, lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
-               # x <- unique(x, by=by) # not needed as this is done be default with the above call
-          }
-     }
-     else
-     {
-          if(in.place)
-          {
-               x[, c(cols):=lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
-          }
-          else
-          {
-               x <- x[, lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
-               # Produces the same result as if ret.unique=T due to behavior of previous call.
-          }
-     }
-     return(x)
+	if(ret.unique)
+	{
+		if(in.place)
+		{
+			x <- copy(x)
+			x[, c(cols):=lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+			if(is.null(by))
+			{
+				x <- x[1]
+			}
+			else
+			{
+				x <- unique(x, by=by)
+			}
+		}
+		else
+		{
+			x <- x[, lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+			# x <- unique(x, by=by) # not needed as this is done be default with the above call
+		}
+	}
+	else
+	{
+		if(in.place)
+		{
+			x[, c(cols):=lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+		}
+		else
+		{
+			x <- x[, lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+			# Produces the same result as if ret.unique=T due to behavior of previous call.
+		}
+	}
+	return(x)
 }
 
 #' Make a complex ID column based on other columns
@@ -120,12 +120,12 @@ lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric,
 #' @export
 makeComplexId <- function(x, cols, sep='.', idName='cId')
 {
-     require(data.table)
-     if(!is.data.table(x))
-     {
-          stop('This function requires a data.table')
-     }
-     x[, c(idName):=paste(mget(cols), collapse=sep), by=cols]
+	require(data.table)
+	if(!is.data.table(x))
+	{
+		stop('This function requires a data.table')
+	}
+	x[, c(idName):=paste(mget(cols), collapse=sep), by=cols]
 }
 
 #' Fill missing rows in a data.table
@@ -143,53 +143,53 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 #' @export
 fillMissingRows <- function(x, cols, fill=NULL, tempIdColName='tempId')
 {
-     require(data.table)
-     if(!is.data.table(x))
-     {
-          stop('This function requires a data.table')
-     }
-     setkeyv(x, cols=cols)
-     ret <- x[J(do.call(CJ,lapply(cols,function(y){unique(get(y))})))]
+	require(data.table)
+	if(!is.data.table(x))
+	{
+		stop('This function requires a data.table')
+	}
+	setkeyv(x, cols=cols)
+	ret <- x[J(do.call(CJ,lapply(cols,function(y){unique(get(y))})))]
 
-     if(!is.null(fill))
-     {
-          # Figure out the types of each column
-          blah <- sapply(x, FUN=is.logical)
-          blah.log <- data.table(log=blah, name=names(blah))
+	if(!is.null(fill))
+	{
+		# Figure out the types of each column
+		blah <- sapply(x, FUN=is.logical)
+		blah.log <- data.table(log=blah, name=names(blah))
 
-          blah <- sapply(x, FUN=is.numeric)
-          blah.num <- data.table(num=blah, name=names(blah))
+		blah <- sapply(x, FUN=is.numeric)
+		blah.num <- data.table(num=blah, name=names(blah))
 
-          blah <- sapply(x, FUN=is.character)
-          blah.char <- data.table(char=blah, name=names(blah))
+		blah <- sapply(x, FUN=is.character)
+		blah.char <- data.table(char=blah, name=names(blah))
 
-          blah <- merge(blah.log, blah.num, by=c('name'))
-          blah <- merge(blah, blah.char, by=c('name'))
+		blah <- merge(blah.log, blah.num, by=c('name'))
+		blah <- merge(blah, blah.char, by=c('name'))
 
-          filler = function(DT, types)
-          {
-               for (i in names(DT))
-               {
-                    if(types[name==i][['num']])
-                    {
-                         DT[is.na(get(i)), (i):=as.numeric(fill)][]
-                    }
-                    else
-                    {
-                         if(types[name==i][['char']])
-                         {
-                              DT[is.na(get(i)), (i):=as.character(fill)][]
-                         }
-                         else
-                         {
-                              DT[is.na(get(i)), (i):=as.logical(fill)][]
-                         }
-                    }
-               }
-          }
-          filler(DT=ret, types=blah)
-     }
-     return(ret)
+		filler = function(DT, types)
+		{
+			for (i in names(DT))
+			{
+				if(types[name==i][['num']])
+				{
+					DT[is.na(get(i)), (i):=as.numeric(fill)][]
+				}
+				else
+				{
+					if(types[name==i][['char']])
+					{
+						DT[is.na(get(i)), (i):=as.character(fill)][]
+					}
+					else
+					{
+						DT[is.na(get(i)), (i):=as.logical(fill)][]
+					}
+				}
+			}
+		}
+		filler(DT=ret, types=blah)
+	}
+	return(ret)
 }
 
 #' \%=\%
@@ -406,17 +406,17 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 			 legend=TRUE, legend.border=F, args.legend=list(),
 			 mar=c(4.5,4.5,2,2), ...)
 {
-     # Detect whether or not upper and lower error bars will be plotted
-     has.upper <- FALSE
-     if(!is.null(error.upper.column) && error.upper.column %in% names(dt))
-     {
-          has.upper <- TRUE
-     }
-     has.lower <- FALSE
-     if(!is.null(error.lower.column) && error.lower.column %in% names(dt))
-     {
-          has.lower <- TRUE
-     }
+	# Detect whether or not upper and lower error bars will be plotted
+	has.upper <- FALSE
+	if(!is.null(error.upper.column) && error.upper.column %in% names(dt))
+	{
+		has.upper <- TRUE
+	}
+	has.lower <- FALSE
+	if(!is.null(error.lower.column) && error.lower.column %in% names(dt))
+	{
+		has.lower <- TRUE
+	}
 
 	# Store the display names
 	color.names.display <- color.names
@@ -441,22 +441,22 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	# Get the matrix needed for barplot
 	if(!is.null(group.column))
 	{
-	     if(!has.upper && !has.lower)
-	     {
-	          subDT <- dt[, mget(c(color.column, group.column, y.column))]
-	     }
-	     if(!has.lower)
-	     {
-	          subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column))]
-	     }
-	     if(!has.upper)
-	     {
-	          subDT <- dt[, mget(c(color.column, group.column, y.column, error.lower.column))]
-	     }
-	     else
-	     {
-	          subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column, error.lower.column))]
-	     }
+		if(!has.upper && !has.lower)
+		{
+			subDT <- dt[, mget(c(color.column, group.column, y.column))]
+		}
+		if(!has.lower)
+		{
+			subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column))]
+		}
+		if(!has.upper)
+		{
+			subDT <- dt[, mget(c(color.column, group.column, y.column, error.lower.column))]
+		}
+		else
+		{
+			subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column, error.lower.column))]
+		}
 
 		tempCast <- dcast(subDT, as.formula(paste(color.column, '~', group.column)), value.var=y.column)
 		color.names <- tempCast[[1]]
@@ -465,18 +465,18 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	}
 	else
 	{
-	     if(!has.upper && !has.lower)
-	     {
-	          subDT <- dt[, mget(c(color.column, y.column))]
-	     }
-	     if(!has.lower)
-	     {
-	          subDT <- dt[, mget(c(color.column, y.column, error.upper.column))]
-	     }
-	     if(!has.upper)
-	     {
-	          subDT <- dt[, mget(c(color.column, y.column, error.lower.column))]
-	     }
+		if(!has.upper && !has.lower)
+		{
+			subDT <- dt[, mget(c(color.column, y.column))]
+		}
+		if(!has.lower)
+		{
+			subDT <- dt[, mget(c(color.column, y.column, error.upper.column))]
+		}
+		if(!has.upper)
+		{
+			subDT <- dt[, mget(c(color.column, y.column, error.lower.column))]
+		}
 		mat <- y
 		color.names <- dt[[color.column]]
 	}
@@ -526,19 +526,19 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	# Determine the extents of the axes to plot
 	if(has.upper)
 	{
-	     temp <- y + dt[[error.upper.column]]
-	     temp <- temp[is.finite(temp)]
+		temp <- y + dt[[error.upper.column]]
+		temp <- temp[is.finite(temp)]
 		ymax <- max(temp)*21/20
 	}
 	else
 	{
-	     temp <- y[is.finite(y)]
+		temp <- y[is.finite(y)]
 		ymax <- max(y[is.finite(y)])*21/20
 	}
 	if(has.lower)
 	{
-	     temp <- y - dt[[error.lower.column]]
-	     temp <- temp[is.finite(temp)]
+		temp <- y - dt[[error.lower.column]]
+		temp <- temp[is.finite(temp)]
 		ymin <- min(temp)*21/20
 	}
 	else
@@ -576,10 +576,10 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	args.barplot <- modifyList(args.barplot, list(...))
 	if(!is.null(args.barplot[['log']]))
 	{
-	     if(grepl('y', args.barplot$log, fixed=T) & min(args.barplot$ylim) <= 0)
-	     {
-	          args.barplot$ylim[1] <- 0.9*min(mat)
-	     }
+		if(grepl('y', args.barplot$log, fixed=T) & min(args.barplot$ylim) <= 0)
+		{
+			args.barplot$ylim[1] <- 0.9*min(mat)
+		}
 	}
 
 	# Rotate x-axis labels if desired
@@ -794,8 +794,16 @@ data.table.plot <- function(x, y, log='', xlim=NULL, ylim=NULL, transX=1, transY
 #' by is used to determine which groups are plotted per plot while plot.by is used to split plotting into multiple plots
 #'
 #' @param sample.size -1 = sample all, 0 = equal sample sizes of the same size of the smallest grouping, any number > 0 defines the sampled size, e.g. 100
-data.table.plot.all <- function(data, xcol, ycol, errcol=NULL, alphacol=NULL, alpha.rank=T, alpha=1, by=NULL, plot.by=NULL, log='', transX=1, transY=1, tickSepX=10, tickSepY=10, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, plot.type=c('plot','lines','points'), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, save.file=NULL, save.width=5, save.height=4, sample.size=-1, ...)
+#' @param gates list of gate objects returned by gatePointsInPlot function
+data.table.plot.all <- function(data, xcol, ycol, errcol=NULL, alphacol=NULL, alpha.rank=T, alpha=1, by=NULL, plot.by=NULL, gates=list(), log='', transX=1, transY=1, tickSepX=10, tickSepY=10, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, plot.type=c('plot','lines','points'), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=list(), ...)
 {
+	# Create a temporary gating column if necessary
+	hasGatedCol <- !is.null(data[['gated']])
+	if(!hasGatedCol)
+	{
+		data[, gated:=T]
+	}
+
 	# Determine point colors
 	if(is.null(by))
 	{
@@ -860,36 +868,47 @@ data.table.plot.all <- function(data, xcol, ycol, errcol=NULL, alphacol=NULL, al
 		ylab <- ycol
 	}
 
-	my.by=by # Just in case the naming is wierd when using with data.table
+	my.by <- by # Just in case the naming is wierd when using with data.table
 
 	if(is.null(save.file))
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste(.BY, collapse='.'), by=my.by, errcol=errcol, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, plot.type=plot.type, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 
 	data[, my.temp.color:=NULL]
+
+	# If necessary, remove gating column
+	if(!hasGatedCol)
+	{
+		data[, gated:=NULL]
+	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, main, by, plot.by=NULL, main.col=plot.by, pch.outline=rgb(0,0,0,0), log='', transX=1, transY=1, tickSepX=10, tickSepY=10, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, plot.type=c('lines','points'), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, randomize.points=T, sample.size=-1, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, main, by, plot.by=NULL, main.col=plot.by, pch.outline=rgb(0,0,0,0), alpha.backgated=1, log='', transX=1, transY=1, tickSepX=10, tickSepY=10, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, plot.type=c('lines','points'), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, ...)
 {
+	calcNumToSample <- function(counts, sample.size, grpNum)
+	{
+		return(floor(counts[grp==grpNum]$nbackgated*(sample.size/counts[grp==grpNum]$ngated)))
+	}
+
 	if(!is.null(save.file))
 	{
 		pdf(save.file, width=save.width, height=save.height)
@@ -918,60 +937,77 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, main, by, plot.by=NULL, 
 	}
 	else
 	{
-		if(randomize.points)
+		# Collect points to actually plot (both gated and backgated)
+		if(sample.size >= 0)
 		{
-			if(sample.size >= 0)
+			if(!is.null(by))
 			{
-				if(!is.null(by))
+				counts <- data[, list(n=.N, ngated=sum(gated), nbackgated=sum(!gated), grp=.GRP), by=by]
+				minN <- min(couts$ngated)
+				if(sample.size == 0)
 				{
-					minNs <- data[, list(n=.N), by=by]
-					minN <- min(minNs$n)
-					if(sample.size == 0)
-					{
-						sampling <- data[, list(i=sample(.I, minN)), by=by]$i
-						sampling <- sample(sampling) # Randomize the order of the sampling so not all groups are plotted one after another.
-					}
-					else
-					{
-						if(sample.size > minN)
-						{
-							warning(paste0('The specified sample.size was larger than the size of the smallest population being samples. The size of the smallest population was ', minN, '. Setting the sample.size to ', minN, ' and continuing.'))
-							sample.size <- minN
-						}
-						sampling <- data[, list(i=sample(.I, sample.size)), by=by]$i
-						sampling <- sample(sampling) # Randomize the order of the sampling so not all groups are plotted one after another.
-					}
+					sampling.gated <- data[, list(i=sample(.I[gated], minN)), by=by]$i
+					sampling.backgated <- data[, list(i=sample(.I[!gated], calcNumToSample(counts=counts, sample.size=minN, grpNum=.GRP))), by=by]$i
+					sampling.gated <- sample(sampling.gated) # Randomize the order of the sampling so not all groups are plotted one after another.
+					sampling.backgated <- sample(sampling.backgated) # Randomize the order of the sampling so not all groups are plotted one after another.
 				}
 				else
 				{
-					if(sample.size == 0)
+					if(sample.size > minN)
 					{
-						# Sample everything because there is only one group.
-						sampling <- sample.int(length(data[[xcol]]))
+						warning(paste0('The specified sample.size was larger than the size of the smallest population being samples. The size of the smallest population was ', minN, '. Setting the sample.size to ', minN, ' and continuing.'))
+						sample.size <- minN
 					}
-					else
-					{
-						# Sample the specified amount
-						sampling <- sample.int(length(data[[xcol]]), size=sample.size)
-					}
+					sampling.gated <- data[, list(i=sample(.I[gated], sample.size)), by=by]$i
+					sampling.backgated <- data[, list(i=sample(.I[!gated], calcNumToSample(counts=counts, sample.size=sample.size, grpNum=.GRP))), by=by]$i
+					sampling.gated <- sample(sampling.gated) # Randomize the order of the sampling so not all groups are plotted one after another.
+					sampling.backgated <- sample(sampling.backgated) # Randomize the order of the sampling so not all groups are plotted one after another.}
 				}
 			}
 			else
 			{
-				# Sample everything.
-				# This randomizes the order of the points so that
-				# on group isn't plotted completely over the top of
-				# another group.
-				sampling <- sample.int(length(data[[xcol]]))
+				if(sample.size == 0)
+				{
+					# Sample everything because there is only one group.
+					sampling.gated <- sample(which(data[['gated']]))
+					sampling.backgated <- sample(which(!data[['gated']]))
+				}
+				else
+				{
+					n <- sum(data[['gated']])
+					if(sample.size > n)
+					{
+						warning(paste0('The specified sample.size was larger than the number of gated events which is ', n, '. Continuing by using the reduced sample size.'))
+						sample.size <- n
+					}
+					# Sample the specified amount
+					sampling.gated <- sample(which(data[['gated']]), size=sample.size)
+					sampling.backgated <- sample(which(!data[['gated']]), size=sample.size)
+				}
 			}
 		}
-		plot.logicle(x=data[[xcol]][sampling], y=data[[ycol]][sampling], type='p', log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, add=T, col=pch.outline, bg=data[['my.temp.color']][sampling], pch=21, ...)
-		# data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
-		if(!is.null(errcol))
+		else
 		{
-			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10))
-			data[, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY), by=by]
+			# Sample everything.
+			# This randomizes the order of the points so that
+			# on group isn't plotted completely over the top of
+			# another group.
+			sampling.gated <- sample(which(data[['gated']]))
+			sampling.backgated <- sample(which(!data[['gated']]))
 		}
+
+		# Plot the backgated data if desired
+		plot.logicle(x=data[[xcol]][sampling.backgated], y=data[[ycol]][sampling.backgated], type='p', log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, add=T, col=pch.outline, bg=rgb(0,0,0,alpha.backgated), pch=21, ...)
+
+		# Plot the gated data
+		plot.logicle(x=data[[xcol]][sampling.gated], y=data[[ycol]][sampling.gated], type='p', log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, add=T, col=pch.outline, bg=data[['my.temp.color']][sampling.gated], pch=21, ...)
+
+		# # data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
+		# if(!is.null(errcol))
+		# {
+		# 	# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10))
+		# 	data[, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY), by=by]
+		# }
 		finish.logicle(log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
 		if(!is.null(by))
 		{
@@ -979,10 +1015,77 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, main, by, plot.by=NULL, 
 		}
 	}
 
+	if(length(polygons) > 0)
+	{
+	   	for(polygon in polygons)
+	   	{
+	   		polygon$x <- logicle(polygon$x, transition=transX, tickSep=tickSepX)
+	   		polygon$y <- logicle(polygon$y, transition=transY, tickSep=tickSepY)
+	   		plot(polygon, lwd=2, border='red', add=T)
+	   	}
+	}
+
 	if(!is.null(save.file))
 	{
 		dev.off()
 	}
+}
+
+gatePointsInPlot <- function(x, y, pts.col='blue', border='red', lwd=2, pch=21, replot=F, ...)
+{
+	require(spatstat)
+	plot(x, y, pch=pch, ...)
+	pts <- locator()
+	poly <- owin(poly=pts)
+	plot(poly, add=T, border=border, lwd=lwd)
+	isin <- inside.owin(x=x, y=y, w=poly)
+	params <- list(...)
+	if(pch==21)
+	{
+		params$bg <- pts.col
+	}
+	else
+	{
+		params$col <- pts.col
+	}
+
+	if(replot)
+	{
+		params$x <- x[isin]
+		params$y <- y[isin]
+		params$pch <- pch
+		do.call(points, params)
+	}
+
+	return(list(poly=poly, isin=isin, gated=which(isin), backgated=which(!isin)))
+}
+
+intersectGates <- function(...)
+{
+	gated <- NULL
+	for(gate in list(...))
+	{
+		if(is.null(gated))
+		{
+			isin <- gate$isin
+			gated <- gate$gated
+			backgated <- gate$backgated
+		}
+		else
+		{
+			isin <- isin & gate$isin
+			gated <- intersect(filter, gate$gated)
+			backgated <- union(backgated, gate$backgated)
+		}
+	}
+	return(list(isin=isin, gated=gated, backgated=backgated))
+}
+
+applyGates <- function(x, ...)
+{
+	ret <- intersectGates(...)
+	x[, gated:=F]
+	x[ret$gated, gated:=T]
 }
 
 # This function is needed to plot within data.table because the graphics devices
@@ -1022,11 +1125,11 @@ data.table.lines <- function(x, y, log='', xlim=NULL, ylim=NULL, transX=1, trans
 ## Same as above, but histogram specific
 data.table.hist <- function(x, ...)
 {
-     if(length(which(is.finite(x))) > 0)
-     {
-          hist(x=copy(x), ...)
-          print('Made a histogram')
-     }
+	if(length(which(is.finite(x))) > 0)
+	{
+		hist(x=copy(x), ...)
+		print('Made a histogram')
+	}
 }
 
 
@@ -1081,70 +1184,70 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, length=0.1, draw
 
 wilcox.test.combined <- function(data, replCols, condCol, valCol, exact=NULL, two.tailed=TRUE)
 {
-     require(data.table)
-     x1 <- data.table(data)
+	require(data.table)
+	x1 <- data.table(data)
 
-     getStats <- function(x, y, cond1, cond2, ...)
-     {
-     	x <- x[is.finite(x)]
-     	y <- y[is.finite(y)]
-          if(length(x) == 0 || length(y) == 0)
-          {
-               # This results in a missing row in the results details table for the experiment with either missing x or y data
-               return(NULL)
-          }
-          temp <- wilcox.test(x=x, y=y, ...)
-          W <- as.numeric(temp$statistic)
+	getStats <- function(x, y, cond1, cond2, ...)
+	{
+		x <- x[is.finite(x)]
+		y <- y[is.finite(y)]
+		if(length(x) == 0 || length(y) == 0)
+		{
+			# This results in a missing row in the results details table for the experiment with either missing x or y data
+			return(NULL)
+		}
+		temp <- wilcox.test(x=x, y=y, ...)
+		W <- as.numeric(temp$statistic)
 
-          counts <- table(c(x, y))
+		counts <- table(c(x, y))
 
-          n.x <- length(x)
-          n.y <- length(y)
-          N <- n.x + n.y
+		n.x <- length(x)
+		n.y <- length(y)
+		N <- n.x + n.y
 
-          # Taken from R source code for wilcox.test
-          z <- W - n.x * n.y / 2
-          z <- z - sign(z)*0.5
-          SIGMA <- sqrt((n.x * n.y / 12) * ((n.x + n.y + 1) - sum(counts^3 - counts) / ((n.x + n.y) * (n.x + n.y - 1))))
-          z <- z/SIGMA
+		# Taken from R source code for wilcox.test
+		z <- W - n.x * n.y / 2
+		z <- z - sign(z)*0.5
+		SIGMA <- sqrt((n.x * n.y / 12) * ((n.x + n.y + 1) - sum(counts^3 - counts) / ((n.x + n.y) * (n.x + n.y - 1))))
+		z <- z/SIGMA
 
-          p1 <- 2*pnorm(-abs(z))
+		p1 <- 2*pnorm(-abs(z))
 
-          p.approx <- 2*pnorm(-abs(z))
+		p.approx <- 2*pnorm(-abs(z))
 
-          return(list(W=W, p.value=temp$p.value, N=N, median.x=median(x), median.y=median(y), n.x=n.x, n.y=n.y, E=n.x * n.y / 2, V=SIGMA^2, z.score=z, p.value.approx=p.approx))
-     }
+		return(list(W=W, p.value=temp$p.value, N=N, median.x=median(x), median.y=median(y), n.x=n.x, n.y=n.y, E=n.x * n.y / 2, V=SIGMA^2, z.score=z, p.value.approx=p.approx))
+	}
 
-     conds <- unique(x1[[condCol]])
-     if(length(conds) != 2)
-     {
-     	stop("Must have 2 and only 2 conditions to compare.")
-     }
-     if(conds[1] < conds[2])
-     {
-     	conds <- rev(conds)
-     }
-     x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]], exact=exact), by=replCols]
-     # x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]])$p.value, by=replCols]
+	conds <- unique(x1[[condCol]])
+	if(length(conds) != 2)
+	{
+		stop("Must have 2 and only 2 conditions to compare.")
+	}
+	if(conds[1] < conds[2])
+	{
+		conds <- rev(conds)
+	}
+	x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]], exact=exact), by=replCols]
+	# x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]])$p.value, by=replCols]
 
-     x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=replCols]
+	x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=replCols]
 
-     Wtot <- sum(x2$Wi)
-     Etot <- sum(x2$Ei)
-     Vtot <- sum(x2$Vi)
+	Wtot <- sum(x2$Wi)
+	Etot <- sum(x2$Ei)
+	Vtot <- sum(x2$Vi)
 
-     ztot <- (Wtot-Etot)/(sqrt(Vtot))
+	ztot <- (Wtot-Etot)/(sqrt(Vtot))
 
-     if(two.tailed)
-     {
-          p.overall <- 2*pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
-     }
-     else
-     {
-          p.overall <- pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
-     }
-     cat('p =', p.overall)
-     return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2)), cond1=conds[1], cond2=conds[2], Wtot=Wtot, Etot=Etot, Vtot=Vtot, z.score=ztot))
+	if(two.tailed)
+	{
+		p.overall <- 2*pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
+	}
+	else
+	{
+		p.overall <- pnorm(-abs((Wtot-Etot)/(sqrt(Vtot))))
+	}
+	cat('p =', p.overall)
+	return(list(details=x2, p.overall=p.overall, alpha.prime=1-(1-p.overall)^(nrow(x2)), cond1=conds[1], cond2=conds[2], Wtot=Wtot, Etot=Etot, Vtot=Vtot, z.score=ztot))
 }
 
 writeLatexWilcoxCombinedTable <- function(x, captionAddition='', includeVals=F, file=NULL)
@@ -1253,55 +1356,55 @@ getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
 #' @export
 error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, ...)
 {
-     # if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
-     #      stop("vectors must be same length")
-     if(draw.lower)
-     {
-          suppressWarnings(arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...))
-     }
-     else
-     {
-          suppressWarnings(arrows(x,y+upper, x, y, angle=90, code=1, length=length, ...))
-     }
+	# if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
+	#      stop("vectors must be same length")
+	if(draw.lower)
+	{
+		suppressWarnings(arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...))
+	}
+	else
+	{
+		suppressWarnings(arrows(x,y+upper, x, y, angle=90, code=1, length=length, ...))
+	}
 }
 
 getData <- function(dbPath, ds, x, y, type, name)
 {
 	library(foreign)
-     ret <- list()
-     ret$ds <- ds
-     ret$x <- x
-     ret$y <- y
-     ret$type <- type
-     ret$name <- name
-     ret$dbPath <- dbPath
-     ret$tmpPath <- file.path(dbPath,'temp','RScriptTempFolder')
-     ret$jxdDir <- file.path(dbPath, ds, paste0('Cell_x',x,'_y',y), paste0(type,'-',name))
-     ret$jxdFilePath <- file.path(ret$jxdDir, paste0('x',x,'_y',y,'.jxd'))
-     if(file.exists(ret$jxdFilePath))
-     {
-     	ret$jxdTable <- read.arff(ret$jxdFilePath)
-     	if(type == 'File')
-     	{
-     		ret$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
-     	}
-     	return(ret)
-     }
-     else
-     {
-     	warning(paste('Could not find the specified file:', ret$jxdFilePath))
-     	return(NULL)
-     }
+	ret <- list()
+	ret$ds <- ds
+	ret$x <- x
+	ret$y <- y
+	ret$type <- type
+	ret$name <- name
+	ret$dbPath <- dbPath
+	ret$tmpPath <- file.path(dbPath,'temp','RScriptTempFolder')
+	ret$jxdDir <- file.path(dbPath, ds, paste0('Cell_x',x,'_y',y), paste0(type,'-',name))
+	ret$jxdFilePath <- file.path(ret$jxdDir, paste0('x',x,'_y',y,'.jxd'))
+	if(file.exists(ret$jxdFilePath))
+	{
+		ret$jxdTable <- read.arff(ret$jxdFilePath)
+		if(type == 'File')
+		{
+			ret$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
+		}
+		return(ret)
+	}
+	else
+	{
+		warning(paste('Could not find the specified file:', ret$jxdFilePath))
+		return(NULL)
+	}
 }
 
 st <- function(...)
 {
-     out <- '';
-     for(txt in list(...))
-     {
-          out <- paste(out, as.character(txt), sep='')
-     }
-     return(out)
+	out <- '';
+	for(txt in list(...))
+	{
+		out <- paste(out, as.character(txt), sep='')
+	}
+	return(out)
 }
 
 #' Reorganize a table from long form to wide form.
@@ -1320,39 +1423,39 @@ st <- function(...)
 reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCols='Value', ...)
 {
 	library(data.table)
-     isDataTable <- FALSE
-     if(is.data.table(data))
-     {
-          isDataTable <- TRUE
-     }
-     else
-     {
-          data <- data.table(data)
-     }
+	isDataTable <- FALSE
+	if(is.data.table(data))
+	{
+		isDataTable <- TRUE
+	}
+	else
+	{
+		data <- data.table(data)
+	}
 
-     # Parse commas to indicate that the string should be split into multiple items.
-     measurementCols <- strsplit(measurementCols, ',', fixed=T)
+	# Parse commas to indicate that the string should be split into multiple items.
+	measurementCols <- strsplit(measurementCols, ',', fixed=T)
 
-     # Leading and trailing spaces are not good so remove them in case (makes it easier for JEX)
-     measurementCols <- mapply(gsub, '^\\s+|\\s+$', '', measurementCols)
+	# Leading and trailing spaces are not good so remove them in case (makes it easier for JEX)
+	measurementCols <- mapply(gsub, '^\\s+|\\s+$', '', measurementCols)
 
-     # If idCols = NULL, then use all remaining cols except measurementCols and valueCols
-     if(is.null(idCols))
-     {
-          idCols <- names(data)[!(names(data) %in% c(measurementCols, valueCols))]
-     }
+	# If idCols = NULL, then use all remaining cols except measurementCols and valueCols
+	if(is.null(idCols))
+	{
+		idCols <- names(data)[!(names(data) %in% c(measurementCols, valueCols))]
+	}
 
-     formula <- as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+')))
-     print(formula)
-     data <- as.data.table(dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols, ...))
-     if(isDataTable)
-     {
-          return(data)
-     }
-     else
-     {
-          return(data.frame(data))
-     }
+	formula <- as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+')))
+	print(formula)
+	data <- as.data.table(dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols, ...))
+	if(isDataTable)
+	{
+		return(data)
+	}
+	else
+	{
+		return(data.frame(data))
+	}
 }
 
 #' Take an arff file and reorganize it into a more standard 'table' format. Specifically this is used to
@@ -1367,499 +1470,499 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 #' @param valueCol The name of the column with the values of the properties listed in the \code{nameCol}
 reorganizeTable <- function (data, baseName = NA, convertToNumeric = TRUE, nameCol = "Measurement", valueCol = "Value")
 {
-     require(plyr)
-     idCols <- names(data)
-     idCols <- idCols[-which(idCols %in% c(nameCol, valueCol))]
-     newData <- data.frame(stringsAsFactors = FALSE)
-     measurements <- unique(data[, nameCol])
-     for (m in measurements) {
-          if (is.na(baseName)) {
-               newColName <- m
-               newColName <- gsub(" ", ".", newColName, fixed = TRUE)
-          }
-          else {
-               newColName <- paste(baseName, ".", m, sep = "")
-               newColName <- gsub(" ", ".", newColName, fixed = TRUE)
-          }
-          temp <- data[data[, nameCol] == m, ]
-          temp2 <- temp[, c(idCols, valueCol)]
-          if(length(idCols) == 0)
-          {
-               temp2 <- data.frame(ReallyRandomNameYo=temp2)
-               names(temp2) <- newColName
-          }
-          else
-          {
-               names(temp2)[names(temp2) == valueCol] <- newColName
-          }
-          if (nrow(newData) == 0)
-          {
-               newData <- temp2
-          }
-          else
-          {
-               newData <- merge(newData, temp2, by = idCols)
-          }
-     }
-     if (convertToNumeric) {
-          for (n in idCols) {
-               newData[, n] <- as.numeric(as.character(newData[, n]))
-          }
-     }
-     return(newData)
+	require(plyr)
+	idCols <- names(data)
+	idCols <- idCols[-which(idCols %in% c(nameCol, valueCol))]
+	newData <- data.frame(stringsAsFactors = FALSE)
+	measurements <- unique(data[, nameCol])
+	for (m in measurements) {
+		if (is.na(baseName)) {
+			newColName <- m
+			newColName <- gsub(" ", ".", newColName, fixed = TRUE)
+		}
+		else {
+			newColName <- paste(baseName, ".", m, sep = "")
+			newColName <- gsub(" ", ".", newColName, fixed = TRUE)
+		}
+		temp <- data[data[, nameCol] == m, ]
+		temp2 <- temp[, c(idCols, valueCol)]
+		if(length(idCols) == 0)
+		{
+			temp2 <- data.frame(ReallyRandomNameYo=temp2)
+			names(temp2) <- newColName
+		}
+		else
+		{
+			names(temp2)[names(temp2) == valueCol] <- newColName
+		}
+		if (nrow(newData) == 0)
+		{
+			newData <- temp2
+		}
+		else
+		{
+			newData <- merge(newData, temp2, by = idCols)
+		}
+	}
+	if (convertToNumeric) {
+		for (n in idCols) {
+			newData[, n] <- as.numeric(as.character(newData[, n]))
+		}
+	}
+	return(newData)
 }
 
 reorganizeFeatureTable <- function (data, baseName = NA, specialNames = c("Channel"), convertToNumeric = TRUE, nameCol='Measurement', valueCol='Value')
 {
-     require(data.table)
+	require(data.table)
 
-     myfunc <- function(keys, values, allKeys, sd)
-     {
-          names(values) <- keys
-          ret <- as.list(values[allKeys])
-          names(ret) <- allKeys
-          return(ret)
-     }
+	myfunc <- function(keys, values, allKeys, sd)
+	{
+		names(values) <- keys
+		ret <- as.list(values[allKeys])
+		names(ret) <- allKeys
+		return(ret)
+	}
 
-     # First collapse specialName columns into the nameCol column
-     for(specialName in specialNames)
-     {
-          if(specialName != '' && specialName %in% names(data))
-          {
-               data[,specialName] <- gsub(" ", "", data[,specialName])
-               data[,nameCol] <- paste0(data[,nameCol], '.', data[,specialName])
-          }
-     }
-     data <- data[, !(names(data) %in% specialNames)]
+	# First collapse specialName columns into the nameCol column
+	for(specialName in specialNames)
+	{
+		if(specialName != '' && specialName %in% names(data))
+		{
+			data[,specialName] <- gsub(" ", "", data[,specialName])
+			data[,nameCol] <- paste0(data[,nameCol], '.', data[,specialName])
+		}
+	}
+	data <- data[, !(names(data) %in% specialNames)]
 
 
-     # Grab the nameCol, idCols, and valueCol
-     idCols <- names(data)
-     idCols <- idCols[-which(idCols %in% c(nameCol, valueCol))]
-     measurements <- unique(data[, nameCol])
+	# Grab the nameCol, idCols, and valueCol
+	idCols <- names(data)
+	idCols <- idCols[-which(idCols %in% c(nameCol, valueCol))]
+	measurements <- unique(data[, nameCol])
 
-     data <- data.table(data)
-     data <- data[,myfunc(keys=.SD[[nameCol]],values=.SD[[valueCol]],allKeys=unique(data[[nameCol]]), sd=.SD),by=idCols]
-     data <- data.frame(data)
+	data <- data.table(data)
+	data <- data[,myfunc(keys=.SD[[nameCol]],values=.SD[[valueCol]],allKeys=unique(data[[nameCol]]), sd=.SD),by=idCols]
+	data <- data.frame(data)
 
-     if (convertToNumeric) {
-          for (n in idCols) {
-               data[, n] <- as.numeric(as.character(data[, n]))
-          }
-     }
-     return(data)
+	if (convertToNumeric) {
+		for (n in idCols) {
+			data[, n] <- as.numeric(as.character(data[, n]))
+		}
+	}
+	return(data)
 }
 
 first <- function(x)
 {
-     return(x[1])
+	return(x[1])
 }
 
 last <- function(x)
 {
-     require(pracma)
-     return(x[numel(x)])
+	require(pracma)
+	return(x[numel(x)])
 }
 
 getWeightedR2 <- function(y, model)
 {
-     r <- residuals(model)
-     f <- fitted(model)
-     w <- weights(model)
-     return(getWeightedR2_Vectors(y, r, f, w))
+	r <- residuals(model)
+	f <- fitted(model)
+	w <- weights(model)
+	return(getWeightedR2_Vectors(y, r, f, w))
 }
 
 getWeightedR2_Vectors <- function(y, r, f, w)
 {
-     SSr <- sum(w*r^2);
-     SSt <- sum(w*(y-mean(y))^2)
-     return(1-(SSr/SSt))
+	SSr <- sum(w*r^2);
+	SSt <- sum(w*(y-mean(y))^2)
+	return(1-(SSr/SSt))
 }
 
 siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
-                         rnd = -1, alternative = "two.sided", mu = 0, paired = FALSE,
-                         exact = FALSE, correct = TRUE, conf.int = FALSE, conf.level = 0.95) {
-     ###### published on:
-     #   http://www.r-statistics.com/2010/02/siegel-tukey-a-non-parametric-test-for-equality-in-variability-r-code/
-     ## Main author of the function:  Daniel Malter
+					rnd = -1, alternative = "two.sided", mu = 0, paired = FALSE,
+					exact = FALSE, correct = TRUE, conf.int = FALSE, conf.level = 0.95) {
+	###### published on:
+	#   http://www.r-statistics.com/2010/02/siegel-tukey-a-non-parametric-test-for-equality-in-variability-r-code/
+	## Main author of the function:  Daniel Malter
 
-     # x: a vector of data
+	# x: a vector of data
 
-     # y: Group indicator (if id.col=TRUE); data of the second
-     #   group (if
-     # id.col=FALSE). If y is the group indicator it MUST take 0
-     #   or 1 to indicate
-     # the groups, and x must contain the data for both groups.
+	# y: Group indicator (if id.col=TRUE); data of the second
+	#   group (if
+	# id.col=FALSE). If y is the group indicator it MUST take 0
+	#   or 1 to indicate
+	# the groups, and x must contain the data for both groups.
 
-     # id.col: If TRUE (default), then x is the data column and y
-     #   is the ID column,
-     # indicating the groups. If FALSE, x and y are both data
-     #   columns. id.col must
-     # be FALSE only if both data columns are of the same length.
+	# id.col: If TRUE (default), then x is the data column and y
+	#   is the ID column,
+	# indicating the groups. If FALSE, x and y are both data
+	#   columns. id.col must
+	# be FALSE only if both data columns are of the same length.
 
-     # adjust.median: Should between-group differences in medians
-     #   be leveled before
-     # performing the test? In certain cases, the Siegel-Tukey
-     #   test is susceptible
-     # to median differences and may indicate significant
-     #   differences in
-     # variability that, in reality, stem from differences in
-     #   medians.
+	# adjust.median: Should between-group differences in medians
+	#   be leveled before
+	# performing the test? In certain cases, the Siegel-Tukey
+	#   test is susceptible
+	# to median differences and may indicate significant
+	#   differences in
+	# variability that, in reality, stem from differences in
+	#   medians.
 
-     # rnd: Should the data be rounded and, if so, to which
-     #   decimal? The default
-     # (-1) uses the data as is. Otherwise, rnd must be a
-     #   non-negative integer.
-     # Typically, this option is not needed. However,
-     #   occasionally, differences in
-     # the precision with which certain functions return values
-     #   cause the merging
-     # of two data frames to fail within the siegel.tukey
-     #   function. Only then
-     # rounding is necessary. This operation should not be
-     #   performed if it affects
-     # the ranks of observations.
+	# rnd: Should the data be rounded and, if so, to which
+	#   decimal? The default
+	# (-1) uses the data as is. Otherwise, rnd must be a
+	#   non-negative integer.
+	# Typically, this option is not needed. However,
+	#   occasionally, differences in
+	# the precision with which certain functions return values
+	#   cause the merging
+	# of two data frames to fail within the siegel.tukey
+	#   function. Only then
+	# rounding is necessary. This operation should not be
+	#   performed if it affects
+	# the ranks of observations.
 
-     # arguments passed on to the Wilcoxon test. See
-     #   ?wilcox.test
+	# arguments passed on to the Wilcoxon test. See
+	#   ?wilcox.test
 
-     # Value: Among other output, the function returns the data,
-     #   the Siegel-Tukey
-     # ranks, the associated Wilcoxon's W and the p-value for a
-     #   Wilcoxon test on
-     # tie-adjusted Siegel-Tukey ranks (i.e., it performs and
-     #   returns a
-     # Siegel-Tukey test). If significant, the group with the
-     #   smaller rank sum has
-     # greater variability.
+	# Value: Among other output, the function returns the data,
+	#   the Siegel-Tukey
+	# ranks, the associated Wilcoxon's W and the p-value for a
+	#   Wilcoxon test on
+	# tie-adjusted Siegel-Tukey ranks (i.e., it performs and
+	#   returns a
+	# Siegel-Tukey test). If significant, the group with the
+	#   smaller rank sum has
+	# greater variability.
 
-     # References: Sidney Siegel and John Wilder Tukey (1960) A
-     #   nonparametric sum
-     # of ranks procedure for relative spread in unpaired
-     #   samples. Journal of the
-     # American Statistical Association. See also, David J.
-     #   Sheskin (2004)
-     # Handbook of parametric and nonparametric statistical
-     #   procedures. 3rd
-     # edition. Chapman and Hall/CRC. Boca Raton, FL.
+	# References: Sidney Siegel and John Wilder Tukey (1960) A
+	#   nonparametric sum
+	# of ranks procedure for relative spread in unpaired
+	#   samples. Journal of the
+	# American Statistical Association. See also, David J.
+	#   Sheskin (2004)
+	# Handbook of parametric and nonparametric statistical
+	#   procedures. 3rd
+	# edition. Chapman and Hall/CRC. Boca Raton, FL.
 
-     # Notes: The Siegel-Tukey test has relatively low power and
-     #   may, under certain
-     # conditions, indicate significance due to differences in
-     #   medians rather than
-     # differences in variabilities (consider using the argument
-     #   adjust.median).
+	# Notes: The Siegel-Tukey test has relatively low power and
+	#   may, under certain
+	# conditions, indicate significance due to differences in
+	#   medians rather than
+	# differences in variabilities (consider using the argument
+	#   adjust.median).
 
-     # Output (in this order)
+	# Output (in this order)
 
-     # 1. Group medians (after median adjustment if specified)
-     # 2. Wilcoxon-test for between-group differences in medians
-     #   (after the median
-     # adjustment if specified)
-     # 3. Data, group membership, and the Siegel-Tukey ranks
-     # 4. Mean Siegel-Tukey rank by group (smaller values indicate
-     #   greater
-     # variability)
-     # 5. Siegel-Tukey test (Wilcoxon test on tie-adjusted
-     #   Siegel-Tukey ranks)
+	# 1. Group medians (after median adjustment if specified)
+	# 2. Wilcoxon-test for between-group differences in medians
+	#   (after the median
+	# adjustment if specified)
+	# 3. Data, group membership, and the Siegel-Tukey ranks
+	# 4. Mean Siegel-Tukey rank by group (smaller values indicate
+	#   greater
+	# variability)
+	# 5. Siegel-Tukey test (Wilcoxon test on tie-adjusted
+	#   Siegel-Tukey ranks)
 
-     is.formula <- function(x) class(x) == "formula"
+	is.formula <- function(x) class(x) == "formula"
 
-     if (is.formula(x)) {
-          y <- do.call(c, list(as.name(all.vars(x)[2])), envir = parent.frame(2))
-          x <- do.call(c, list(as.name(all.vars(x)[1])), envir = parent.frame(2))  # I am using parent.frame(2) since if the name of the variable in the equation is 'x', then we will mistakenly get the function in here instead of the vector.
-          id.col <- TRUE
-          # print(x)
-          # print(ls.str())
-          # data=data.frame(c(x,y),rep(c(0,1),c(length(x),length(y))))
-          # print(data)
-     }
+	if (is.formula(x)) {
+		y <- do.call(c, list(as.name(all.vars(x)[2])), envir = parent.frame(2))
+		x <- do.call(c, list(as.name(all.vars(x)[1])), envir = parent.frame(2))  # I am using parent.frame(2) since if the name of the variable in the equation is 'x', then we will mistakenly get the function in here instead of the vector.
+		id.col <- TRUE
+		# print(x)
+		# print(ls.str())
+		# data=data.frame(c(x,y),rep(c(0,1),c(length(x),length(y))))
+		# print(data)
+	}
 
-     if (id.col == FALSE) {
-          data = data.frame(c(x, y), rep(c(0, 1), c(length(x), length(y))))
-     } else {
-          data = data.frame(x, y)
-     }
-     names(data) = c("x", "y")
-     data = data[order(data$x), ]
-     if (rnd > -1) {
-          data$x = round(data$x, rnd)
-     }
+	if (id.col == FALSE) {
+		data = data.frame(c(x, y), rep(c(0, 1), c(length(x), length(y))))
+	} else {
+		data = data.frame(x, y)
+	}
+	names(data) = c("x", "y")
+	data = data[order(data$x), ]
+	if (rnd > -1) {
+		data$x = round(data$x, rnd)
+	}
 
-     if (adjust.median == T) {
-          cat("\n", "Adjusting medians...", "\n", sep = "")
-          data$x[data$y == 0] = data$x[data$y == 0] - (median(data$x[data$y ==
-                                                                          0]))
-          data$x[data$y == 1] = data$x[data$y == 1] - (median(data$x[data$y ==
-                                                                          1]))
-     }
-     cat("\n", "Median of group 1 = ", median(data$x[data$y == 0]),
-         "\n", sep = "")
-     cat("Median of group 2 = ", median(data$x[data$y == 1]), "\n",
-         "\n", sep = "")
-     cat("Testing median differences...", "\n")
-     print(wilcox.test(data$x[data$y == 0], data$x[data$y == 1]))
+	if (adjust.median == T) {
+		cat("\n", "Adjusting medians...", "\n", sep = "")
+		data$x[data$y == 0] = data$x[data$y == 0] - (median(data$x[data$y ==
+													    	0]))
+		data$x[data$y == 1] = data$x[data$y == 1] - (median(data$x[data$y ==
+													    	1]))
+	}
+	cat("\n", "Median of group 1 = ", median(data$x[data$y == 0]),
+	    "\n", sep = "")
+	cat("Median of group 2 = ", median(data$x[data$y == 1]), "\n",
+	    "\n", sep = "")
+	cat("Testing median differences...", "\n")
+	print(wilcox.test(data$x[data$y == 0], data$x[data$y == 1]))
 
-     # The following must be done for the case when id.col==F
-     x <- data$x
-     y <- data$y
+	# The following must be done for the case when id.col==F
+	x <- data$x
+	y <- data$y
 
-     cat("Performing Siegel-Tukey rank transformation...", "\n",
-         "\n")
-
-
-
-     sort.x <- sort(data$x)
-     sort.id <- data$y[order(data$x)]
-
-     data.matrix <- data.frame(sort.x, sort.id)
-
-     base1 <- c(1, 4)
-     iterator1 <- matrix(seq(from = 1, to = length(x), by = 4)) -
-          1
-     rank1 <- apply(iterator1, 1, function(x) x + base1)
-
-     iterator2 <- matrix(seq(from = 2, to = length(x), by = 4))
-     base2 <- c(0, 1)
-     rank2 <- apply(iterator2, 1, function(x) x + base2)
-
-     #print(rank1)
-     #print(rank2)
-
-     if (length(rank1) == length(rank2)) {
-          rank <- c(rank1[1:floor(length(x)/2)], rev(rank2[1:ceiling(length(x)/2)]))
-     } else {
-          rank <- c(rank1[1:ceiling(length(x)/2)], rev(rank2[1:floor(length(x)/2)]))
-     }
+	cat("Performing Siegel-Tukey rank transformation...", "\n",
+	    "\n")
 
 
-     unique.ranks <- tapply(rank, sort.x, mean)
-     unique.x <- as.numeric(as.character(names(unique.ranks)))
 
-     rank.matrix <- data.frame(unique.x, unique.ranks)
+	sort.x <- sort(data$x)
+	sort.id <- data$y[order(data$x)]
 
-     ST.matrix <- merge(data.matrix, rank.matrix, by.x = "sort.x",
-                        by.y = "unique.x")
+	data.matrix <- data.frame(sort.x, sort.id)
 
-     print(ST.matrix)
+	base1 <- c(1, 4)
+	iterator1 <- matrix(seq(from = 1, to = length(x), by = 4)) -
+		1
+	rank1 <- apply(iterator1, 1, function(x) x + base1)
 
-     cat("\n", "Performing Siegel-Tukey test...", "\n", sep = "")
+	iterator2 <- matrix(seq(from = 2, to = length(x), by = 4))
+	base2 <- c(0, 1)
+	rank2 <- apply(iterator2, 1, function(x) x + base2)
 
-     ranks0 <- ST.matrix$unique.ranks[ST.matrix$sort.id == 0]
-     ranks1 <- ST.matrix$unique.ranks[ST.matrix$sort.id == 1]
+	#print(rank1)
+	#print(rank2)
 
-     cat("\n", "Mean rank of group 0: ", mean(ranks0), "\n", sep = "")
-     cat("Mean rank of group 1: ", mean(ranks1), "\n", sep = "")
+	if (length(rank1) == length(rank2)) {
+		rank <- c(rank1[1:floor(length(x)/2)], rev(rank2[1:ceiling(length(x)/2)]))
+	} else {
+		rank <- c(rank1[1:ceiling(length(x)/2)], rev(rank2[1:floor(length(x)/2)]))
+	}
 
-     print(wilcox.test(ranks0, ranks1, alternative = alternative,
-                       mu = mu, paired = paired, exact = exact, correct = correct,
-                       conf.int = conf.int, conf.level = conf.level))
 
-     return(list(ranks0=ranks0, ranks1=ranks1))
+	unique.ranks <- tapply(rank, sort.x, mean)
+	unique.x <- as.numeric(as.character(names(unique.ranks)))
+
+	rank.matrix <- data.frame(unique.x, unique.ranks)
+
+	ST.matrix <- merge(data.matrix, rank.matrix, by.x = "sort.x",
+				    by.y = "unique.x")
+
+	print(ST.matrix)
+
+	cat("\n", "Performing Siegel-Tukey test...", "\n", sep = "")
+
+	ranks0 <- ST.matrix$unique.ranks[ST.matrix$sort.id == 0]
+	ranks1 <- ST.matrix$unique.ranks[ST.matrix$sort.id == 1]
+
+	cat("\n", "Mean rank of group 0: ", mean(ranks0), "\n", sep = "")
+	cat("Mean rank of group 1: ", mean(ranks1), "\n", sep = "")
+
+	print(wilcox.test(ranks0, ranks1, alternative = alternative,
+				   mu = mu, paired = paired, exact = exact, correct = correct,
+				   conf.int = conf.int, conf.level = conf.level))
+
+	return(list(ranks0=ranks0, ranks1=ranks1))
 }
 
 paperParams <- function(rows, cols, labsize=1)
 {
-     par(mfrow = c(rows,cols))
-     par(lwd = 1, col='black')
-     par(mar = c(3.7,3.7,0.8,0.8)); # beyond plot frame [b,l,t,r]
-     par(mgp = c(2.5,0.8,0)); # placement of axis labels [1], numbers [2] and symbols[3]
-     par(oma = c(0.1,0.1,0.1,0.1)); # cutoff beyond other measures
+	par(mfrow = c(rows,cols))
+	par(lwd = 1, col='black')
+	par(mar = c(3.7,3.7,0.8,0.8)); # beyond plot frame [b,l,t,r]
+	par(mgp = c(2.5,0.8,0)); # placement of axis labels [1], numbers [2] and symbols[3]
+	par(oma = c(0.1,0.1,0.1,0.1)); # cutoff beyond other measures
 
-     par(cex = 1.25)
-     par(cex.lab = labsize) # axislabelsize"
-     par(cex.axis = 0.75)
+	par(cex = 1.25)
+	par(cex.lab = labsize) # axislabelsize"
+	par(cex.axis = 0.75)
 }
 
 paperPlot <- function(xlimit=c(0.01,1), ylimit=c(0.01,1), xlabel='x', ylabel='y', xcol='darkgreen', ycol='darkred', plotaxes=TRUE, log='', xticks=NULL, yticks=NULL, letter='a)')
 {
 
 
-     #     xlimit=c(min(lx),max(lx))
-     #     ylimit=c(min(ly),max(ly))
-     #     xlabel=expression(paste('[Virus] ', alpha, ' (1/h)'))
-     #     ylabel='[Virus] Max Intensity'
-     #     xcol=xcol
-     #     ycol=ycol
-     #     log='y'
-     #     plot(x=c(),y=c(), xlim=xlimit, ylim=ylimit, xlab=xlabel, ylab=ylabel, axes=TRUE, log=log)
-     #
-     plot(c(),c(), xlim=xlimit, ylim=ylimit, xlab='', ylab='', axes=FALSE, log=log)
-     title(ylab=ylabel, col.lab=ycol)
-     title(xlab=xlabel, col.lab=xcol)
-     if(plotaxes)
-     {
+	#     xlimit=c(min(lx),max(lx))
+	#     ylimit=c(min(ly),max(ly))
+	#     xlabel=expression(paste('[Virus] ', alpha, ' (1/h)'))
+	#     ylabel='[Virus] Max Intensity'
+	#     xcol=xcol
+	#     ycol=ycol
+	#     log='y'
+	#     plot(x=c(),y=c(), xlim=xlimit, ylim=ylimit, xlab=xlabel, ylab=ylabel, axes=TRUE, log=log)
+	#
+	plot(c(),c(), xlim=xlimit, ylim=ylimit, xlab='', ylab='', axes=FALSE, log=log)
+	title(ylab=ylabel, col.lab=ycol)
+	title(xlab=xlabel, col.lab=xcol)
+	if(plotaxes)
+	{
 
-          if(is.null(yticks))
-          {
-               axis(2, las=1)
-          }
-          else if(is.character(yticks))
-          {
-               axis(2, las=1, at=as.numeric(yticks), labels=yticks)
-          }
-          else if(is.expression(yticks))
-          {
-               axis(2, las=1, at=unlist(lapply(eval(as.list(yticks)), 'eval')), labels=yticks)
-          }
+		if(is.null(yticks))
+		{
+			axis(2, las=1)
+		}
+		else if(is.character(yticks))
+		{
+			axis(2, las=1, at=as.numeric(yticks), labels=yticks)
+		}
+		else if(is.expression(yticks))
+		{
+			axis(2, las=1, at=unlist(lapply(eval(as.list(yticks)), 'eval')), labels=yticks)
+		}
 
-          if(is.null(xticks))
-          {
-               axis(1, las=1)
-          }
-          else if(is.character(xticks))
-          {
-               axis(1, las=1, at=as.numeric(xticks), labels=xticks)
-          }
-          else if(is.expression(xticks))
-          {
-               axis(1, las=1, at=unlist(lapply(eval(as.list(xticks)), 'eval')), labels=xticks)
-          }
-     }
+		if(is.null(xticks))
+		{
+			axis(1, las=1)
+		}
+		else if(is.character(xticks))
+		{
+			axis(1, las=1, at=as.numeric(xticks), labels=xticks)
+		}
+		else if(is.expression(xticks))
+		{
+			axis(1, las=1, at=unlist(lapply(eval(as.list(xticks)), 'eval')), labels=xticks)
+		}
+	}
 
-     box(col='black',lwd=2)
-     if(letter != '')
-     {
-          mtext(side=3,adj=0,text=paste('(',letter,')',sep=''),padj=1.8, outer=TRUE, cex=1.5)
-     }
+	box(col='black',lwd=2)
+	if(letter != '')
+	{
+		mtext(side=3,adj=0,text=paste('(',letter,')',sep=''),padj=1.8, outer=TRUE, cex=1.5)
+	}
 }
 
 paperHist <- function(letter='a)',histogram, xlabel='bins', ylabel='Density', labsize=1.5, xlim, ylim, xcol='red', bar.col='grey')
 {
-     #     plot(c(), c(), frame.plot=FALSE, xlab=xlabel, ylab='Density', cex.lab=labsize, main=NULL, yaxs='i', ylim=c(0,max(histogram$density)*1.04), xlim=c(min(histogram$breaks), max(histogram$breaks)))
-     #     lines(histogram)
-     par(mar = c(3.7,4,0.8,0.8)); # beyond plot frame [b,l,t,r]
-     myHist(histogram, main=NULL, axes=FALSE, xlab=xlabel, ylab=ylabel, xlim=xlim, ylim=ylim, freq=FALSE, col=bar.col, col.lab=xcol)
-     axis(1,las=1)
-     axis(2,las=1)
-     box(col='black',lwd=2, bty='l')
-     mtext(side=3,adj=0,text=paste('(',letter,')',sep=''),padj=1.8, outer=TRUE, cex=1.3)
+	#     plot(c(), c(), frame.plot=FALSE, xlab=xlabel, ylab='Density', cex.lab=labsize, main=NULL, yaxs='i', ylim=c(0,max(histogram$density)*1.04), xlim=c(min(histogram$breaks), max(histogram$breaks)))
+	#     lines(histogram)
+	par(mar = c(3.7,4,0.8,0.8)); # beyond plot frame [b,l,t,r]
+	myHist(histogram, main=NULL, axes=FALSE, xlab=xlabel, ylab=ylabel, xlim=xlim, ylim=ylim, freq=FALSE, col=bar.col, col.lab=xcol)
+	axis(1,las=1)
+	axis(2,las=1)
+	box(col='black',lwd=2, bty='l')
+	mtext(side=3,adj=0,text=paste('(',letter,')',sep=''),padj=1.8, outer=TRUE, cex=1.3)
 }
 
 myHist <- function (histogram, freq = equidist, density = NULL, angle = 45, col = NULL,
-                    border = par("fg"), lty = NULL, main = paste("Histogram of",
-                                                                 histogram$xname), xlim = range(histogram$breaks), ylim = NULL, xlab = histogram$xname,
-                    ylab, axes = TRUE, labels = FALSE, add = FALSE, width=1.0, offset=(1.0-width)/2, ...)
+				border = par("fg"), lty = NULL, main = paste("Histogram of",
+													histogram$xname), xlim = range(histogram$breaks), ylim = NULL, xlab = histogram$xname,
+				ylab, axes = TRUE, labels = FALSE, add = FALSE, width=1.0, offset=(1.0-width)/2, ...)
 {
-     y <- histogram$counts
-     if(!freq)
-     {
-          y <- histogram$density
-     }
-     nB <- length(histogram$breaks)
-     if (is.null(ylim))
-          ylim <- range(y, 0)
-     if (missing(ylab))
-          ylab <- if (!freq)
-               "Density"
-     else "Frequency"
-     plot.new()
-     plot.window(xlim, ylim, "", xaxs='i', yaxs='i')
-     title(main = main, xlab = xlab, ylab = ylab, ...)
-     if (axes) {
-          axis(1, ...)
-          axis(2, ...)
-     }
+	y <- histogram$counts
+	if(!freq)
+	{
+		y <- histogram$density
+	}
+	nB <- length(histogram$breaks)
+	if (is.null(ylim))
+		ylim <- range(y, 0)
+	if (missing(ylab))
+		ylab <- if (!freq)
+			"Density"
+	else "Frequency"
+	plot.new()
+	plot.window(xlim, ylim, "", xaxs='i', yaxs='i')
+	title(main = main, xlab = xlab, ylab = ylab, ...)
+	if (axes) {
+		axis(1, ...)
+		axis(2, ...)
+	}
 
-     if (width != 1.0 || offset != 0) {
-          # Calculates the width of each bar in the histogram
-          delta.breaks <- histogram$breaks[-1] - histogram$breaks[-nB];
-          x.offset <- offset * delta.breaks;
-          x.width <- width * delta.breaks;
-          x <- histogram$breaks[-nB]+x.offset;
-          rect(x, 0, x+x.width, y, col=col, border=border, angle = angle, density = density, lty=lty);
-     } else {
-          rect(histogram$breaks[-nB], 0, histogram$breaks[-1], y, col = col, border = border,
-               angle = angle, density = density, lty = lty)
-     }
+	if (width != 1.0 || offset != 0) {
+		# Calculates the width of each bar in the histogram
+		delta.breaks <- histogram$breaks[-1] - histogram$breaks[-nB];
+		x.offset <- offset * delta.breaks;
+		x.width <- width * delta.breaks;
+		x <- histogram$breaks[-nB]+x.offset;
+		rect(x, 0, x+x.width, y, col=col, border=border, angle = angle, density = density, lty=lty);
+	} else {
+		rect(histogram$breaks[-nB], 0, histogram$breaks[-1], y, col = col, border = border,
+			angle = angle, density = density, lty = lty)
+	}
 
-     if ((logl <- is.logical(labels) && labels) || is.character(labels))
-          text(histogram$mids, y, labels = if (logl) {
-               if (freq)
-                    histogram$counts
-               else round(histogram$density, 3)
-          }
-          else labels, adj = c(0.5, -0.5))
-     invisible()
+	if ((logl <- is.logical(labels) && labels) || is.character(labels))
+		text(histogram$mids, y, labels = if (logl) {
+			if (freq)
+				histogram$counts
+			else round(histogram$density, 3)
+		}
+		else labels, adj = c(0.5, -0.5))
+	invisible()
 }
 
 getDensityColors <- function(x, y)
 {
-     #     library(hexbin)
-     xunique <- unique(x)
-     yunique <- unique(y)
-     xync <- data.frame(x=c(), y=c(), n=c(), c=c())
-     for(xu in xunique)
-     {
-          for(yu in yunique)
-          {
-               i <- sum(x==xu & y==yu)
-               xync <- rbind(xync, data.frame(x=xu, y=yu, n=i))
-          }
-     }
-     xync <- subset(xync, n > 0)
-     theColors <- rev(rainbow(max(xync$n), end=0.6))
-     xync$c <- theColors[xync$n]
-     return(list(colors=theColors, data=xync))
+	#     library(hexbin)
+	xunique <- unique(x)
+	yunique <- unique(y)
+	xync <- data.frame(x=c(), y=c(), n=c(), c=c())
+	for(xu in xunique)
+	{
+		for(yu in yunique)
+		{
+			i <- sum(x==xu & y==yu)
+			xync <- rbind(xync, data.frame(x=xu, y=yu, n=i))
+		}
+	}
+	xync <- subset(xync, n > 0)
+	theColors <- rev(rainbow(max(xync$n), end=0.6))
+	xync$c <- theColors[xync$n]
+	return(list(colors=theColors, data=xync))
 }
 
 multi.mixedorder <- function(..., na.last = TRUE, decreasing = FALSE){
-     # For example...
-     # data <- data[with(data, multi.mixedorder(Day, Conc, Sample.ID, relTimeStamp)), ]
+	# For example...
+	# data <- data[with(data, multi.mixedorder(Day, Conc, Sample.ID, relTimeStamp)), ]
 	library(gtools)
-     do.call(order, c(
-          lapply(list(...), function(l){
-               if(is.character(l)){
-                    factor(l, levels=mixedsort(unique(l)))
-               } else {
-                    l
-               }
-          }),
-          list(na.last = na.last, decreasing = decreasing)
-     ))
+	do.call(order, c(
+		lapply(list(...), function(l){
+			if(is.character(l)){
+				factor(l, levels=mixedsort(unique(l)))
+			} else {
+				l
+			}
+		}),
+		list(na.last = na.last, decreasing = decreasing)
+	))
 }
 
 merge.lists <- function(list1, list2)
 {
-     for(name in names(list2))
-     {
-          list1[[name]] <- list2[[name]]
-     }
-     return(list1)
+	for(name in names(list2))
+	{
+		list1[[name]] <- list2[[name]]
+	}
+	return(list1)
 }
 
 source_https <- function(url, ...)
 {
-     # load package
-     require(RCurl)
+	# load package
+	require(RCurl)
 
-     # parse and evaluate each .R script
-     sapply(c(url, ...), function(u)
-     {
-          eval(parse(text = getURL(u, followlocation = TRUE, cainfo = system.file("CurlSSL", "cacert.pem", package = "RCurl"))), envir = .GlobalEnv)
-     })
+	# parse and evaluate each .R script
+	sapply(c(url, ...), function(u)
+	{
+		eval(parse(text = getURL(u, followlocation = TRUE, cainfo = system.file("CurlSSL", "cacert.pem", package = "RCurl"))), envir = .GlobalEnv)
+	})
 }
 
 sourceGitHubFile <- function(user, repo, branch, file)
 {
-     require(curl)
-     destfile <- tempfile()
-     fileToGet <- paste0("https://raw.githubusercontent.com/", user, "/", repo, "/", branch, "/", file)
-     curl_download(url=fileToGet, destfile)
-     source(destfile)
+	require(curl)
+	destfile <- tempfile()
+	fileToGet <- paste0("https://raw.githubusercontent.com/", user, "/", repo, "/", branch, "/", file)
+	curl_download(url=fileToGet, destfile)
+	source(destfile)
 }
 
 lseq <- function(from, to, length.out)
 {
-     exp(seq(log(from), log(to), length.out = length.out))
+	exp(seq(log(from), log(to), length.out = length.out))
 }
 
 jplot <- function(x, y, text=c())
 {
-     xlab <- list(title = deparse(substitute(x)))
-     ylab <- list(title = deparse(substitute(y)))
-     plot_ly(mode='markers', x=x, y=y, text=text) %>%
-          layout(xaxis = xlab, yaxis = ylab)
+	xlab <- list(title = deparse(substitute(x)))
+	ylab <- list(title = deparse(substitute(y)))
+	plot_ly(mode='markers', x=x, y=y, text=text) %>%
+		layout(xaxis = xlab, yaxis = ylab)
 }
 
 ##### Logicle Plotting #####
@@ -2097,7 +2200,7 @@ getLogParam <- function(logX, logY)
 ##### Loren's brief additions #####
 se <- function(x)
 {
-     sd(x)/sqrt(length(x))
+	sd(x)/sqrt(length(x))
 }
 
 # Be sure to have a trailing line or carriage return after last closing bracket.
