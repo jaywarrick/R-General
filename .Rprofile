@@ -825,9 +825,12 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		stop(paste0('The xcol provided (', xcol, ') does not exist in the data table. Aborting.'))
 	}
-	if(!(ycol %in% names(data)))
+	if(type[1] %in% c('l','p'))
 	{
-		stop(paste0('The ycol provided (', ycol, ') does not exist in the data table. Aborting.'))
+		if(!(ycol %in% names(data)))
+		{
+			stop(paste0('The ycol provided (', ycol, ') does not exist in the data table. Aborting.'))
+		}
 	}
 	# Create a temporary gating column if necessary
 	hasGatedCol <- !is.null(data[['gated']])
