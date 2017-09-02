@@ -2,7 +2,7 @@
 'Change these in the file ~/.Rprofile'
 
 # Store default par settings for recalling later if needed.
-.pardefault <- par(no.readonly = T)
+# .pardefault <- par(no.readonly = T)
 
 #' repmat
 #'
