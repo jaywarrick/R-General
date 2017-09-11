@@ -2697,6 +2697,17 @@ se <- function(x)
 	sd(x)/sqrt(length(x))
 }
 
+##### Similarity #####
+sim.transform <- function(x)
+{
+	return( log( (1 + x) / (1 - x) ) )
+}
+
+sim.untransform <- function(x)
+{
+	return( (exp(x) - 1) / (exp(x) + 1) )
+}
+
 # Be sure to have a trailing line or carriage return after last closing bracket.
 #
 # unlogicle <- function(x, transition=1, tickSep=100)
