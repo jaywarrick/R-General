@@ -2547,7 +2547,7 @@ plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.ar
 
 getPercentileLimits <- function(x, lower, upper)
 {
-	temp <- as.numeric(quantile(x, c(lower, upper)))
+	temp <- as.numeric(quantile(x, c(lower, upper), na.rm=T))
 	return(c(temp[1], temp[2]))
 }
 
