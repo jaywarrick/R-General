@@ -815,7 +815,7 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NULL, alpha.rank=T, alpha=0.5, by=NULL, plot.by=NULL,
 						  gates=list(),
 						  log='', logicle.params=NULL, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','l','d','h'),
-						  density.args=NULL, percentile.limits=c(0,1),
+						  density.args=NULL, breaks=100, percentile.limits=c(0,1),
 						  h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2,
 						  legend=T, legend.pos='topright', legend.cex=0.5,
 						  save.file=NULL, save.width=5, save.height=4,
@@ -906,14 +906,8 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 		}
 		else
 		{
-			if(type=='h')
-			{
-				ylab='Counts'
-			}
-			else
-			{
-				ylab='Prob. Density'
-			}
+			# This should work if the 'freq' parameter in the call to hist is left null (i.e., not TRUE)
+			ylab='Prob. Density'
 		}
 	}
 	
@@ -923,22 +917,22 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	
@@ -951,7 +945,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
 {
 	# We have to have ylim as an arg so that we can override the NULL default from data.table.plot.all instead of it being hidden in the elipses
 	
@@ -1083,15 +1077,28 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.ou
 			xlim <- getPercentileLimits(data[[xcol]], percentile.limits[1], percentile.limits[2])
 		}
 		
+		# Set the histogram binning (may or may not be used)
+		breaks <- c(-Inf, seq(xlim[1], xlim[2], length.out=breaks+1), Inf)
+		
 		# ylim will either be null or defined here. Override if null setting to max of all plots.
 		if(is.null(ylim))
 		{
-			ylims <- data[gated==T, list(grp=.GRP, maxY=max(data.table.hist(x=get(xcol), log=log, logicle.params=logicle.params, density.args=density.args, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
-			data[gated==T, max(data.table.hist(x=get(xcol), log=log, logicle.params=logicle.params, density.args=density.args, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(0,max(ylims[['maxY']])), xaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			suppressWarnings(
+				if(type[1] == 'h')
+				{
+					ylims <- data[gated==T, list(grp=.GRP, maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
+				}
+				else
+				{
+					ylims <- data[gated==T, list(grp=.GRP, maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
+				}
+			)
+			# Function needs to return a single value so we arbitraritly use 'max' of the 'y'
+			data[gated==T, max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(0,max(ylims[['maxY']])), xaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		else
 		{
-			data[gated==T, data.table.hist(x=get(xcol), log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, density.args=density.args, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=F, ...), by=by]
+			data[gated==T, data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=F, ...), by=by]
 		}
 		
 		if(log==T)
@@ -2449,7 +2456,7 @@ getLogParam <- function(logX, logY)
 #' Note that you can add params such as mgp (default c(3,1,0)) to move axis labels out (increase 3)
 #' Note that you can rotate labels 90
 #' Note, you can plot just the center 'x' percentile of data (e.g., the middle 90 percent setting the limits to the top and bottom 5 percent)
-plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.args=NULL, add=F, border='black', col='gray', mar=c(5.1,5.1,4.1,2.1), mgp=c(4,1,0), las=1, silent=F, ...)
+plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=c(5.1,5.1,4.1,2.1), mgp=c(4,1,0), las=1, silent=F, ...)
 {
 	default.mar <- par('mar')
 	default.mgp <- par('mgp')
@@ -2479,15 +2486,16 @@ plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.ar
 	{
 		if(is.null(plot.params))
 		{
-			ret <- hist(x, add=add, xaxt='n', ...)
+			ret <- hist(x, add=add, xaxt='n', col=col, plot=!silent, breaks=breaks, ...)
 		}
 		else
 		{
-			plot.params <- merge.lists(plot.params, list(x=x, add=add, xaxt='n'))
+			plot.params <- merge.lists(plot.params, list(x=x, add=add, xaxt='n', col=col, plot=!silent, breaks=breaks))
 			ret <- do.call(hist, plot.params)
 		}
 		ret$x <- ret$mids
-		ret$y <- ret$counts
+		ret$y <- ret$density
+		print(ret$y)
 	}
 	else
 	{
