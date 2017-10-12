@@ -2755,6 +2755,8 @@ sim.untransform <- function(x)
 	return( (exp(x) - 1) / (exp(x) + 1) )
 }
 
+logitTransform <- function(p) { log(p/(1-p)) }
+
 # Be sure to have a trailing line or carriage return after last closing bracket.
 #
 # unlogicle <- function(x, transition=1, tickSep=100)
