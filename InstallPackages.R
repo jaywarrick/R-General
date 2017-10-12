@@ -1,3 +1,8 @@
+install.packages("party")
+install.packages("rpart")
+install.packages("randomForest")
+install.pacakges("e1071")
+
 install.packages('Matrix')
 install.packages('matrixStats')
 install.packages('corrgram')
