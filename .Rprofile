@@ -2744,6 +2744,13 @@ se <- function(x)
 	sd(x)/sqrt(length(x))
 }
 
+##### JEX IO #####
+
+getTableAsSVString <- function(x)
+{
+	paste(x[, do.call(paste, c(.SD, sep = ',')), .SDcols = names(duh)], collapse=';')
+}
+
 ##### Similarity #####
 sim.transform <- function(x)
 {
