@@ -1,6 +1,11 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+##### NOTES: #####
+
+# This works to keep certain columns along with new calcs
+# duh[MaskChannel < 3, append(mget(blah), list(v1=v1, v2=v1*2)), by='MaskChannel']
+
 # Store default par settings for recalling later if needed.
 # .pardefault <- par(no.readonly = T)
 
