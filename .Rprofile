@@ -44,6 +44,37 @@ repmat <- function(x, m, n, loopRows=T, loopCols=T)
 	}
 }
 
+apply2D <- function(x, col.fun=NULL, by=NULL, row.fun=NULL, ..., mCols=NULL, mColsContaining=NULL, mColFilter=NULL)
+{
+     if(is.null(mCols))
+     {
+          if(!is.null(mColsContaining))
+          {
+               mCols <- getColNamesContaining(x, mColsContaining)
+          }
+          else if(!is.null(mColFilter))
+          {
+               mCols <- as.logical(lapply(x, mColFilter))
+               mCols <- names(x)[mCols]
+          }
+          else
+          {
+               mCols <- names(x)
+          }
+     }
+     
+     if(!is.null(col.fun))
+     {
+          x <- x[, lapply(.SD, col.fun), by=by]
+     }
+     
+     if(!is.null(row.fun))
+     {
+          ret <- x[, apply(.SD, 1, row.fun), .SDcols=mCols]
+     }
+     return(ret)
+}
+
 #' Apply a function to a subset of columns in a data.table
 #'
 #' This function applyes another function to a subset of the columns
