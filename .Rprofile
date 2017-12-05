@@ -348,10 +348,103 @@ t.test2 <- function(m1,s1,n1,m2,s2,n2,m0=0,equal.variance=FALSE)
 	return(dat)
 }
 
+assignToClustersXY <- function(xData, yData, xClusters=2, yClusters=xClusters, rndSeed=1234)
+{
+     clusterX <- assignToClusters(xData, nClusters=xClusters, rndSeed=rndSeed)
+     clusterY <- assignToClusters(yData, nClusters=yClusters, rndSeed=rndSeed)
+     newClusters <- paste(clusterX$data$Cluster.Clean, '.', clusterY$data$Cluster.Clean)
+     uniqueNewClusters <- sort(unique(newClusters))
+     newClusters <- match(newClusters,uniqueNewClusters)
+     return(list(clusters=newClusters, threshX=clusterX$thresh[[1]], threshY=clusterY$thresh[[1]]))
+}
+
+setClustersXY <- function(x, xcol, ycol, threshX, threshY, clusterCol='cluster')
+{
+     x[, cluster:=1]
+     x[get(ycol) > threshX & get(xcol) <= threshX, cluster:=2]
+     x[get(ycol) <= threshX & get(xcol) > threshX, cluster:=3]
+     x[get(ycol) > threshX & get(xcol) > threshX, cluster:=4]
+}
+
+assignToClustersN <- function(data, nClusters=2, rndSeed=1234, clusterCol='cluster')
+{
+     library(EMCluster)
+     set.seed(rndSeed)
+     
+     if(ncol(data)==1)
+     {
+          return(assignToClusters(data, nClusters=nClusters, rndSeed=rndSeed))
+     }
+     
+     # Overall approach is to cluster rows with complete data,
+     # then get the thresholds between groups
+     # Determine which rows have NA values
+     yo <- data[numColsTrue(data, test=function(x){!is.finite(x)})==0]
+     x <- as.matrix(yo)
+     
+     # Get basic cluster results (results are potentially out of order)
+     emobj <- simple.init(x, nclass = nClusters)
+     control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
+                           fixed.iter = 1, n.candidate = 3,
+                           EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+     ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
+     
+     data[, c(clusterCol):= assign.class(as.matrix(data), ret, return.all = FALSE)$class]
+     
+     return(ret)
+     
+     # # Create a data.frame to return
+     # temp <- data.frame(x=x$x, Cluster.Raw=as.numeric(as.character(ret$class)))
+     # tempMu <- data.frame(mu=as.vector(ret$Mu), Cluster.Raw=1:nrow(ret$Mu))
+     # 
+     # # Order the mu table so we can go through sequentially and rename the clusters in ascending order
+     # tempMu <- tempMu[order(tempMu$mu),]
+     # 
+     # # Create two copies so that you can use one as an original and another as an edited version
+     # # Originals will be without the '2' while news will be with the '2'
+     # temp2 <- temp
+     # tempMu2 <- tempMu
+     # for(i in 1:nrow(tempMu))
+     # {
+     #      # Go through mu's in ascending order and assign the ascending order class
+     #      temp2[temp$Cluster.Raw==tempMu$Cluster.Raw[i],'Cluster.Raw'] <- i
+     #      # Also rename the clusters in the duplicate mu table
+     #      tempMu2$Cluster.Raw[i] <- i
+     # }
+     # 
+     # duh <- max(temp2$Cluster.Raw)[1]
+     # temp2$Cluster.Clean <- duh
+     # 
+     # thresh <- list()
+     # # Go in reverse order from the max cluster number down to 1
+     # for(i in nrow(tempMu2):2)
+     # {
+     #      # Find the value that discriminates between each pair of clusters
+     #      tempThresh <- max(temp2[temp2$Cluster.Raw == i-1 & temp2$x < tempMu2$mu[i],'x'])
+     #      if(!length(tempThresh)==0 && !is.infinite(tempThresh[1]))
+     #      {
+     #           # Then we found a threshold
+     #           thresh[[i-1]] <- tempThresh[1]
+     #           # Assign everything below that threshold to the next lowest cluster
+     #           temp2$Cluster.Clean[temp2$x <= tempThresh[1]] <- i-1
+     #      }
+     # }
+     # 
+     # pi <- c()
+     # n <- nrow(temp2)
+     # for(i in 1:max(temp2$Cluster.Clean))
+     # {
+     #      pi <- c(pi, sum(temp2$Cluster.Clean == i)/n)
+     # }
+     # 
+     # return(list(data=temp2, mu=tempMu2$mu, thresh=thresh, emclusterObj=ret, pi=pi))
+}
+
 assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 {
 	library(EMCluster)
 	set.seed(rndSeed)
+	
 	yo <- data[!is.na(data)]
 	x <- data.frame(x=yo)
 
@@ -442,6 +535,9 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 			 legend=TRUE, legend.border=F, args.legend=list(),
 			 mar=c(4.5,4.5,2,2), ...)
 {
+     # Save default margins
+     default.mar <- par('mar')
+     
 	# Detect whether or not upper and lower error bars will be plotted
 	has.upper <- FALSE
 	if(!is.null(error.upper.column) && error.upper.column %in% names(dt))
@@ -513,6 +609,10 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 		{
 			subDT <- dt[, mget(c(color.column, y.column, error.lower.column))]
 		}
+	     else
+	     {
+	          subDT <- dt[, mget(c(color.column, y.column, error.upper.column, error.lower.column))]
+	     }
 		mat <- y
 		color.names <- dt[[color.column]]
 	}
@@ -670,6 +770,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 
 	# If a plot border is desired, draw it
 	if(plot.border) box()
+	par(mar=default.mar)
 }
 
 plotPolygon <- function(x, y, ...)
@@ -677,6 +778,12 @@ plotPolygon <- function(x, y, ...)
 	xx <- c(x, rev(x))
 	yy <- c(rep(0, length(x)), rev(y))
 	polygon(xx, yy, ...)
+}
+
+plotClustersN <- function(xdata, ydata, clusterNums, alpha=0.3, pch=20, ...)
+{
+     my.colors <- setColor(loopingPalette(clusterNums), alpha=alpha)
+     plot(xdata, ydata, col=my.colors, pch=pch, ...)
 }
 
 # Plot results of clustering. 'data' is the vector of data that was clustered. 'cluster' is the
@@ -983,6 +1090,8 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 
 plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
 {
+     logicle.params <- fillDefaultLogicleParams(x=xcol, y=ycol, logicle.params=logicle.params)
+     
 	# We have to have ylim as an arg so that we can override the NULL default from data.table.plot.all instead of it being hidden in the elipses
 
 	calcNumToSample <- function(counts, sample.size, grpNum)
@@ -1011,7 +1120,18 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.ou
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
 		if(!is.null(by))
 		{
-			legend(legend.pos, legend=legend.colors$grp, col=legend.colors$my.color, lty=1, cex=legend.cex)
+		     temp <- list(...)
+		     lwd=1
+		     lty=1
+		     if(!is.null(temp$lwd))
+		     {
+		          lwd=temp$lwd
+		     }
+		     if(!is.null(temp$tly))
+		     {
+		          lty=temp$lty
+		     }
+			legend(legend.pos, legend=legend.colors$grp, col=legend.colors$my.color, lty=lty, cex=legend.cex, lwd=lwd)
 		}
 	}
 	else if(type[1] == 'p')
@@ -1166,11 +1286,11 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.ou
 			{
 				if(grepl('x',log,fixed=T))
 				{
-					polygon$x <- logicle(polygon$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
+					polygon$x <- logicle(polygon$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF)
 				}
 				if(grepl('y',log,fixed=T))
 				{
-					polygon$y <- logicle(polygon$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base)
+					polygon$y <- logicle(polygon$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF)
 				}
 			}
 			plot(polygon, lwd=2, border='red', add=T)
@@ -1552,6 +1672,12 @@ st <- function(...)
 #'
 #' This function can be applied to data.frame objects or data.table objects. It
 #' returns the same type as given.
+#' 
+#' NOTE: If you want supply an alternative aggregation function, due to intracacies of the dcast
+#' implementation, you need to define a function and call it by the name 'agg'. This
+#' function tests to see if it is supplied and calls it as fun.aggregate argument.
+#' Otherwise, it just calls the function which uses the default fun.aggregate=length.
+#' If you use agg, you can use rm(agg) to reset it to the default if desired.
 #'
 #' @param data A data.table or data.frame
 #' @param idCols A character vector of id column names (e.g., 'Id')
@@ -1588,7 +1714,30 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 
 	formula <- as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+')))
 	print(formula)
-	data <- as.data.table(dcast(data, as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+'))), value.var = valueCols, ...))
+	if(exists('agg'))
+	{
+	     data <- as.data.table(dcast(data, formula, value.var = valueCols, fun=agg, ...))
+	}
+	else
+	{
+	     args <- list(...)
+	     if(!is.null(args$fun))
+	     {
+	          args$fun <- NULL
+	          warning("An aggregation function can't be supplied to this function in the normal way
+                         Instead, you must define a function called 'agg' in the parent environment
+	                    then call this function. The function will find that 'agg' exists and supply
+	                    it as the fun.aggregate argument. This is a workaround for an intracacy of
+	                    the dcast function. Using default fun.aggregate=length instead.")
+	          args <- c(list(data=data, formula=formula, value.var=valueCols), args)
+	          data <- as.data.table(do.call(dcast, args))
+	     }
+	     else
+	     {
+	          data <- as.data.table(dcast(data, formula, value.var = valueCols, ...))
+	     }
+	}
+	
 	if(isDataTable)
 	{
 		return(data)
@@ -2107,9 +2256,24 @@ jplot <- function(x, y, text=c())
 }
 
 ##### Logicle Plotting #####
-
-get.logicle <- function(x, y, log, logicle.params)
+calcTransition <- function(x, minN=20)
 {
+     negNums <- c(x[x<0],-1*x[x<=0])
+     if(length(negNums[is.finite(negNums)]) < minN)
+     {
+          # Then insufficient n to guess the 'zero' distribution
+          # This will suggest using normal log scaling instead of logicle
+          return(NULL)
+     }
+     else
+     {
+          return(3*mad(negNums, na.rm=T))
+     }
+}
+
+get.logicle <- function(x, y, log, logicle.params, neg.rmF)
+{
+     logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
 
@@ -2117,7 +2281,7 @@ get.logicle <- function(x, y, log, logicle.params)
 	{
 		if(logX)
 		{
-			x1 <- logicle(x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
+			x1 <- logicle(x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=neg.rm)
 		}
 		else
 		{
@@ -2126,7 +2290,7 @@ get.logicle <- function(x, y, log, logicle.params)
 
 		if(logY)
 		{
-			y1 <- logicle(y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base)
+			y1 <- logicle(y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=neg.rm)
 		}
 		else
 		{
@@ -2174,6 +2338,8 @@ get.logicle <- function(x, y, log, logicle.params)
 
 start.logicle <- function(x, y, log='xy', logicle.params, ...)
 {
+     logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
+     
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
 
@@ -2185,7 +2351,7 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 	if(is.null(xlim))
 	{
 		# Then xlim is not provided and we should calculate based on the data from 'get.logicle'
-		xlim <- range(x1, na.rm=T)
+		xlim <- range(x1[is.finite(x1)], na.rm=T)
 	}
 	else
 	{
@@ -2195,7 +2361,7 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 			if(logX)
 			{
 				# Then scale the limits
-				xlim <- range(logicle(x=xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base))
+				xlim <- range(logicle(x=xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF))
 			}
 			# Otherwise, don't do anything
 		}
@@ -2215,7 +2381,7 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 	if(is.null(ylim))
 	{
 		# Then ylim is not provided and we should calculate based on the data from 'get.logicle'
-		ylim <- range(y1, na.rm=T)
+		ylim <- range(y1[is.finite(y1)], na.rm=T)
 	}
 	else
 	{
@@ -2225,7 +2391,7 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 			if(logY)
 			{
 				# Then scale the limits
-				ylim <- range(logicle(x=ylim, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base))
+				ylim <- range(logicle(x=ylim, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF))
 			}
 			# Otherwise, don't do anything
 		}
@@ -2249,6 +2415,7 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 
 finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd)
 {
+     logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	# Determine which axes to transform
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
@@ -2284,7 +2451,7 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 	{
 		if(logY & !is.null(logicle.params))
 		{
-			abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base), col=h.col, lty=h.lty, lwd=h.lwd)
+			abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF), col=h.col, lty=h.lty, lwd=h.lwd)
 		}
 		else
 		{
@@ -2295,7 +2462,7 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 	{
 		if(logX & !is.null(logicle.params))
 		{
-			abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base), col=v.col, lty=v.lty, lwd=v.lwd)
+			abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF), col=v.col, lty=v.lty, lwd=v.lwd)
 		}
 		else
 		{
@@ -2304,8 +2471,47 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 	}
 }
 
+getPrettyNum <- function(x, sigFigs=3)
+{
+     return(formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = T))
+}
+
+fillDefaultLogicleParams <- function(x, y, logicle.params)
+{
+     if(is.null(logicle.params))
+     {
+          return(NULL)
+     }
+     if(is.null(y))
+     {
+          # Then just get params for x
+          transition <- logicle.params$transition
+          if(is.null(transition))
+          {
+               logicle.params$transition <- calcTransition(x)
+          }
+     }
+     else
+     {
+          # Then get params for x
+          transition <- logicle.params$transX
+          if(is.null(transition))
+          {
+               logicle.params$transX <- calcTransition(x)
+          }
+          # Then get params for x
+          transition <- logicle.params$transY
+          if(is.null(transition))
+          {
+               logicle.params$transY <- calcTransition(y)
+          }
+     }
+     return(logicle.params)
+}
+
 plot.logicle <- function(x, y, type='p', log='', logicle.params=NULL, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, add=F, randomize=T, ...)
 {
+     logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	if(!add)
 	{
 		l(x1, y1) %=% start.logicle(x=x, y=y, log=log, logicle.params=logicle.params, ...)
@@ -2314,7 +2520,7 @@ plot.logicle <- function(x, y, type='p', log='', logicle.params=NULL, h=NULL, h.
 	{
 		if(grepl('x',log,fixed=T) & !is.null(logicle.params))
 		{
-			x1 <- logicle(x=x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
+			x1 <- logicle(x=x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF)
 		}
 		else
 		{
@@ -2322,7 +2528,7 @@ plot.logicle <- function(x, y, type='p', log='', logicle.params=NULL, h=NULL, h.
 		}
 		if(grepl('y',log,fixed=T) & !is.null(logicle.params))
 		{
-			y1 <- logicle(x=y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base)
+			y1 <- logicle(x=y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF)
 		}
 		else
 		{
@@ -2368,141 +2574,345 @@ unlogicle <- function(x, transition=NULL, tickSep=NULL, base=NULL)
 	}
 }
 
-logicle <- function(x, transition=NULL, tickSep=NULL, base=NULL)
+unlogicle <- function(x, transition=NULL, base=NULL, tickSep=NULL)
 {
-	if(is.null(base))
-	{
-		base <- 10
-	}
-	if(is.null(transition) & is.null(tickSep))
-	{
-		ret <- log(x[x > 0], base=base)
-		if(length(ret) < length(x))
-		{
-			warning('Values below zero were removed for performing log transformation.')
-		}
-		return(ret)
-	}
-	if(transition <= 0)
-	{
-		warning('Transition must be greater than 0. Setting to 1.')
-		transition <- 1
-	}
-	# Just do it for the right indicies
-	valsToAdjust <- (x > transition) & !is.na(x)
-	x[valsToAdjust] <- transition + log(x[valsToAdjust]/transition, base=base)*tickSep
-	return(x)
+     if(is.null(base))
+     {
+          base <- 10
+     }
+     if(is.null(tickSep))
+     {
+          tickSep <- transition*log(base)
+     }
+     valsAbove <- (x > transition/tickSep) & !is.na(x)
+     valsBelow <- (x <= transition/tickSep) & !is.na(x)
+     if(is.null(transition))
+     {
+          return(base^x)
+     }
+     else
+     {
+          if(transition <= 0)
+          {
+               warning('Transition must be greater than 0. Setting to 1.')
+               transition <- 1
+          }
+          x[valsAbove] <- base^{x[valsAbove] - (transition/tickSep - log(transition, base=base))}
+          x[valsBelow] <- x[valsBelow]*tickSep
+          return(x)
+     }
 }
 
-drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks=9)
+# logicle <- function(x, transition=NULL, tickSep=NULL, base=NULL)
+# {
+# 	if(is.null(base))
+# 	{
+# 		base <- 10
+# 	}
+# 	if(is.null(transition) & is.null(tickSep))
+# 	{
+# 		ret <- log(x[x > 0], base=base)
+# 		if(length(ret) < length(x))
+# 		{
+# 			warning('Values below zero were removed for performing log transformation.')
+# 		}
+# 		return(ret)
+# 	}
+# 	if(transition <= 0)
+# 	{
+# 		warning('Transition must be greater than 0. Setting to 1.')
+# 		transition <- 1
+# 	}
+# 	# Just do it for the right indicies
+# 	valsToAdjust <- (x > transition) & !is.na(x)
+# 	x[valsToAdjust] <- transition + log(x[valsToAdjust]/transition, base=base)*tickSep
+# 	return(x)
+# }
+
+logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=NULL, neg.rm=T)
 {
-	if(axisNum==1)
-	{
-		axis.limits <- pretty(par('usr')[1:2])
-	}
-	else
-	{
-		axis.limits <- pretty(par('usr')[3:4])
-	}
-	linSidePrettyNums <- unlogicle(axis.limits, transition=transition, tickSep=tickSep, base=base)
-	linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums >= min(axis.limits) & linSidePrettyNums <= max(axis.limits) ]
-
-	if(is.null(base))
-	{
-		base <- 10
-	}
-
-	# These are the true values of the log scale ticks proposed above
-	# Thus they exist for x > 0
-	logSideNums <- base^c(-100:100)
-	tick.distances <- (logSideNums[2:length(logSideNums)] - logSideNums[1:(length(logSideNums)-1)])/(n.minor.ticks + 1)
-	minor.ticks <- c()
-	for(i in 1:(length(logSideNums)-1))
-	{
-		temp <- (1:n.minor.ticks)*tick.distances[i] + logSideNums[i]
-		minor.ticks <- c(minor.ticks, temp)
-	}
-
-	# # logSideNumTicks <- base^c((-100:100)/)
-	# n <- n.minor.ticks+2
-	# minors <- log(pretty(10^logSideNums[1:2],n), base=base)-logSideNums[1]
-	# minors <- minors[-c(1,n)]
-	# minor.ticks = c(outer(minors,logSideNums,`+`))
-	# minor.ticks <- minor.ticks[minor.ticks > min(axis.limits) & minor.ticks < max(axis.limits)]
-
-	if(is.null(transition))
-	{
-		# Then treat as a regular log-scale where there are no negative values and
-		# everything should have log-scale ticks.
-		if(base == exp(1))
-		{
-			logSidePrettyLabels <- parse(text=paste("e^", log(logSideNums, base=base), sep=""))
-		}
-		else
-		{
-			logSidePrettyLabels <- parse(text=paste(base, "^", log(logSideNums, base=base), sep=""))
-		}
-		prettyLabels <- logSidePrettyLabels
-		prettyNums <- logSideNums
-	}
-	else
-	{
-		if(transition <= 0)
-		{
-			warning('Transition must be greater than 0. Setting to 1.')
-			transition <- 1
-		}
-
-		# Some tick labels should be on linear scale and others on log-scale.
-		if(base == exp(1))
-		{
-			logSidePrettyLabels <- parse(text=paste("e^", log(logSideNums, base=base), sep=""))
-		}
-		else
-		{
-			logSidePrettyLabels <- parse(text=paste(base, "^", log(logSideNums, base=base), sep=""))
-		}
-
-		# Truncate list of log side nums
-		logSidePrettyLables <- logSidePrettyLabels[logSideNums > transition]
-		logSideNums <- logSideNums[logSideNums > transition]
-		minor.ticks <- minor.ticks[minor.ticks > transition]
-
-		# Truncate and fix list of lin side nums
-		linSidePrettyNums <- c(linSidePrettyNums, transition) # Add the transition point to the list
-		linSidePrettyNums <- linSidePrettyNums[order(linSidePrettyNums)]
-		linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums <= transition]
-		linSidePrettyLabels <- as.character(linSidePrettyNums)
-
-		# Aggregate list of nums
-		prettyNums <- c(linSidePrettyNums, logSideNums)
-		prettyLabels <- c(linSidePrettyLabels, logSidePrettyLables)
-
-		# Add the transition point so it is clear where this is
-		if(axisNum == 1)
-		{
-			abline(v=transition, lty=2, col=rgb(0,0,0,0.6))
-		}
-		if(axisNum == 2)
-		{
-			abline(h=transition, lty=2, col=rgb(0,0,0,0.6))
-		}
-	}
-
-	ticks <- logicle(x=prettyNums, transition=transition, tickSep=tickSep, base=base)
-	minor.ticks <- logicle(x=minor.ticks, transition=transition, tickSep=tickSep, base=base)
-
-	if(axisNum == 2)
-	{
-		axis(axisNum, at=ticks, labels=prettyLabels, las=2)
-		axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
-	}
-	else
-	{
-		axis(axisNum, at=ticks, labels=prettyLabels)
-		axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
-	}
+     logicle.params <- fillDefaultLogicleParams(x=x, y=NULL, logicle.params=logicle.params)
+     if(!is.null(logicle.params))
+     {
+          if(!is.null(logicle.params$transition))
+          {
+               transition <- logicle.params$transition
+          }
+          if(!is.null(logicle.params$base))
+          {
+               base <- logicle.paramsbase
+          }
+          if(!is.null(logicle.params$tickSep))
+          {
+               tickSep <- logicle.params$tickSep
+          }
+     }
+     if(is.null(base))
+     {
+          base <- 10
+     }
+     if(is.null(tickSep))
+     {
+          tickSep <- transition*log(base)
+     }
+     if(is.null(transition))
+     {
+          if(neg.rm)
+          {
+               ret <- log(x[x > 0], base=base) # Note that here, NA's will evaluate to true and be passed along (this would not be case if testing for x < 0)
+          }
+          else
+          {
+               ret <- rep(NA, length(x))
+               ret[!is.na(x) & x > 0] <- log(x[!is.na(x) & x > 0], base=base)
+          }
+          if(length(ret) < length(x))
+          {
+               warning('Values below zero were removed for performing log transformation.')
+          }
+          return(ret)
+     }
+     if(transition <= 0)
+     {
+          warning('Transition must be greater than 0. Setting to 1.')
+          transition <- 1
+     }
+     # Just do it for the right indicies
+     valsAbove <- (x > transition) & !is.na(x)
+     valsBelow <- (x <= transition) & !is.na(x)
+     x[valsAbove] <- log(x[valsAbove], base=base) + (transition/tickSep - log(transition, base=base))
+     x[valsBelow] <- x[valsBelow]/tickSep
+     return(x)
 }
+
+drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks=9, las=0)
+{
+     if(is.null(base))
+     {
+          base <- 10
+     }
+     if(is.null(tickSep))
+     {
+          tickSep <- transition*log(base)
+     }
+     if(!is.null(transition))
+     {
+          if(transition <= 0)
+          {
+               warning('Transition must be greater than 0. Setting to 1.')
+               transition <- 1
+          }
+     }
+     
+     # Get the numbers below the transition
+     if(axisNum==1)
+     {
+          axis.limits <- par('usr')[1:2]
+     }
+     else
+     {
+          axis.limits <- par('usr')[3:4]
+     }
+     linLimits <- unlogicle(c(axis.limits[1],transition/tickSep), transition=transition, tickSep=tickSep, base=base)
+     linSidePrettyNums <- pretty(linLimits)
+     linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums > min(linLimits) & linSidePrettyNums <= max(linLimits) ]
+     
+     # These are the true values of the log scale ticks proposed above
+     # Thus they exist for x > 0
+     logSideNums <- base^c(-100:100)
+     tick.distances <- (logSideNums[2:length(logSideNums)] - logSideNums[1:(length(logSideNums)-1)])/(n.minor.ticks + 1)
+     minor.ticks <- c()
+     for(i in 1:(length(logSideNums)-1))
+     {
+          temp <- (1:n.minor.ticks)*tick.distances[i] + logSideNums[i]
+          minor.ticks <- c(minor.ticks, temp)
+     }
+     
+     # # logSideNumTicks <- base^c((-100:100)/)
+     # n <- n.minor.ticks+2
+     # minors <- log(pretty(10^logSideNums[1:2],n), base=base)-logSideNums[1]
+     # minors <- minors[-c(1,n)]
+     # minor.ticks = c(outer(minors,logSideNums,`+`))
+     # minor.ticks <- minor.ticks[minor.ticks > min(axis.limits) & minor.ticks < max(axis.limits)]
+     
+     if(is.null(transition))
+     {
+          # Then treat as a regular log-scale where there are no negative values and
+          # everything should have log-scale ticks.
+          if(base == exp(1))
+          {
+               logSidePrettyLabels <- parse(text=paste("e^", log(logSideNums, base=base), sep=""))
+          }
+          else
+          {
+               logSidePrettyLabels <- parse(text=paste(base, "^", log(logSideNums, base=base), sep=""))
+          }
+          prettyLabels <- logSidePrettyLabels
+          prettyNums <- logSideNums
+     }
+     else
+     {
+          # Some tick labels should be on linear scale and others on log-scale.
+          if(base == exp(1))
+          {
+               logSidePrettyLabels <- parse(text=paste("e^", log(logSideNums, base=base), sep=""))
+          }
+          else
+          {
+               logSidePrettyLabels <- parse(text=paste(base, "^", log(logSideNums, base=base), sep=""))
+          }
+          
+          # Truncate list of log side nums
+          logSidePrettyLables <- logSidePrettyLabels[logSideNums > transition]
+          logSideNums <- logSideNums[logSideNums > transition]
+          minor.ticks <- minor.ticks[minor.ticks > transition]
+          
+          # Truncate and fix list of lin side nums
+          linSidePrettyNums <- c(linSidePrettyNums, transition) # Add the transition point to the list
+          linSidePrettyNums <- linSidePrettyNums[order(linSidePrettyNums)]
+          linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums <= transition]
+          linSidePrettyLabels <- c(as.character(linSidePrettyNums))
+          linSidePrettyLabels[length(linSidePrettyLabels)] <- as.character(getPrettyNum(linSidePrettyNums[length(linSidePrettyNums)]))
+          
+          # Aggregate list of nums
+          prettyNums <- c(linSidePrettyNums, logSideNums)
+          prettyLabels <- c(linSidePrettyLabels, logSidePrettyLables)
+          
+          # Add the transition point so it is clear where this is
+          if(axisNum == 1)
+          {
+               abline(v=transition/tickSep, lty=2, col=rgb(0,0,0,0.6))
+          }
+          if(axisNum == 2)
+          {
+               abline(h=transition/tickSep, lty=2, col=rgb(0,0,0,0.6))
+          }
+     }
+     
+     ticks <- logicle(x=prettyNums, transition=transition, tickSep=tickSep, base=base, neg.rm=F)
+     minor.ticks <- logicle(x=minor.ticks, transition=transition, tickSep=tickSep, base=base, neg.rm=F)
+     
+     if(axisNum == 2)
+     {
+          axis(axisNum, at=ticks, labels=prettyLabels, las=2)
+          axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
+     }
+     else
+     {
+          axis(axisNum, at=ticks, labels=prettyLabels, las=las)
+          axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE, las=las)
+     }
+}
+
+# drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks=9)
+# {
+# 	if(axisNum==1)
+# 	{
+# 		axis.limits <- pretty(par('usr')[1:2])
+# 	}
+# 	else
+# 	{
+# 		axis.limits <- pretty(par('usr')[3:4])
+# 	}
+# 	linSidePrettyNums <- unlogicle(axis.limits, transition=transition, tickSep=tickSep, base=base, neg.rm=F)
+# 	linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums >= min(axis.limits) & linSidePrettyNums <= max(axis.limits) ]
+# 
+# 	if(is.null(base))
+# 	{
+# 		base <- 10
+# 	}
+# 
+# 	# These are the true values of the log scale ticks proposed above
+# 	# Thus they exist for x > 0
+# 	logSideNums <- base^c(-100:100)
+# 	tick.distances <- (logSideNums[2:length(logSideNums)] - logSideNums[1:(length(logSideNums)-1)])/(n.minor.ticks + 1)
+# 	minor.ticks <- c()
+# 	for(i in 1:(length(logSideNums)-1))
+# 	{
+# 		temp <- (1:n.minor.ticks)*tick.distances[i] + logSideNums[i]
+# 		minor.ticks <- c(minor.ticks, temp)
+# 	}
+# 
+# 	# # logSideNumTicks <- base^c((-100:100)/)
+# 	# n <- n.minor.ticks+2
+# 	# minors <- log(pretty(10^logSideNums[1:2],n), base=base)-logSideNums[1]
+# 	# minors <- minors[-c(1,n)]
+# 	# minor.ticks = c(outer(minors,logSideNums,`+`))
+# 	# minor.ticks <- minor.ticks[minor.ticks > min(axis.limits) & minor.ticks < max(axis.limits)]
+# 
+# 	if(is.null(transition))
+# 	{
+# 		# Then treat as a regular log-scale where there are no negative values and
+# 		# everything should have log-scale ticks.
+# 		if(base == exp(1))
+# 		{
+# 			logSidePrettyLabels <- parse(text=paste("e^", log(logSideNums, base=base), sep=""))
+# 		}
+# 		else
+# 		{
+# 			logSidePrettyLabels <- parse(text=paste(base, "^", log(logSideNums, base=base), sep=""))
+# 		}
+# 		prettyLabels <- logSidePrettyLabels
+# 		prettyNums <- logSideNums
+# 	}
+# 	else
+# 	{
+# 		if(transition <= 0)
+# 		{
+# 			warning('Transition must be greater than 0. Setting to 1.')
+# 			transition <- 1
+# 		}
+# 
+# 		# Some tick labels should be on linear scale and others on log-scale.
+# 		if(base == exp(1))
+# 		{
+# 			logSidePrettyLabels <- parse(text=paste("e^", log(logSideNums, base=base), sep=""))
+# 		}
+# 		else
+# 		{
+# 			logSidePrettyLabels <- parse(text=paste(base, "^", log(logSideNums, base=base), sep=""))
+# 		}
+# 
+# 		# Truncate list of log side nums
+# 		logSidePrettyLables <- logSidePrettyLabels[logSideNums > transition]
+# 		logSideNums <- logSideNums[logSideNums > transition]
+# 		minor.ticks <- minor.ticks[minor.ticks > transition]
+# 
+# 		# Truncate and fix list of lin side nums
+# 		linSidePrettyNums <- c(linSidePrettyNums, transition) # Add the transition point to the list
+# 		linSidePrettyNums <- linSidePrettyNums[order(linSidePrettyNums)]
+# 		linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums <= transition]
+# 		linSidePrettyLabels <- as.character(linSidePrettyNums)
+# 
+# 		# Aggregate list of nums
+# 		prettyNums <- c(linSidePrettyNums, logSideNums)
+# 		prettyLabels <- c(linSidePrettyLabels, logSidePrettyLables)
+# 
+# 		# Add the transition point so it is clear where this is
+# 		if(axisNum == 1)
+# 		{
+# 			abline(v=transition, lty=2, col=rgb(0,0,0,0.6))
+# 		}
+# 		if(axisNum == 2)
+# 		{
+# 			abline(h=transition, lty=2, col=rgb(0,0,0,0.6))
+# 		}
+# 	}
+# 
+# 	ticks <- logicle(x=prettyNums, transition=transition, tickSep=tickSep, base=base, neg.rm=F)
+# 	minor.ticks <- logicle(x=minor.ticks, transition=transition, tickSep=tickSep, base=base, neg.rm=F)
+# 
+# 	if(axisNum == 2)
+# 	{
+# 		axis(axisNum, at=ticks, labels=prettyLabels, las=2)
+# 		axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
+# 	}
+# 	else
+# 	{
+# 		axis(axisNum, at=ticks, labels=prettyLabels)
+# 		axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
+# 	}
+# }
 
 getLogParam <- function(logX, logY)
 {
@@ -2531,28 +2941,22 @@ getLogParam <- function(logX, logY)
 #' Note that you can add params such as mgp (default c(3,1,0)) to move axis labels out (increase 3)
 #' Note that you can rotate labels 90
 #' Note, you can plot just the center 'x' percentile of data (e.g., the middle 90 percent setting the limits to the top and bottom 5 percent)
-plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=c(5.1,5.1,4.1,2.1), mgp=c(4,1,0), las=1, silent=F, ...)
+plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=c(5.1,5.1,4.1,2.1), mgp=c(4,1,0), las=c(0,2), silent=F, ...)
 {
+     logicle.params <- fillDefaultLogicleParams(x=x, y=NULL, logicle.params=logicle.params)
 	default.mar <- par('mar')
 	default.mgp <- par('mgp')
 	default.las <- par('las')
-	par(mar=mar, mgp=mgp, las=las)
+	par(mar=mar, mgp=mgp, las=las[1])
 	plot.params <- list(...)
 	# Adjust the data to log/logicle scale if needed FIRST
 	if(log)
 	{
-		if(is.null(logicle.params))
+	     x <- logicle(x, logicle.params=logicle.params, neg.rmT)
+		if(!is.null(logicle.params) && !is.null(plot.params$xlim))
 		{
-			x <- logicle(x)
-		}
-		else
-		{
-			x <- logicle(x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
-			# And we should also control the limits of the plot since we'll be drawing a logicle axis
-			if(!is.null(plot.params$xlim))
-			{
-				plot.params$xlim <- logicle(plot.params$xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
-			}
+		     # Then we should also control the limits of the plot since we'll be drawing a logicle axis
+		     plot.params$xlim <- logicle(plot.params$xlim, logicle.params=logicle.params, neg.rmF)
 		}
 	}
 
@@ -2612,11 +3016,11 @@ plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.ar
 		{
 			if(is.null(logicle.params))
 			{
-				drawLogicleAxis(axisNum=1)
+				drawLogicleAxis(axisNum=1, las=las[1])
 			}
 			else
 			{
-				drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
+				drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1])
 			}
 		}
 		else
@@ -2743,6 +3147,40 @@ setGating <- function(x, ..., op='intersect')
 	x[which(ret$isin), gated:=T]
 }
 
+##### Plotting General #####
+
+getIntensityColors <- function(x, hue=T, hueStart=0.15, hueEnd=0, sat=T, satStart=0.1, satEnd=1, val=F, valStart=0, valEnd=1, alpha=1)
+{
+     minMax <- range(x[is.finite(x)])
+     x <- x-minMax[1]
+     scale <- minMax[2]-minMax[1]
+     if(scale==0)
+     {
+          warning("The min and max are the same so the data couldn't be scaled. All data will show as one color.")
+     }
+     else
+     {
+          x <- x / scale;
+     }
+     
+     my.hue <- 1
+     if(hue)
+     {
+          my.hue <- hueStart + (hueEnd-hueStart)*x
+     }
+     my.sat <- 1
+     if(sat)
+     {
+          my.sat <- satStart + (satEnd-satStart)*x
+     }
+     my.val <- 1
+     if(val)
+     {
+          my.val <- valStart + (valEnd-valStart)*x
+     }
+     return(hsv(my.hue, my.sat, my.val, alpha))
+}
+
 ##### Geometry #####
 
 ellipse <- function (x, y, a, b, n)
@@ -2762,11 +3200,11 @@ plot.ellipse <- function(x, y, a, b, n=100, border='red', lwd=2, log='', logicle
 	{
 		if(grepl('x',log,fixed=T))
 		{
-			ret$x <- logicle(ret$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
+			ret$x <- logicle(ret$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF)
 		}
 		if(grepl('y',log,fixed=T))
 		{
-			ret$y <- logicle(ret$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base)
+			ret$y <- logicle(ret$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF)
 		}
 	}
 	poly <- owin(poly=ret)
@@ -2793,12 +3231,42 @@ sim.transform <- function(x)
 	return( log( (1 + x) / (1 - x) ) )
 }
 
+sim.transform.range <- function(x, epsilon=0.01)
+{
+     mm <- range(x)
+     return( log( (-1*(mm[1]-abs(mm[1]*epsilon)) + x) / ((mm[2]+abs(mm[2]*epsilon)) - x) ) )
+}
+
+sim.transform.percentile <- function(x, percentile=0.01)
+{
+     mm <- getPercentileLimits(x, lower=percentile, upper=1-percentile)
+     return( log( (-mm[1] + x) / (mm[2] - x) ) )
+}
+
 sim.untransform <- function(x)
 {
 	return( (exp(x) - 1) / (exp(x) + 1) )
 }
 
 logitTransform <- function(p) { log(p/(1-p)) }
+
+##### Stats #####
+
+uniqueo <- function(x, rev=F)
+{
+     ret <- unique(x)
+     if(rev)
+     {
+          ret <- ret[order(-ret)]
+     }
+     ret <- ret[order(ret)]
+     return(ret)
+}
+
+Mode <- function(x) {
+     ux <- unique(x)
+     ux[which.max(tabulate(match(x, ux)))]
+}
 
 # Be sure to have a trailing line or carriage return after last closing bracket.
 #
