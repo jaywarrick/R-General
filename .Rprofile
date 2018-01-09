@@ -944,16 +944,6 @@ getAlphas <- function(x, alphas, conds)
 	return(alphas[match(x, conds)])
 }
 
-writePlots <- function(x, y, index, folder='/Users/jaywarrick/Downloads', filePrefix='SingleChannel_', ...)
-{
-	path <- file.path(folder, paste0(filePrefix,'.pdf'))
-	pdf(path, width=7, height=5)
-	data.table.plot(x, y, ...)
-	legend('topright', legend=c('MM.1R', 'RPMI'), pch=20, bg='white', col=adjustcolor(c('red','blue'), alpha.f=0.5), title='Cell Type')
-	dev.off()
-	print(paste0('Plotted to file - ', path))
-}
-
 # This function is needed to plot within data.table because the graphics devices
 # get confused while looping/grouping causing the wrong data to be plotted or co-plotted
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
@@ -1005,56 +995,53 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	# Determine point colors
 	if(is.null(by))
 	{
-		my.colors='black'
+	     data[, my.temp.color:='black']
 	}
 	else
 	{
-		conds <- as.character(data[[by[1]]])
-		if(length(by) > 1)
-		{
-			for(i in 2:length(by))
-			{
-				conds <- paste(conds, data[[by[i]]], sep='.')
-			}
-		}
-		conds.unique <- unique(conds)
-		my.colors <- getColors(conds, cols=loopingPalette(k=1:length(conds.unique)), conds=conds.unique)
+     	# Store base colors
+     	data[, my.temp.color:=loopingPalette(k=.GRP), by=by]
 	}
-
-	# Store base colors
-	data[, my.temp.color:=my.colors]
 
 	# Determine alphas
 	if(!is.null(alphacol))
 	{
 		if(alpha.rank)
 		{
-			ranks <- rank(data[[alphacol]])
-			alphas <- ranks/max(ranks)
+			data[, alphas:=rank(get(alphacol))]
+			data[, alphas:=alphas/max(alphas)]
 		}
 		else
 		{
-			xRange <- (max(data[[alphacol]]) - min(data[[alphacol]]))
+			xRange <- range(data[[alphacol]], na.rm=T)
 			if(xRange == 0)
 			{
 				warning("The min and the max of the data were the same so plotting all data as the default alpha transparency.")
-				alphas <- alpha
+				data[, alphas:=alpha]
 			}
 			else
 			{
-				alphas <- (data[[alphacol]]-min(data[[alphacol]]))/xRange
+				data[, alphas:=(get(alphacol)-xRange[1])/(xRange[2] - xRange[1])]
 			}
 		}
 	}
 	else
 	{
-		alphas <- alpha
+		data[, alphas:=alpha]
 	}
 
 	# Do not apply alpha to legend.
-	legend.colors <- data[, list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1]), by=by]
+	if(is.null(plot.by))
+	{
+	     legend.colors <- data[, list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1]), by=by]
+	}
+	else
+	{
+	     legend.colors <- data[, append(mget(plot.by), list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1])), by=by]
+	}
+	legend.colors[, grpI:=.GRP, by=plot.by]
 
-	# Now apply alpha
+	# # Now apply alpha
 	data[, my.temp.color:=adjustColor(my.temp.color, alpha.factor=alphas)]
 
 	if(is.null(xlab))
@@ -1080,7 +1067,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
@@ -1091,7 +1078,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
@@ -1131,14 +1118,20 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.ou
 
 	if(type[1] == 'l')
 	{
-		data[, data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=my.temp.color[1], ...), by=by]
+	     if(sample.size <= 0)
+	     {
+	          sample.size <- .Machine$integer.max
+	     }
+	     nGrps <- uniqueN(data, by=by)
+	     grps <- sample(1:nGrps, min(sample.size, nGrps))
+		data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(grps==.GRP)), alphas[1]), ...)}, by=by]
 		if(!is.null(errcol))
 		{
 			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
-			data[, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params), by=by]
+		     data[, .SD[sample(.N, min(sample.size,.N))], by=by][, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params), by=by]
 		}
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
-		if(!is.null(by))
+		if(legend & !is.null(by))
 		{
 		     temp <- list(...)
 		     lwd=1
@@ -1151,7 +1144,10 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.ou
 		     {
 		          lty=temp$lty
 		     }
-			legend(legend.pos, legend=legend.colors$grp, col=legend.colors$my.color, lty=lty, cex=legend.cex, lwd=lwd)
+		     legend.colors[, GRP:=.GRP, by=by]
+		     legend.colors[, GRPI:=match(GRP, grps)]
+		     legend.colors <- unique(legend.colors, by=c('grp',by))
+			legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=loopingPalette(legend.colors[GRP %in% grps]$GRPI), lty=lty, cex=legend.cex, lwd=lwd)
 		}
 	}
 	else if(type[1] == 'p')
@@ -2377,7 +2373,7 @@ calcTransition <- function(x, minN=20)
      }
 }
 
-get.logicle <- function(x, y, log, logicle.params, neg.rmF)
+get.logicle <- function(x, y, log, logicle.params, neg.rm=T)
 {
      logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	logX <- grepl('x',x=log,fixed=T)
@@ -2406,7 +2402,7 @@ get.logicle <- function(x, y, log, logicle.params, neg.rmF)
 	else
 	{
 		# Then, if necessary, remove negative x and y values and warn the user
-		if(logX)
+		if(logX & neg.rm)
 		{
 			posX <- x > 0
 		}
@@ -2416,7 +2412,7 @@ get.logicle <- function(x, y, log, logicle.params, neg.rmF)
 			posX <- rep(T, length(x))
 		}
 
-		if(logY)
+		if(logY & neg.rm)
 		{
 			posY <- y > 0
 		}
@@ -2436,6 +2432,15 @@ get.logicle <- function(x, y, log, logicle.params, neg.rmF)
 		if(sum(posY) < length(y))
 		{
 			warning('Negative values were removed from the Y values (along with corresponding X-values) due to log scaling.')
+		}
+		
+		if(logX)
+		{
+		     x1 <- log10(x1)
+		}
+		if(logY)
+		{
+		     y1 <- log10(y1)
 		}
 	}
 
@@ -3047,7 +3052,7 @@ getLogParam <- function(logX, logY)
 #' Note that you can add params such as mgp (default c(3,1,0)) to move axis labels out (increase 3)
 #' Note that you can rotate labels 90
 #' Note, you can plot just the center 'x' percentile of data (e.g., the middle 90 percent setting the limits to the top and bottom 5 percent)
-plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=c(5.1,5.1,4.1,2.1), mgp=c(4,1,0), las=c(0,2), silent=F, ...)
+plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=c(5.1,5.1,4.1,2.1), mgp=c(4,1,0), las=c(0,2), silent=F, ...)
 {
      logicle.params <- fillDefaultLogicleParams(x=x, y=NULL, logicle.params=logicle.params)
 	default.mar <- par('mar')
@@ -3058,7 +3063,7 @@ plot.hist <- function(x, type=c('d','h'), log=F, logicle.params=NULL, density.ar
 	# Adjust the data to log/logicle scale if needed FIRST
 	if(log)
 	{
-	     x <- logicle(x, logicle.params=logicle.params, neg.rmT)
+	     x <- logicle(x, logicle.params=logicle.params, neg.rm=neg.rm)
 		if(!is.null(logicle.params) && !is.null(plot.params$xlim))
 		{
 		     # Then we should also control the limits of the plot since we'll be drawing a logicle axis
