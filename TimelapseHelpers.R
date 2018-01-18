@@ -1,6 +1,6 @@
 library(data.table)
-source('/Users/jaywarrick/Documents/GitHub/R-General/.Rprofile')
-source('/Users/jaywarrick/Documents/GitHub/R-Cytoprofiling/PreProcessingHelpers.R')
+# Requires source('/Users/jaywarrick/Documents/GitHub/R-General/.Rprofile')
+# Requires source('/Users/jaywarrick/Documents/GitHub/R-Cytoprofiling/PreProcessingHelpers.R')
 
 descaleTime <- function(x, t, n, force.t0=T)
 {
@@ -25,7 +25,7 @@ descaleTime <- function(x, t, n, force.t0=T)
 	ret[, x.diffs:=if(x.diffs[.N] == 0){0:(.N-1)}else{x.diffs}]
 	ret[, t.i:=x.diffs %/% (x.diffs[.N]/(n))]
 	t.i.max <- max(ret$t.i)
-	ret[t.i == t.i.max, t.i:=t.i.max-1]
+	ret[t.i == n, t.i:=n-1]
 
 	if(force.t0)
 	{
@@ -40,6 +40,11 @@ descaleTime <- function(x, t, n, force.t0=T)
 
 interpolate <- function(x)
 {
+     if(sum(!is.na(x))==0)
+     {
+          # Then all data is NA and can't interpolate so just return x
+          return(x)
+     }
 	x.na.i <- which(is.na(x))
 	x.starts <- which(!is.na(x))[(which(!is.na(x)) %in% (x.na.i-1))]
 	x.ends <- which(!is.na(x))[which(!is.na(x)) %in% (x.na.i+1)]
@@ -56,15 +61,15 @@ interpolate <- function(x)
 	return(x)
 }
 
-descaleTime.SD <- function(SD, t.col, n, cols=NULL, by=NULL)
+descaleTime.SD <- function(SD, t.col, n, by=NULL, cols=getAllColNamesExcept(SD, c(t.col, by)))
 {
-	by.names <- names(SD)
-	cols <- cols[cols != t.col]
+	cols <- cols[!cols %in% c(t.col, by)]
 	ret <- NULL
 	for(col in cols)
 	{
 		temp <- SD[, descaleTime(x=get(col), t=get(t.col), n=n), by=by]
-		setnames(temp, names(temp)[3:length(names(temp))], paste0(col, '.', names(temp)[3:length(names(temp))]))
+		toRename <- getAllColNamesExcept(temp, c(t.col, by, 't.i'))
+		setnames(temp, toRename, paste0(col, '.', toRename))
 		if(is.null(ret))
 		{
 			ret <- temp
@@ -77,7 +82,7 @@ descaleTime.SD <- function(SD, t.col, n, cols=NULL, by=NULL)
 	return(ret)
 }
 
-descaleTime.data.table <- function(x, t.col, n, cols=NULL, by=NULL)
+descaleTime.data.table <- function(x, t.col, n, by=NULL, cols=getAllColNamesExcept(x, c(t.col, by)))
 {
 	# get rid of integers, converting them to doubles to avoid random conversion issues.
 	lapply.data.table(x, FUN=as.double, in.place = T)
@@ -95,7 +100,15 @@ descaleTime.data.table <- function(x, t.col, n, cols=NULL, by=NULL)
 	lapply.data.table(ret, FUN=function(x){x[is.na(x)] <- 0; return(x)}, cols=getColNamesContaining(ret, 't.n'), in.place = T)
 
 	# interpolate NA's for other numeric data.
-	lapply.data.table(ret, FUN=interpolate, by=by)
+	lapply.data.table(ret, FUN=interpolate, by=by, in.place=T)
+	
+	# Any NAs left after interpolation can't be fixed and were just introduced most likely by 'fillMissingRows', so just remove.
+	for(col in getAllColNamesExcept(ret, c(by, 't.i')))
+	{
+	     ret <- ret[!is.na(get(col))]
+	}
+	
+	return(ret)
 }
 
 getTimeCorrelations.SD <- function(SD, tCol, idCols, valName=getAllColNamesExcept(SD, c(idCols, tCol)))
@@ -129,6 +142,12 @@ getTimeCorrelationDist <- function(corTable, x=T, t.mean=T, t.n=F, convert=T)
 {
 	ret <- copy(corTable)
 	ret[, cor:=sim.transform(cor)]
+	replaceInf <- function(x)
+	{
+	     x[!is.finite(x)] <- max(x[is.finite(x)])
+	     return(x)
+	}
+	ret[, cor:=replaceInf(cor), by='M0']
 	ret[, cor:=abs(cor-max(cor)), by=.(M0)]
 
 	x.m <- grepl('.x', ret$M0, fixed=T) & x

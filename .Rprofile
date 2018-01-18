@@ -902,6 +902,44 @@ convertColsToNumeric <- function(x, specifically=c(), exceptions=c())
 	}
 }
 
+hsl <- function(h, s=1, l=0.5, a=1) {
+     x <- data.table(h=h, s=s, l=l, a=a)
+     x[, h:=h / 360]
+     ret <- data.table(r=rep(0,nrow(x)), g=as.double(0.0), b=as.double(0.0))
+     if(s == 0)
+     {
+          ret[, ':='(r=l, g=l, b=l)]
+     }
+     else
+     {
+          x[, q:=ifelse(l < 0.5, l * (1.0 + s), l + s - (l*s))]
+          x[, p:= 2.0 * l - q]
+          x[, r:= hue_to_rgb(p, q, h + 1/3)]
+          x[, g:= hue_to_rgb(p, q, h)]
+          x[, b:= hue_to_rgb(p, q, h - 1/3)]
+     }
+     # print(x)
+     return(rgb(x$r,x$g,x$b,alpha=x$a))
+}
+
+hue_to_rgb <- function(p, q, t)
+{
+     y <- data.table(p=p, q=q, t=t, ret=p)
+     #print(y)
+     y[, t:= (t %% 1.0)]
+     y[t < (1/6), ret:=(p + (q - p) * 6.0 * t)]
+     y[t >= 1/6 & t < 1/2, ret:= q]
+     y[t >= 1/2 & t < 2/3, ret:= (p + ((q - p) * ((2/3) - t) * 6.0))]
+     #print(y)
+     return(y$ret)
+}
+
+loopingPastels <- function(k, min.h=235, max.h=min.h + 360, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4, cols=hsl(h=seq(min.h,max.h, length.out=max.k+1)[-(max.k+1)], s=s, l=l, a=a))
+{
+     n <- length(cols)
+     return(cols[((k-1) %% (n)) + 1])
+}
+
 loopingPalette <- function(k, cols=palette()[-1])
 {
 	n <- length(cols)
@@ -965,7 +1003,7 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 #'
 #' @param sample.size -1 = sample all, 0 = equal sample sizes of the same size of the smallest grouping, any number > 0 defines the sampled size, e.g. 100
 #' @param gates list of gate objects returned by gatePointsInPlot function
-data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NULL, alpha.rank=T, alpha=0.5, by=NULL, plot.by=NULL,
+data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NULL, alpha.rank=T, alpha=0.5, by=NULL, plot.by=NULL, line.color.by=NULL,
 						  gates=list(),
 						  log='', logicle.params=NULL, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','l','d','h'),
 						  density.args=NULL, breaks=100, percentile.limits=c(0,1),
@@ -1067,22 +1105,22 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 
@@ -1095,7 +1133,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
 {
      logicle.params <- fillDefaultLogicleParams(x=xcol, y=ycol, logicle.params=logicle.params)
 
@@ -1122,10 +1160,37 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.ou
 	     {
 	          sample.size <- .Machine$integer.max
 	     }
-	     nGrps <- uniqueN(data, by=by)
-	     grps <- sample(1:nGrps, min(sample.size, nGrps))
-		data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(grps==.GRP)), alphas[1]), ...)}, by=by]
-		if(!is.null(errcol))
+	     
+	     if(is.null(line.color.by))
+	     {
+	          # Then do as normal
+	          # Count the number of unique groups as this will be the range of values that .GRP will take
+	          nGrps <- uniqueN(data, by=by)
+	          
+	          # Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
+	          grps <- sample(1:nGrps, min(sample.size, nGrps))
+	          
+	          # Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
+	          # Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
+	          data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(grps==.GRP)), alphas[1]), ...)}, by=by]
+	     }
+	     else
+	     {
+	          # Then do as normal
+	          # Count the number of unique groups as this will be the range of values that .GRP will take
+	          nGrps <- uniqueN(data, by=by)
+	          
+	          # Count the number of unique line.color.by.groups
+	          line.color.items <- uniqueo(data[[line.color.by]])
+	          
+	          # Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
+	          grps <- sample(1:nGrps, min(sample.size, nGrps))
+	          
+	          # Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
+	          # Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
+	          data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(get(line.color.by)[1]==line.color.items)), alphas[1]), ...)}, by=by]
+	     }
+	     if(!is.null(errcol))
 		{
 			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
 		     data[, .SD[sample(.N, min(sample.size,.N))], by=by][, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params), by=by]
@@ -1144,10 +1209,27 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, pch.ou
 		     {
 		          lty=temp$lty
 		     }
-		     legend.colors[, GRP:=.GRP, by=by]
-		     legend.colors[, GRPI:=match(GRP, grps)]
-		     legend.colors <- unique(legend.colors, by=c('grp',by))
-			legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=loopingPalette(legend.colors[GRP %in% grps]$GRPI), lty=lty, cex=legend.cex, lwd=lwd)
+		     
+		     if(is.null(line.color.by))
+		     {
+		          # Then do as normal (lines and colors determined by 'by')
+		          # figure out the .GRP numbers for each by combo
+		          legend.colors[, GRP:=.GRP, by=by]
+		          
+		          # Find the index of the .GRP in the randomly selected list of groups to plot (unmatched .GRPs get NA values)
+		          legend.colors[, GRPI:=match(GRP, grps)]
+		          
+		          # Get unique rows (can't remember right now why this is here)
+		          legend.colors <- unique(legend.colors, by=c('grp',by))
+		          
+		          # Then, for only GRPs in the randomly selected list of .GRPs, make the legend from 'legend.colors'
+		          legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=loopingPalette(legend.colors[GRP %in% grps]$GRPI), lty=lty, cex=legend.cex, lwd=lwd)
+		     }
+		     else
+		     {
+		          # else lines were determined by 'by' and group coloring determined by 'line.color.by'
+		          legend(legend.pos, legend=line.color.items, col=loopingPalette(1:length(line.color.items)), lty=lty, cex=legend.cex, lwd=lwd)
+		     }
 		}
 	}
 	else if(type[1] == 'p')
