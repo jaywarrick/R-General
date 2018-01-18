@@ -902,6 +902,44 @@ convertColsToNumeric <- function(x, specifically=c(), exceptions=c())
 	}
 }
 
+hsl <- function(h, s=1, l=0.5, a=1) {
+	x <- data.table(h=h, s=s, l=l, a=a)
+	x[, h:=h / 360]
+	ret <- data.table(r=rep(0,nrow(x)), g=as.double(0.0), b=as.double(0.0))
+	if(s == 0)
+	{
+		ret[, ':='(r=l, g=l, b=l)]
+	}
+	else
+	{
+		x[, q:=ifelse(l < 0.5, l * (1.0 + s), l + s - (l*s))]
+		x[, p:= 2.0 * l - q]
+		x[, r:= hue_to_rgb(p, q, h + 1/3)]
+		x[, g:= hue_to_rgb(p, q, h)]
+		x[, b:= hue_to_rgb(p, q, h - 1/3)]
+	}
+	# print(x)
+	return(rgb(x$r,x$g,x$b,alpha=x$a))
+}
+
+hue_to_rgb <- function(p, q, t)
+{
+	y <- data.table(p=p, q=q, t=t, ret=p)
+	#print(y)
+	y[, t:= (t %% 1.0)]
+	y[t < (1/6), ret:=(p + (q - p) * 6.0 * t)]
+	y[t >= 1/6 & t < 1/2, ret:= q]
+	y[t >= 1/2 & t < 2/3, ret:= (p + ((q - p) * ((2/3) - t) * 6.0))]
+	#print(y)
+	return(y$ret)
+}
+
+loopingPastels <- function(k, min.h=235, max.h=min.h + 360, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4, cols=hsl(h=seq(min.h,max.h, length.out=max.k+1)[-(max.k+1)], s=s, l=l, a=a))
+{
+	n <- length(cols)
+	return(cols[((k-1) %% (n)) + 1])
+}
+
 loopingPalette <- function(k, cols=palette()[-1])
 {
 	n <- length(cols)
