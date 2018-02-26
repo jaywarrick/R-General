@@ -71,6 +71,18 @@ repmat <- function(x, m, n, loopRows=T, loopCols=T)
 	}
 }
 
+make3DPlotMatrices <- function(x, y, z)
+{
+	x.0 <- uniqueo(x)
+	y.0 <- uniqueo(y)
+	X <- repmat(matrix(x.0, nrow=1), m=length(x.0), n=1)
+	Y <- repmat(matrix(y.0, nrow=length(y.0)), m=1, n=length(y.0))
+	ret <- data.table(x=x, y=y, z=z)
+	ret <- reorganize(ret, measurementCols = 'y', idCols='x', valueCols='z')
+	Z <- data.matrix(ret[, 2:ncol(ret), with=F])
+	return(list(X=X, Y=Y, Z=Z))
+}
+
 apply2D <- function(x, col.fun=NULL, by=NULL, row.fun=NULL, ..., mCols=NULL, mColsContaining=NULL, mColFilter=NULL)
 {
      if(is.null(mCols))
@@ -157,7 +169,7 @@ lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric,
 	{
 		if(in.place)
 		{
-			x[, c(cols):=lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by]
+			x[, c(cols):=lapply(.SD, FUN=FUN, ...), .SDcols=cols, by=by][]
 		}
 		else
 		{
@@ -732,7 +744,14 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	# Compile the arguments to give to barplot
 	if(is.null(color.colors))
 	{
-		color.colors <- hcl(h=seq(0,270, 270/(length(color.names)))[-length(color.names)])
+		if(use.pastels)
+		{
+			color.colors <- loopingPastels(seq_along(color.names)) #hcl(h=seq(0,270, 270/(length(color.names)))[-length(color.names)])
+		}
+		else
+		{
+			color.colors <- hcl(h=seq(0,270, 270/(length(color.names)))[-length(color.names)])
+		}
 	}
 	else if(length(color.colors) != length(color.names))
 	{
@@ -929,42 +948,65 @@ convertColsToNumeric <- function(x, specifically=c(), exceptions=c())
 	}
 }
 
+adjustIntensity <- function(x, oldMin, oldMax, newMin, newMax)
+{
+	ratio = (newMax - newMin) / (oldMax - oldMin);
+	offset = newMin - ratio*oldMin;
+	x = x * ratio + offset;
+	return(x)
+}
+
+colorizeBlueToRed <- function(x, s=0.7, l=0.5, a=1)
+{
+	is.mat <- is.matrix(x)
+	if(is.mat)
+	{
+		nc <- ncol(x)
+		nr <- nrow(x)
+		x <- as.vector(x)
+	}
+	lims <- range(x, na.rm=T)
+	x <- adjustIntensity(x, lims[1], lims[2], 0.666, 0)
+	ret <- hsl(h=x, s=s, l=l, a=a)
+	if(is.mat)
+	{
+		ret <- matrix(ret, nrow=nr)
+	}
+	return(ret)
+}
+
 hsl <- function(h, s=1, l=0.5, a=1) {
-     x <- data.table(h=h, s=s, l=l, a=a)
-     x[, h:=h / 360]
-     ret <- data.table(r=rep(0,nrow(x)), g=as.double(0.0), b=as.double(0.0))
-     if(s == 0)
-     {
-          ret[, ':='(r=l, g=l, b=l)]
-     }
-     else
-     {
-          x[, q:=ifelse(l < 0.5, l * (1.0 + s), l + s - (l*s))]
-          x[, p:= 2.0 * l - q]
-          x[, r:= hue_to_rgb(p, q, h + 1/3)]
-          x[, g:= hue_to_rgb(p, q, h)]
-          x[, b:= hue_to_rgb(p, q, h - 1/3)]
-     }
-     # print(x)
-     return(rgb(x$r,x$g,x$b,alpha=x$a))
+	x <- data.table(h=h, s=s, l=l, a=a)
+	# x[, h:=h / 360]
+	ret <- data.table(r=rep(0,nrow(x)), g=as.double(0.0), b=as.double(0.0))
+	x[, ':='(r=0, g=0, b=0)]
+	ret[s==0, ':='(r=l, g=l, b=l)]
+	x[s!=0, q:=ifelse(l < 0.5, l * (1.0 + s), l + s - (l*s))]
+	x[s!=0, p:= 2.0 * l - q]
+	x[s!=0, r:= hue_to_rgb(p, q, h + 1/3)]
+	x[s!=0, g:= hue_to_rgb(p, q, h)]
+	x[s!=0, b:= hue_to_rgb(p, q, h - 1/3)]
+	# print(x)
+	return(rgb(x$r,x$g,x$b,alpha=x$a))
 }
 
 hue_to_rgb <- function(p, q, t)
 {
-     y <- data.table(p=p, q=q, t=t, ret=p)
-     #print(y)
-     y[, t:= (t %% 1.0)]
-     y[t < (1/6), ret:=(p + (q - p) * 6.0 * t)]
-     y[t >= 1/6 & t < 1/2, ret:= q]
-     y[t >= 1/2 & t < 2/3, ret:= (p + ((q - p) * ((2/3) - t) * 6.0))]
-     #print(y)
-     return(y$ret)
+	y <- data.table(p=p, q=q, t=t, ret=p)
+	#print(y)
+	y[, t:= (t %% 1.0)]
+	y[t < (1/6), ret:=(p + (q - p) * 6.0 * t)]
+	y[t >= 1/6 & t < 1/2, ret:= q]
+	y[t >= 1/2 & t < 2/3, ret:= (p + ((q - p) * ((2/3) - t) * 6.0))]
+	#print(y)
+	return(y$ret)
 }
 
-loopingPastels <- function(k, min.h=235, max.h=min.h + 360, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4, cols=hsl(h=seq(min.h,max.h, length.out=max.k+1)[-(max.k+1)], s=s, l=l, a=a))
+loopingPastels <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
 {
-     n <- length(cols)
-     return(cols[((k-1) %% (n)) + 1])
+	cols=hsl(h=seq(min.h,max.h, length.out=max.k+1)[-(max.k+1)], s=s, l=l, a=a)
+	n <- length(cols)
+	return(cols[((k-1) %% (n)) + 1])
 }
 
 loopingPalette <- function(k, cols=palette()[-1])
@@ -3474,18 +3516,108 @@ logitTransform <- function(p) { log(p/(1-p)) }
 
 uniqueo <- function(x, rev=F)
 {
-     ret <- unique(x)
-     if(rev)
-     {
-          ret <- ret[order(-ret)]
-     }
-     ret <- ret[order(ret)]
-     return(ret)
+	ret <- unique(x)
+	if(rev)
+	{
+		ret <- ret[order(-ret)]
+	}
+	ret <- ret[order(ret)]
+	return(ret)
 }
 
 Mode <- function(x) {
-     ux <- unique(x)
-     ux[which.max(tabulate(match(x, ux)))]
+	ux <- unique(x)
+	ux[which.max(tabulate(match(x, ux)))]
+}
+
+roll.mean <- function(x, win.width=2)
+{
+	require(zoo)
+	return(rollmean(x, k=win.width, fill=c(x[1], NA, x[length(x)]), align='center'))
+}
+
+#' Get the adjustable running window average of the data
+#' @param i The index within 'frames' at which to calculate an average over a window centered at this location
+#' @param frames The frames in this track
+#' @param widths A vector of window widths appropriate for each frame in the 'frames' of this track
+#' @param data The vector of data for which we will calculate the windowed averages
+getAverage <- function(i, frames, widths, data)
+{
+	# Subtract 1 to represent the number of intervals instead of number of points to average
+	width <- widths[i] - 1
+	
+	# calculate the index on the left of the interval
+	leftIndex <- i - floor(width/2)
+	if(leftIndex < 1)
+	{
+		leftIndex <- 1
+	}
+	
+	# calculate the width to reach index on the right of the interval
+	if((leftIndex+width) > length(frames))
+	{
+		width <- length(frames)-leftIndex
+	}
+	
+	# return the mean of the data over the interval
+	mean(data[leftIndex:(leftIndex+width)])
+}
+
+#' Get the derivative of a vector
+#' @param x A numeric vector on which to calculate the derivative
+#' @param t A numeric vecotor of times with which to determine dt for derivative calculations
+getDerivative <- function(x, t)
+{
+	v <- numeric(0)
+	for(i in 1:length(x))
+	{
+		v <- c(v, localDerivative(x, t, i))
+	}
+	return(v)
+}
+
+#' Get the local derivative around a point in a vector accounding for boundary scenarios at the start and end of the vector
+#' @param x A numeric vector of data
+#' @param t A numeric vector of time for calculating dt of the derivative
+#' @param i A numeric value indicating the index in the x and t for which to calculate the local derivative
+localDerivative <- function(x, t, i)
+{
+	if(i == 1)
+	{
+		#return((x[i+1]-x[i])/(t[i+1]-t[i]))
+		return(interpolateDerivative(x[i], x[i+1], x[i+2], t[i], t[i+1], t[i+2], t[i]))
+	}
+	else if(i == length(x))
+	{
+		#return((x[i]-x[i-1])/(t[i]-t[i-1]))
+		return(interpolateDerivative(x[i-2], x[i-1], x[i], t[i-2], t[i-1], t[i], t[i]))
+	}
+	else
+	{
+		return(interpolateDerivative(x[i-1], x[i], x[i+1], t[i-1], t[i], t[i+1], t[i]))
+	}
+}
+
+#' @title This is a three point interpolation of the derivative where the interpolated point
+#' is the middle of the 3 points.
+#'
+#' @description This simplifies to the the three-point midpoint formula
+#' when the time steps are equal but can handle when timesteps are unequal (i.e., the
+#' time-step on either side of the 3 points is not equal)
+#'
+#' @param f0 numeric left function value
+#' @param f1 numeric middle function value
+#' @param f2 numeric right function value
+#' @param x0 numeric left independent value
+#' @param x1 numeric middle independent value
+#' @param x2 numeric right independent value
+#' @param xj numeric x value for which to evaluate the function
+interpolateDerivative <- function(f0, f1, f2, x0, x1, x2, xj)
+{
+	term1 <- f0*((2*xj-x1-x2)/((x0-x1)*(x0-x2)))
+	term2 <- f1*((2*xj-x0-x2)/((x1-x0)*(x1-x2)))
+	term3 <- f2*((2*xj-x0-x1)/((x2-x0)*(x2-x1)))
+	return(term1 + term2 + term3)
 }
 
 # Be sure to have a trailing line or carriage return after last closing bracket.
