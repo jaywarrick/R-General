@@ -1,6 +1,33 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+.define.fonts <- function()
+{
+	library(extrafont)
+	loadfonts()
+	fonts()
+	quartzFonts(Helvetica2 = c('Helvetica Neue Light', 'Helvetica Neue Bold', 'Helvetica Neue Light Oblique', 'Helvetica Neue Bold Oblique'))
+}
+
+.use.helvetica <- function()
+{
+	.define.fonts()
+	if('Helvetica2' %in% fonttable()$FamilyName)
+	{
+		par(family = 'Helvetica2')
+	}
+	else
+	{
+		stop("Need to install Helvetica2 Family with extrafont package font_import.")
+	}
+}
+
+dev.off2 <- function(file)
+{
+	dev.off()
+	embed_fonts(file)
+}
+
 ##### NOTES: #####
 
 # This works to keep certain columns along with new calcs
