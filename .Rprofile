@@ -1,6 +1,12 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 
+.define.fonts <- function ()
+{
+     quartzFonts(avenir = c(“Avenir Book”, “Avenir Black”, “Avenir Book Oblique”, “Avenir Black Oblique”),
+                 helvetica = c(“Helvetica Neue Light”, “Helvetica Neue Bold”, “Helvetica Neue Light Italic”, “Helvetica Neue Bold Italic”))
+}
+
 ##### NOTES: #####
 
 # This works to keep certain columns along with new calcs
@@ -829,14 +835,28 @@ plotClusters <- function(data, cluster, thresh=NULL, breaks=40, density=F, polyg
 		{
 			tempCol <- col
 			tempCol[((i+2)%%3)+1] <- 1
-			freshCol <- do.call(rgb, tempCol)
+			freshCol <- loopingPastels(unique(cluster))[which(unique(cluster)==i)] #do.call(rgb, tempCol)
 			if(!density)
 			{
-				hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			     if(!is.null(list(...)$xlab))
+			     {
+			          hist(data[cluster==i], breaks=myBreaks, ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			     }
+			     else
+			     {
+			          hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			     }
 			}
 			else
 			{
-				duh <- hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Prob. Density', yaxt='n', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			     if(!is.null(list(...)$xlab))
+			     {
+			          duh <- hist(data[cluster==i], breaks=myBreaks, ylab='Prob. Density', yaxt='n', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			     }
+			     else
+			     {
+			          duh <- hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Prob. Density', yaxt='n', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+			     }
 				if(!add)
 				{
 					axis(2, at=tempAt, labels=tempLab)
@@ -1038,7 +1058,8 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	else
 	{
      	# Store base colors
-     	data[, my.temp.color:=loopingPalette(k=.GRP), by=by]
+	     numGrps <- nrow(unique(x, by='Loc'))
+     	data[, my.temp.color:=loopingPastels(k=.GRP, max.k=numGrps, l=0.45, a=1), by=by]
 	}
 
 	# Determine alphas
@@ -1156,11 +1177,6 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 
 	if(type[1] == 'l')
 	{
-	     if(sample.size <= 0)
-	     {
-	          sample.size <- .Machine$integer.max
-	     }
-	     
 	     if(is.null(line.color.by))
 	     {
 	          # Then do as normal
@@ -1168,11 +1184,18 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 	          nGrps <- uniqueN(data, by=by)
 	          
 	          # Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
-	          grps <- sample(1:nGrps, min(sample.size, nGrps))
+	          if(sample.size <= 0)
+	          {
+	               grps <- 1:nGrps
+	          }
+	          else
+	          {
+	               grps <- sample(1:nGrps, min(sample.size, nGrps))
+	          }
 	          
 	          # Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 	          # Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-	          data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(grps==.GRP)), alphas[1]), ...)}, by=by]
+	          data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), ...)}, by=by]
 	     }
 	     else
 	     {
@@ -1223,7 +1246,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		          legend.colors <- unique(legend.colors, by=c('grp',by))
 		          
 		          # Then, for only GRPs in the randomly selected list of .GRPs, make the legend from 'legend.colors'
-		          legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=loopingPalette(legend.colors[GRP %in% grps]$GRPI), lty=lty, cex=legend.cex, lwd=lwd)
+		          legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=legend.colors$my.color, lty=lty, cex=legend.cex, lwd=lwd)
 		     }
 		     else
 		     {
@@ -3459,6 +3482,15 @@ uniqueo <- function(x, rev=F)
 Mode <- function(x) {
      ux <- unique(x)
      ux[which.max(tabulate(match(x, ux)))]
+}
+
+getMeanSubtracted <- function(x, use.median=F, na.rm=T)
+{
+     if(use.median)
+     {
+          return(x-median(x, na.rm=na.rm))
+     }
+     return(x-mean(x, na.rm=na.rm))
 }
 
 # Be sure to have a trailing line or carriage return after last closing bracket.
