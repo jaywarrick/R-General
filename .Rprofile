@@ -3664,6 +3664,32 @@ interpolateDerivative <- function(f0, f1, f2, x0, x1, x2, xj)
 	term2 <- f1*((2*xj-x0-x2)/((x1-x0)*(x1-x2)))
 	term3 <- f2*((2*xj-x0-x1)/((x2-x0)*(x2-x1)))
 	return(term1 + term2 + term3)
+readJEXMaxima <- function(path)
+{
+     require(data.table)
+     parsePolygon <- function(polygon)
+     {
+          pairs <- strsplit(polygon,';')[[1]]
+          x <- numeric(0)
+          x0 <- numeric(0)
+          y <- numeric(0)
+          y0 <- numeric(0)
+          index <- numeric(0)
+          first <- TRUE
+          for(pair in pairs)
+          {
+               nums <- strsplit(pair,',')[[1]]
+               x <- append(x, as.numeric(nums[1]))
+               y <- append(y, as.numeric(nums[2]))
+               index <- append(index,as.numeric(nums[3]))
+          }
+
+          return(data.table(id=index, x=x, y=y))
+     }
+     y <- data.table(read.arff('/Users/jwarrick/Desktop/x0_y1.jxd'))
+     idCols <- names(y)[!(names(y) %in% c('Metadata','Value'))]
+     x <- y[Metadata=='polygonPts', parsePolygon(Value), by=idCols]
+     return(x)
 }
 
 # Be sure to have a trailing line or carriage return after last closing bracket.
