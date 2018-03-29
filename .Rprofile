@@ -2661,24 +2661,35 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 	}
 	else
 	{
-		# Then ylim is provided in '...', but if logicle.params is provided and the axis is to be scaled, we might need to scale the limits to the logicle scaling
-		if(!is.null(logicle.params) & logY)
+		if(min(ylim) <= 0)
 		{
-			if(logY)
+			stop('ylim values must be > 0 when using log scale for y axis.')
+		}
+		# Then ylim is provided in '...', but if logicle.params is provided and the axis is to be scaled, we might need to scale the limits to the logicle scaling
+		if(logY)
+		{
+			if(is.null(logicle.params))
 			{
 				# Then scale the limits
-				ylim <- range(logicle(x=ylim, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF))
+				ylim <- range(logicle(x=ylim))
+			}
+			else
+			{
+				# Then scale the limits
+				ylim <- range(logicle(x=ylim, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base))
 			}
 			# Otherwise, don't do anything
 		}
+		# else leave ylim alone
 		
-		# However, if it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
-		# Check and change if necessary, printing a warning.
-		if(is.null(logicle.params) & logY & min(ylim) <= 0)
-		{
-			ylim[1] <- min(y1) # Which is guaranteed to no not be zero based on 'get.logicle'
-			warning('A 0 or negative limit was provided to the log-scaled y axis. Setting to min of the positive y values.')
-		}
+		# This should be taken care of by 'logicle' function now
+		# # However, if it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
+		# # Check and change if necessary, printing a warning.
+		# if(is.null(logicle.params) & logY & min(ylim) <= 0)
+		# {
+		# 	ylim[1] <- min(y1) # Which is guaranteed to no not be zero based on 'get.logicle'
+		# 	warning('A 0 or negative limit was provided to the log-scaled y axis. Setting to min of the positive y values.')
+		# }
 	}
 	
 	pars.plot <- list(...)
