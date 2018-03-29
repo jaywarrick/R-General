@@ -875,7 +875,7 @@ plotClusters <- function(data, cluster, thresh=NULL, breaks=40, density=F, polyg
 		{
 			tempCol <- col
 			tempCol[((i+2)%%3)+1] <- 1
-			freshCol <- loopingPastels(unique(cluster))[which(unique(cluster)==i)] #do.call(rgb, tempCol)
+			freshCol <- do.call(rgb, tempCol)
 			if(!density)
 			{
 				if(!is.null(list(...)$xlab))
@@ -1323,7 +1323,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 			if(!is.null(by))
 			{
 				counts <- data[, list(n=.N, ngated=sum(gated), nbackgated=sum(!gated), grp=.GRP), by=by]
-				minN <- min(couts$ngated)
+				minN <- min(counts$ngated)
 				if(sample.size == 0)
 				{
 					sampling.gated <- data[, list(i=sample(.I[gated], minN)), by=by]$i
