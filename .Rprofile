@@ -3702,6 +3702,8 @@ interpolateDerivative <- function(f0, f1, f2, x0, x1, x2, xj)
 	term2 <- f1*((2*xj-x0-x2)/((x1-x0)*(x1-x2)))
 	term3 <- f2*((2*xj-x0-x1)/((x2-x0)*(x2-x1)))
 	return(term1 + term2 + term3)
+}
+
 readJEXMaxima <- function(path)
 {
      require(data.table)
