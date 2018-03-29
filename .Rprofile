@@ -1242,11 +1242,6 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 	
 	if(type[1] == 'l')
 	{
-		if(sample.size <= 0)
-		{
-			sample.size <- .Machine$integer.max
-		}
-		
 		if(is.null(line.color.by))
 		{
 			# Then do as normal
@@ -1254,11 +1249,18 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 			nGrps <- uniqueN(data, by=by)
 			
 			# Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
-			grps <- sample(1:nGrps, min(sample.size, nGrps))
+			if(sample.size <= 0)
+			{
+				grps <- 1:nGrps
+			}
+			else
+			{
+				grps <- sample(1:nGrps, min(sample.size, nGrps))
+			}
 			
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(grps==.GRP)), alphas[1]), ...)}, by=by]
+			data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), ...)}, by=by]
 		}
 		else
 		{
