@@ -875,14 +875,28 @@ plotClusters <- function(data, cluster, thresh=NULL, breaks=40, density=F, polyg
 		{
 			tempCol <- col
 			tempCol[((i+2)%%3)+1] <- 1
-			freshCol <- do.call(rgb, tempCol)
+			freshCol <- loopingPastels(unique(cluster))[which(unique(cluster)==i)] #do.call(rgb, tempCol)
 			if(!density)
 			{
-				hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+				if(!is.null(list(...)$xlab))
+				{
+					hist(data[cluster==i], breaks=myBreaks, ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+				}
+				else
+				{
+					hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Count', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+				}
 			}
 			else
 			{
-				duh <- hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Prob. Density', yaxt='n', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+				if(!is.null(list(...)$xlab))
+				{
+					duh <- hist(data[cluster==i], breaks=myBreaks, ylab='Prob. Density', yaxt='n', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+				}
+				else
+				{
+					duh <- hist(data[cluster==i], breaks=myBreaks, xlab='Bin Value', ylab='Prob. Density', yaxt='n', col=freshCol, add=add, freq=TRUE, ylim=c(0,myLim), ...)
+				}
 				if(!add)
 				{
 					axis(2, at=tempAt, labels=tempLab)
