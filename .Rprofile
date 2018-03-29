@@ -875,7 +875,7 @@ plotClusters <- function(data, cluster, thresh=NULL, breaks=40, density=F, polyg
 		{
 			tempCol <- col
 			tempCol[((i+2)%%3)+1] <- 1
-			freshCol <- do.call(rgb, tempCol)
+			freshCol <- loopingPastels(unique(cluster))[which(unique(cluster)==i)] #do.call(rgb, tempCol)
 			if(!density)
 			{
 				if(!is.null(list(...)$xlab))
@@ -1121,7 +1121,10 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	else
 	{
 		# Store base colors
-		data[, my.temp.color:=loopingPalette(k=.GRP), by=by]
+		numGrps <- nrow(unique(x, by='Loc'))
+		data[, my.temp.color:=loopingPastels(k=.GRP, max.k=numGrps, l=0.45, a=1), by=by]
+		# # Store base colors
+		# data[, my.temp.color:=loopingPalette(k=.GRP), by=by]
 	}
 	
 	# Determine alphas
