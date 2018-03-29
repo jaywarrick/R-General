@@ -1309,7 +1309,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 				legend.colors <- unique(legend.colors, by=c('grp',by))
 				
 				# Then, for only GRPs in the randomly selected list of .GRPs, make the legend from 'legend.colors'
-				legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=loopingPalette(legend.colors[GRP %in% grps]$GRPI), lty=lty, cex=legend.cex, lwd=lwd)
+				legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=legend.colors$my.color, lty=lty, cex=legend.cex, lwd=lwd)
 			}
 			else
 			{
