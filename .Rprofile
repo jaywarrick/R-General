@@ -3016,7 +3016,7 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 		else
 		{
 			axis.limits <- par('usr')[3:4]
-		}	
+		}
 	}
 	
 	linLimits <- unlogicle(c(axis.limits[1],transition/tickSep), transition=transition, tickSep=tickSep, base=base)
@@ -3645,6 +3645,14 @@ getDerivative <- function(x, t)
 		v <- c(v, localDerivative(x, t, i))
 	}
 	return(v)
+}
+
+#' Get the derivative of a vector
+#' @param x A numeric vector on which to calculate the derivative
+#' @param t A numeric vecotor of times with which to determine dt for derivative calculations
+getDeltas <- function(x)
+{
+	return(x[2:length(x)] - x[1:(length(x)-1)])
 }
 
 #' Get the local derivative around a point in a vector accounding for boundary scenarios at the start and end of the vector
