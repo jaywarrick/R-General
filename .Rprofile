@@ -1940,6 +1940,7 @@ getJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
 		{
 			temp$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
 		}
+		temp$fileList <- gsub('\\\\','/',temp$fileList,fixed=T)
 		ret <- as.data.table(c(ret, temp))
 		return(ret)
 	}
@@ -1948,6 +1949,22 @@ getJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
 		warning(paste('Could not find the specified file:', ret$jxdFilePath))
 		ret <- as.data.table(ret)
 	}
+}
+
+readJEXDataTables <- function(jData)
+{
+	xList <- list()
+	count <- 1;
+	for(daFile in jData$fileList)
+	{
+		temp <- fread(daFile, header=T)
+		toGet <- names(jData)[!(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
+		temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
+		setcolorder(temp, c(toGet, names(temp)[!(names(temp) %in% toGet)]))
+		xList[[count]] <- temp
+		count = count + 1
+	}
+	return(xList)
 }
 
 st <- function(...)
