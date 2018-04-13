@@ -1901,10 +1901,28 @@ error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, ...
 	}
 }
 
-getData <- function(dbPath, ds, x, y, type, name)
+#' Get a JEXData object from a well in a dataset in a database
+#' Use a list() for labels to assign label values to all items
+#' in the object.
+#'
+getJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
 {
 	library(foreign)
+	library(data.table)
+	
 	ret <- list()
+	labelNames <- names(labels)
+	labelValues <- as.vector(vapply(labels, as.character, ''))
+	if(!is.null(labels) & !is.null(labelNames) & !is.null(labelValues) & length(labels) > 0)
+	{
+		for(i in 1:length(labels))
+		{
+			key <- labelNames[i]
+			val <- labelValues[i]
+			ret[[key]] <- val
+		}
+	}
+	
 	ret$ds <- ds
 	ret$x <- x
 	ret$y <- y
@@ -1914,19 +1932,21 @@ getData <- function(dbPath, ds, x, y, type, name)
 	ret$tmpPath <- file.path(dbPath,'temp','RScriptTempFolder')
 	ret$jxdDir <- file.path(dbPath, ds, paste0('Cell_x',x,'_y',y), paste0(type,'-',name))
 	ret$jxdFilePath <- file.path(ret$jxdDir, paste0('x',x,'_y',y,'.jxd'))
+	temp <- list()
 	if(file.exists(ret$jxdFilePath))
 	{
-		ret$jxdTable <- read.arff(ret$jxdFilePath)
-		if(type == 'File')
+		temp <- as.list(read.arff(ret$jxdFilePath))
+		if(type == 'File' | type == 'Movie' | type == 'Image' | type == 'Roi' | type == 'Workflow')
 		{
-			ret$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
+			temp$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
 		}
+		ret <- as.data.table(c(ret, temp))
 		return(ret)
 	}
 	else
 	{
 		warning(paste('Could not find the specified file:', ret$jxdFilePath))
-		return(NULL)
+		ret <- as.data.table(ret)
 	}
 }
 
