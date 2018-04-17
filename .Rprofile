@@ -1951,17 +1951,73 @@ getJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
 	}
 }
 
-readJEXDataTables <- function(jData)
+readJEXDataTables <- function(jData, sample.size=-1, time.col=NULL, time.completeness=0.1, non.id.cols=c(time.col,'Measurement','MaskChannel','ImageChannel','Value','T','Time','Label'))
 {
 	xList <- list()
 	count <- 1;
 	for(daFile in jData$fileList)
 	{
 		temp <- fread(daFile, header=T)
-		toGet <- names(jData)[!(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
+		others <- !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))
+		toGet <- names(jData)[others]
 		temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
 		setcolorder(temp, c(toGet, names(temp)[!(names(temp) %in% toGet)]))
-		xList[[count]] <- temp
+		
+		uniques <- names(temp)[!(names(temp) %in% non.id.cols)]
+		setkeyv(temp, uniques)
+		if(!is.null(time.col))
+		{
+			if(time.col %in% names(temp))
+			{
+				nMin <- time.completeness*length(unique(temp[[time.col]]))
+				if(time.completeness <=0 | time.completeness > 1)
+				{
+					stop("time.completeness parameter must be > 0 and <= 1 as it represents the minimum fraction of the timelapse for which as cell must have data in order to be kept.")
+				}
+				nTimes <- temp[, list(N=length(unique(get(time.col)))), by=uniques]
+				nTimes <- nTimes[N >= nMin]
+				nTimes[, N:=NULL]
+				temp <- temp[nTimes]
+				if(nrow(temp)==0)
+				{
+					warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
+				}
+			}
+			else
+			{
+				stop("Couldn't find the specified time column in the data table being read. Aborting.")
+			}
+		}
+		if(sample.size > 0)
+		{
+			blah <- unique(temp, by=uniques)[, uniques, with=F]
+			actual.sample.size <- min(nrow(blah),sample.size)
+			if(actual.sample.size < sample.size)
+			{
+				if(actual.sample.size == 0)
+				{
+					temp <- temp[F]
+					warning("There weren't any samples to sample from. Returning an empty table. Warning.")
+				}
+				else
+				{
+					blah2 <- blah[sample(nrow(blah), actual.sample.size)]
+					temp <- temp[blah2]
+					warning("The number of samples was less than the specified sample size. Returning all samples. Warning.")
+				}
+			}
+			else
+			{
+				# Then sample.size == actual.sample.size
+				blah2 <- blah[sample(nrow(blah), actual.sample.size)]
+				temp <- temp[blah2]
+			}
+			xList[[count]] <- temp
+		}
+		else
+		{
+			xList[[count]] <- temp
+		}
 		count = count + 1
 	}
 	return(xList)
