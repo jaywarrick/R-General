@@ -1121,7 +1121,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	else
 	{
 		# Store base colors
-		numGrps <- nrow(unique(x, by='Loc'))
+		numGrps <- nrow(unique(x, by=by))
 		data[, my.temp.color:=loopingPastels(k=.GRP, max.k=numGrps, l=0.45, a=1), by=by]
 		# # Store base colors
 		# data[, my.temp.color:=loopingPalette(k=.GRP), by=by]
@@ -1221,7 +1221,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 
 plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
 {
-	logicle.params <- fillDefaultLogicleParams(x=xcol, y=ycol, logicle.params=logicle.params)
+	logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
 	
 	# We have to have ylim as an arg so that we can override the NULL default from data.table.plot.all instead of it being hidden in the elipses
 	
@@ -1272,14 +1272,29 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 			line.color.items <- uniqueo(data[[line.color.by]])
 			
 			# Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
-			grps <- sample(1:nGrps, min(sample.size, nGrps))
+			if(sample.size <= 0)
+			{
+			  grps <- 1:nGrps
+			}
+			else
+			{
+			  grps <- sample(1:nGrps, min(sample.size, nGrps))
+			}
 			
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
+			#browser()
 			data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(get(line.color.by)[1]==line.color.items)), alphas[1]), ...)}, by=by]
 		}
 		if(!is.null(errcol))
 		{
+		  # Then do as normal
+		  # Count the number of unique groups as this will be the range of values that .GRP will take
+		  nGrps <- uniqueN(data, by=by)
+		  if(sample.size <= 0)
+		  {
+		    sample.size <- nGrps
+		  }
 			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
 			data[, .SD[sample(.N, min(sample.size,.N))], by=by][, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params), by=by]
 		}
@@ -1472,11 +1487,11 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 			{
 				if(grepl('x',log,fixed=T))
 				{
-					polygon$x <- logicle(polygon$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF)
+					polygon$x <- logicle(polygon$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
 				}
 				if(grepl('y',log,fixed=T))
 				{
-					polygon$y <- logicle(polygon$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF)
+					polygon$y <- logicle(polygon$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F)
 				}
 			}
 			plot(polygon, lwd=2, border='red', add=T)
@@ -1887,17 +1902,33 @@ getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
 #' @param draw.lower - true or false, whether to draw the lower bar or not
 #'
 #' @export
-error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, ...)
+error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, logicle.params=NULL, ...)
 {
 	# if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
 	#      stop("vectors must be same length")
-	if(draw.lower)
+	logicle.params <- fillDefaultLogicleParams(x, y, logicle.params)
+	if(!is.null(logicle.params))
 	{
-		suppressWarnings(arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...))
+		tempX <- logicle(x, transition=logicle.params$transX)
+		tempY <- logicle(y, transition=logicle.params$transY)
+		tempYUpper <- logicle(y+upper, transition=logicle.params$transY)
+		tempYLower <- logicle(y-lower, transition=logicle.params$transY)
 	}
 	else
 	{
-		suppressWarnings(arrows(x,y+upper, x, y, angle=90, code=1, length=length, ...))
+		tempX <- x
+		tempY <- y
+		tempYUpper <- y + upper
+		tempYLower <- y - lower
+	}
+	
+	if(draw.lower)
+	{
+		suppressWarnings(arrows(tempX, tempYUpper, tempX, tempYLower, angle=90, code=3, length=length, ...))
+	}
+	else
+	{
+		suppressWarnings(arrows(tempX, tempYUpper, tempX, tempY, angle=90, code=1, length=length, ...))
 	}
 }
 
@@ -2642,7 +2673,7 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 			if(logX)
 			{
 				# Then scale the limits
-				xlim <- range(logicle(x=xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF))
+				xlim <- range(logicle(x=xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F))
 			}
 			# Otherwise, don't do anything
 		}
@@ -2707,7 +2738,7 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 
 finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd)
 {
-	logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
+	#logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	# Determine which axes to transform
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
@@ -2743,7 +2774,7 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 	{
 		if(logY & !is.null(logicle.params))
 		{
-			abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF), col=h.col, lty=h.lty, lwd=h.lwd)
+			abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F), col=h.col, lty=h.lty, lwd=h.lwd)
 		}
 		else
 		{
@@ -2754,7 +2785,7 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 	{
 		if(logX & !is.null(logicle.params))
 		{
-			abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF), col=v.col, lty=v.lty, lwd=v.lwd)
+			abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F), col=v.col, lty=v.lty, lwd=v.lwd)
 		}
 		else
 		{
@@ -2812,7 +2843,7 @@ plot.logicle <- function(x, y, type='p', log='', logicle.params=NULL, h=NULL, h.
 	{
 		if(grepl('x',log,fixed=T) & !is.null(logicle.params))
 		{
-			x1 <- logicle(x=x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF)
+			x1 <- logicle(x=x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
 		}
 		else
 		{
@@ -2820,7 +2851,7 @@ plot.logicle <- function(x, y, type='p', log='', logicle.params=NULL, h=NULL, h.
 		}
 		if(grepl('y',log,fixed=T) & !is.null(logicle.params))
 		{
-			y1 <- logicle(x=y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF)
+			y1 <- logicle(x=y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F)
 		}
 		else
 		{
@@ -3294,7 +3325,7 @@ plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, 
 		if(!is.null(logicle.params) && !is.null(plot.params$xlim))
 		{
 			# Then we should also control the limits of the plot since we'll be drawing a logicle axis
-			plot.params$xlim <- logicle(plot.params$xlim, logicle.params=logicle.params, neg.rmF)
+			plot.params$xlim <- logicle(plot.params$xlim, logicle.params=logicle.params, neg.rm=F)
 		}
 	}
 	
@@ -3538,11 +3569,11 @@ plot.ellipse <- function(x, y, a, b, n=100, border='red', lwd=2, log='', logicle
 	{
 		if(grepl('x',log,fixed=T))
 		{
-			ret$x <- logicle(ret$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rmF)
+			ret$x <- logicle(ret$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
 		}
 		if(grepl('y',log,fixed=T))
 		{
-			ret$y <- logicle(ret$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rmF)
+			ret$y <- logicle(ret$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F)
 		}
 	}
 	poly <- owin(poly=ret)
