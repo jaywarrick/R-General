@@ -1936,7 +1936,7 @@ error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, log
 #' Use a list() for labels to assign label values to all items
 #' in the object.
 #'
-getJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
+readJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
 {
 	library(foreign)
 	library(data.table)
@@ -2021,8 +2021,8 @@ readJEXDataTables <- function(jData, sample.size=-1, time.col=NULL, time.complet
 		}
 		if(sample.size > 0)
 		{
-			blah <- unique(temp, by=uniques)[, uniques, with=F]
-			actual.sample.size <- min(nrow(blah),sample.size)
+			uniqueIds <- unique(temp, by=uniques)[, uniques, with=F]
+			actual.sample.size <- min(nrow(uniqueIds),sample.size)
 			if(actual.sample.size < sample.size)
 			{
 				if(actual.sample.size == 0)
@@ -2032,16 +2032,16 @@ readJEXDataTables <- function(jData, sample.size=-1, time.col=NULL, time.complet
 				}
 				else
 				{
-					blah2 <- blah[sample(nrow(blah), actual.sample.size)]
-					temp <- temp[blah2]
+					sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
+					temp <- temp[sampledIds]
 					warning("The number of samples was less than the specified sample size. Returning all samples. Warning.")
 				}
 			}
 			else
 			{
 				# Then sample.size == actual.sample.size
-				blah2 <- blah[sample(nrow(blah), actual.sample.size)]
-				temp <- temp[blah2]
+				sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
+				temp <- temp[sampledIds]
 			}
 			xList[[count]] <- temp
 		}
@@ -2051,7 +2051,7 @@ readJEXDataTables <- function(jData, sample.size=-1, time.col=NULL, time.complet
 		}
 		count = count + 1
 	}
-	return(xList)
+	return(rbindlist(xList, use.names=T))
 }
 
 st <- function(...)
@@ -3777,8 +3777,7 @@ getDerivative <- function(x, t)
 }
 
 #' Get the derivative of a vector
-#' @param x A numeric vector on which to calculate the derivative
-#' @param t A numeric vecotor of times with which to determine dt for derivative calculations
+#' @param x A numeric vector on which to calculate the deltas (t+1) - (t)
 getDeltas <- function(x)
 {
 	return(x[2:length(x)] - x[1:(length(x)-1)])
