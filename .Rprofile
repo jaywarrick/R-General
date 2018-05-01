@@ -83,6 +83,23 @@ make3DPlotMatrices <- function(x, y, z)
 	return(list(X=X, Y=Y, Z=Z))
 }
 
+#' FUN MUST take a matrix version of return a vector (or named vector).
+#' Allows passing multiple columns (i.e., .SD) using by.column=F
+#' 
+rollapply.SD <- function(SD, width, FUN, ..., by = 1, by.column = F, fill = if (na.pad) NA, na.pad = T, partial = F, align = c("center", "left", "right"), coredata = T)
+{
+	# FUN MUST return a vector (or named vector which will then result in named columns)
+	FUN3 <- function(SD2, FUN2, ...)
+	{
+		SD2 <- data.table(SD2)
+		return(FUN2(SD2, ...))
+	}
+	
+	ret <- data.table(as.matrix(rollapply(SD, width=width, FUN=FUN3, FUN2=FUN, ..., by=by, by.column=by.column, fill=fill, partial=partial, align=align, coredata=coredata)))
+	#print(ret)
+	return(ret)
+}
+
 apply2D <- function(x, col.fun=NULL, by=NULL, row.fun=NULL, ..., mCols=NULL, mColsContaining=NULL, mColFilter=NULL)
 {
 	if(is.null(mCols))
@@ -1121,7 +1138,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	else
 	{
 		# Store base colors
-		numGrps <- nrow(unique(x, by='Loc'))
+		numGrps <- nrow(unique(data, by=by))
 		data[, my.temp.color:=loopingPastels(k=.GRP, max.k=numGrps, l=0.45, a=1), by=by]
 		# # Store base colors
 		# data[, my.temp.color:=loopingPalette(k=.GRP), by=by]
