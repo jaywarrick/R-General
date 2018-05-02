@@ -132,7 +132,7 @@
 		par(family=font)
 		return()
 	}
-	else
+	else if(!is.null(font))
 	{
 		warning("Couldn't find the desired font. Substituting another light font instead.")
 	}
