@@ -12,33 +12,100 @@
 	{
 		loadfonts(device = "win")
 	}
-	fonts()
 	if(getOS()=='osx')
 	{
 		quartzFonts(Helvetica2 = c('Helvetica Neue Light', 'Helvetica Neue Bold', 'Helvetica Neue Light Oblique', 'Helvetica Neue Bold Oblique'))
+	}
+	else
+	{
+		if('Helvetica Neue2' %in% fonttable()$FamilyName)
+		{
+			.setFamily(list(Helvetica2 = 'Helvetica Neue2'))
+		}
+		if('Roboto Thin' %in% fonttable()$FamilyName)
+		{
+			.setFamily(list(Roboto = 'Roboto Light'))
+		}
+		if('Quicksand Light' %in% fonttable()$FamilyName)
+		{
+			.setFamily(list(Quicksand = 'Quicksand'))
+		}
+		if('Open Sans Light' %in% fonttable()$FamilyName)
+		{
+			.setFamily(list(OpenSans = 'Open Sans Light'))
+		}
+		if('Muli ExtraLight' %in% fonttable()$FamilyName)
+		{
+			.setFamily(list(Muli = 'Muli Light'))
+		}
+		if('Montserrat ExtraLight' %in% fonttable()$FamilyName)
+		{
+			.setFamily(list(Mont = 'Montserrat Light'))
+		}
+	}
+}
+
+.setFamily <- function(fontList)
+{
+	if(getOS() == 'osx')
+	{
+		do.call(quartzFonts, fontList)
+	}
+	else
+	{
+		do.call(windowsFonts, fontList)
+	}
+}
+
+.hasFont <- function(font)
+{
+	if(getOS()=='osx')
+	{
+		return(font %in% names(quartzFonts()))
+	}
+	else
+	{
+		return(font %in% names(windowsFonts()))
 	}
 }
 
 .use.lightFont <- function()
 {
 	.define.fonts()
-	if(getOS()=='osx' & 'Helvetica2' %in% fonttable()$FamilyName)
+	if(.hasFont('Helvetica2'))
 	{
 		par(family = 'Helvetica2')
 	}
-	else if(getOS() == 'osx' & 'Lao Sangam MN' %in% fonttable()$FamilyName)
+	else if(.hasFont('OpenSans'))
 	{
-		par(family = 'Lao Sangam MN')
+		par(family = 'OpenSans')
 	}
-	else if(getOS() != 'osx' & 'Segoe UI Light' %in% fonttable()$FamilyName)
+	else if(.hasFont('Roboto'))
 	{
-		par(family = 'Segoe UI Light')
-		gs <- Sys.glob(file.path('C:/','Program Files','gs', 'gs*', 'bin','*c.exe'))
-		Sys.setenv(R_GSCMD = gs)
+		par(family = 'Roboto')
+	}
+	else if(.hasFont('Quicksand'))
+	{
+		par(family = 'Quicksand')
+	}
+	else if(.hasFont('Mont'))
+	{
+		par(family = 'Mont')
 	}
 	else
 	{
 		warning("Couldn't find our favorite light fonts. Giving up.")
+	}
+	
+	# Windows needs help finding ghostscript for embedding fonts
+	if(getOS() == 'windows')
+	{
+		gs <- Sys.glob(file.path('C:/','Program Files','gs', 'gs*', 'bin','*c.exe'))
+		if(length(gs) > 0 && file.exists(gs))
+		{
+			print('Found Ghostscript executable. Setting environmental variable accordingly.')
+			Sys.setenv(R_GSCMD = gs)
+		}
 	}
 }
 
