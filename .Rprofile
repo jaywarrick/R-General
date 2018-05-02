@@ -6,11 +6,11 @@
 	library(extrafont)
 	if(getOS() == 'osx')
 	{
-		loadfonts()
+		loadfonts(quiet=T)
 	}
 	else
 	{
-		loadfonts(device = "win")
+		loadfonts(device = "win", quiet=T)
 	}
 	# if(getOS()=='osx')
 	# {
