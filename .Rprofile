@@ -4,21 +4,41 @@
 .define.fonts <- function()
 {
 	library(extrafont)
-	loadfonts()
-	fonts()
-	quartzFonts(Helvetica2 = c('Helvetica Neue Light', 'Helvetica Neue Bold', 'Helvetica Neue Light Oblique', 'Helvetica Neue Bold Oblique'))
-}
-
-.use.helvetica <- function()
-{
-	.define.fonts()
-	if('Helvetica2' %in% fonttable()$FamilyName)
+	if(getOS() == 'osx')
 	{
-		par(family = 'Helvetica2')
+		loadfonts()
 	}
 	else
 	{
-		stop("Need to install Helvetica2 Family with extrafont package font_import.")
+		loadfonts(device = "win")
+	}
+	fonts()
+	if(getOS()=='osx')
+	{
+		quartzFonts(Helvetica2 = c('Helvetica Neue Light', 'Helvetica Neue Bold', 'Helvetica Neue Light Oblique', 'Helvetica Neue Bold Oblique'))
+	}
+}
+
+.use.lightFont <- function()
+{
+	.define.fonts()
+	if(getOS()=='osx' & 'Helvetica2' %in% fonttable()$FamilyName)
+	{
+		par(family = 'Helvetica2')
+	}
+	else if(getOS() == 'osx' & 'Lao Sangam MN' %in% fonttable()$FamilyName)
+	{
+		par(family = 'Lao Sangam MN')
+	}
+	else if(getOS() != 'osx' & 'Segoe UI Light' %in% fonttable()$FamilyName)
+	{
+		par(family = 'Segoe UI Light')
+		gs <- Sys.glob(file.path('C:/','Program Files','gs', 'gs*', 'bin','*c.exe'))
+		Sys.setenv(R_GSCMD = gs)
+	}
+	else
+	{
+		warning("Couldn't find our favorite light fonts. Giving up.")
 	}
 }
 
@@ -1033,6 +1053,72 @@ hue_to_rgb <- function(p, q, t)
 	return(y$ret)
 }
 
+#' Wavelength to RGB
+#'
+#' This function converts a given wavelength of light to an 
+#' approximate RGB color value. 
+#'
+#' @param wavelength A wavelength value, in nanometers, in the human visual range from 380 nm through 750 nm.
+#'        These correspond to frequencies in the range from 789 THz through 400 THz.
+#' @param gamma The \eqn{\gamma} correction for a given display device. The linear RGB values will require
+#'        gamma correction if the display device has nonlinear response.
+#' @return a color string, corresponding to the result of \code{\link[grDevices]{rgb}} on the
+#'        calculated R, G, B components. 
+#' @source Original code taken from  http://www.noah.org/wiki/Wavelength_to_RGB_in_Python
+#' @references http://stackoverflow.com/questions/1472514/convert-light-frequency-to-rgb
+#' @references http://www.fourmilab.ch/documents/specrend/
+
+
+wave2rgb <- function(wavelength, gamma=0.8){
+	
+	#
+	#    Based on code by Dan Bruton
+	#    http://www.physics.sfasu.edu/astro/color/spectra.html
+	#    '''
+	
+	if (wavelength >= 380 & wavelength <= 440) {
+		attenuation = 0.3 + 0.7 * (wavelength - 380) / (440 - 380)
+		R = ((-(wavelength - 440) / (440 - 380)) * attenuation) ^ gamma
+		G = 0.0
+		B = (1.0 * attenuation) ^ gamma
+	}
+	else if (wavelength >= 440 & wavelength <= 490) {
+		R = 0.0
+		G = ((wavelength - 440) / (490 - 440)) ^ gamma
+		B = 1.0
+	}
+	else if (wavelength >= 490 & wavelength <= 510) {
+		R = 0.0
+		G = 1.0
+		B = (-(wavelength - 510) / (510 - 490)) ^ gamma
+	}
+	else if (wavelength >= 510 & wavelength <= 580) {
+		R = ((wavelength - 510) / (580 - 510)) ^ gamma
+		G = 1.0
+		B = 0.0
+	}
+	else if (wavelength >= 580 & wavelength <= 645) {
+		R = 1.0
+		G = (-(wavelength - 645) / (645 - 580)) ^ gamma
+		B = 0.0
+	}
+	else if (wavelength >= 645 & wavelength <= 750) {
+		attenuation = 0.3 + 0.7 * (750 - wavelength) / (750 - 645)
+		R = (1.0 * attenuation) ^ gamma
+		G = 0.0
+		B = 0.0
+	}
+	else {
+		R = 0.0
+		G = 0.0
+		B = 0.0
+	}
+	R = R * 255
+	G = G * 255
+	B = B * 255
+	return (rgb(floor(R), floor(G), floor(B), max=255))
+}
+
 loopingPastels <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
 {
 	cols=hsl(h=seq(min.h,max.h, length.out=max.k+1)[-(max.k+1)], s=s, l=l, a=a)
@@ -1082,6 +1168,31 @@ getAlphas <- function(x, alphas, conds)
 	return(alphas[match(x, conds)])
 }
 
+# library(units)
+# library(gridExtra)
+# library(grid)
+draw.table <- function(x, y, dt, font.size=10, newpage=F, padding=unit(c(1,1), units='mm'))
+{
+	x <- round(x, 1)
+	y <- round(y, 1)
+	x <- min(x, 1)
+	x <- max(x, 0)
+	y <- min(y, 1)
+	y <- max(y, 0)
+	n <- (11*(y*10))+x*10 + 1
+	args <- rep(list(grob()), 11*11)
+	theme <- ttheme_minimal(base_size = font.size, base_family = par('family'))
+	print(theme$core$padding)
+	theme$core$padding <- padding
+	print(theme$core$padding)
+	g <- tableGrob(fit.table, theme=theme, rows=NULL)
+	args[[n]] <- g
+	args$nrow=11
+	args$ncol=11
+	args$newpage=newpage
+	do.call(grid.arrange, args)
+}
+
 # This function is needed to plot within data.table because the graphics devices
 # get confused while looping/grouping causing the wrong data to be plotted or co-plotted
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
@@ -1105,13 +1216,15 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 #' @param gates list of gate objects returned by gatePointsInPlot function
 data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NULL, alpha.rank=T, alpha=0.5, by=NULL, plot.by=NULL, line.color.by=NULL,
 						  gates=list(),
+						  env.err=T, env.alpha=0.5,
 						  log='', logicle.params=NULL, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','l','d','h'),
 						  density.args=NULL, breaks=100, percentile.limits=c(0,1),
 						  h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2,
-						  legend=T, legend.pos='topright', legend.cex=0.5,
+						  legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o',
 						  save.file=NULL, save.width=5, save.height=4,
 						  sample.size=-1, polygons=list(), ...)
 {
+	.use.lightFont()
 	if(!(xcol %in% names(data)))
 	{
 		stop(paste0('The xcol provided (', xcol, ') does not exist in the data table. Aborting.'))
@@ -1178,7 +1291,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 	else
 	{
-		legend.colors <- data[, append(mget(plot.by), list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1])), by=by]
+		legend.colors <- unique(data[, append(mget(plot.by), list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1])), by=by])
 	}
 	legend.colors[, grpI:=.GRP, by=plot.by]
 	
@@ -1208,22 +1321,22 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	
@@ -1236,7 +1349,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
 {
 	logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
 	
@@ -1259,62 +1372,58 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 	
 	if(type[1] == 'l')
 	{
+		# Then do as normal
+		# Count the number of unique groups as this will be the range of values that .GRP will take
+		nGrps <- uniqueN(data, by=by)
+		
+		# Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
+		if(sample.size <= 0)
+		{
+			grps <- sample(1:nGrps, nGrps)
+		}
+		else
+		{
+			grps <- sample(1:nGrps, min(sample.size, nGrps))
+		}
+		
 		if(is.null(line.color.by))
 		{
-			# Then do as normal
-			# Count the number of unique groups as this will be the range of values that .GRP will take
-			nGrps <- uniqueN(data, by=by)
-			
-			# Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
-			if(sample.size <= 0)
-			{
-				grps <- 1:nGrps
-			}
-			else
-			{
-				grps <- sample(1:nGrps, min(sample.size, nGrps))
-			}
-			
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
 			data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), ...)}, by=by]
 		}
 		else
 		{
-			# Then do as normal
-			# Count the number of unique groups as this will be the range of values that .GRP will take
-			nGrps <- uniqueN(data, by=by)
-			
 			# Count the number of unique line.color.by.groups
-			line.color.items <- uniqueo(data[[line.color.by]])
-			
-			# Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
-			if(sample.size <= 0)
-			{
-			  grps <- 1:nGrps
-			}
-			else
-			{
-			  grps <- sample(1:nGrps, min(sample.size, nGrps))
-			}
+			line.color.items <- unique(data[, line.color.by, with=F], by=line.color.by)
+			line.color.items <- line.color.items[, names:=paste.mget(mget(line.color.by), sep=':')]$names
 			
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			#browser()
-			data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(get(line.color.by)[1]==line.color.items)), alphas[1]), ...)}, by=by]
+			
+			tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, line.color.items, alphas, env.alpha)
+			{
+				data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=loopingPastels(which(paste.mget(line.color.by,sep=':')==line.color.items), max.k=length(line.color.items), a=alphas[1], l=0.4), ...)
+				if(!is.null(upper))
+				{
+					data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=loopingPastels(which(paste.mget(line.color.by,sep=':')==line.color.items), max.k=length(line.color.items), a=alphas[1]*env.alpha, l=0.4), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
+				}
+			}
+			if(is.null(errcol))
+			{
+				data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, line.color.by=mget(line.color.by), line.color.items=line.color.items, alphas=alphas, env.alpha=env.alpha)}, by=by]
+			}
+			else
+			{
+				data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol), log=log, logicle.params=logicle.params, line.color.by=mget(line.color.by), line.color.items=line.color.items, alphas=alphas, env.alpha=env.alpha)}, by=by]
+			}
+			# data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(paste.mget(mget(line.color.by),sep=':')==line.color.items)), alphas[1]), ...)}, by=by]
 		}
-		if(!is.null(errcol))
-		{
-		  # Then do as normal
-		  # Count the number of unique groups as this will be the range of values that .GRP will take
-		  nGrps <- uniqueN(data, by=by)
-		  if(sample.size <= 0)
-		  {
-		    sample.size <- nGrps
-		  }
-			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
-			data[, .SD[sample(.N, min(sample.size,.N))], by=by][, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params), by=by]
-		}
+		# if(!is.null(errcol))
+		# {
+		# 	# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
+		# 	data[, if(.GRP %in% grps){data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), env.err=env.err, env.color=loopingPastels(which(paste.mget(mget(line.color.by),sep=':')==line.color.items), max.k=length(line.color.items), a=alphas[1]*env.alpha, l=0.4), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)}, by=by]
+		# }
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
 		if(legend & !is.null(by))
 		{
@@ -1343,12 +1452,12 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 				legend.colors <- unique(legend.colors, by=c('grp',by))
 				
 				# Then, for only GRPs in the randomly selected list of .GRPs, make the legend from 'legend.colors'
-				legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=legend.colors$my.color, lty=lty, cex=legend.cex, lwd=lwd)
+				legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=legend.colors$my.color, lty=lty, cex=legend.cex, bg=legend.bg, bty=legend.bty, lwd=lwd)
 			}
 			else
 			{
 				# else lines were determined by 'by' and group coloring determined by 'line.color.by'
-				legend(legend.pos, legend=line.color.items, col=loopingPalette(1:length(line.color.items)), lty=lty, cex=legend.cex, lwd=lwd)
+				legend(legend.pos, legend=line.color.items, col=loopingPastels(1:length(line.color.items), a=1, l=0.4), lty=lty, cex=legend.cex, bg=legend.bg, bty=legend.bty, lwd=lwd)
 			}
 		}
 	}
@@ -1428,7 +1537,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
 		if(!is.null(by))
 		{
-			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex)
+			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty)
 		}
 	}
 	else if(type == 'h' | type == 'd')
@@ -1492,7 +1601,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		}
 		if(!is.null(by))
 		{
-			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex)
+			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty)
 		}
 	}
 	
@@ -1593,7 +1702,7 @@ data.table.points <- function(x, y, log='', plot.logicle=F, logicle.params, h=NU
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.error.bar <- function(x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, ...)
+data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
@@ -1617,7 +1726,7 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, length=0.1, draw
 			lower1 <- NULL
 		}
 		
-		error.bar(x=x1, y=y1, upper=upper1, lower=lower1, length=length, draw.lower=draw.lower, ...)
+		error.bar(x=x1, y=y1, upper=upper1, lower=lower1, env.err=env.err, env.color=env.color, length=length, draw.lower=draw.lower, ...)
 		print('Added error bars to a plot')
 	}
 }
@@ -1909,17 +2018,7 @@ getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
 	return(ret)
 }
 
-#' Draw error bars on a graph
-#'
-#' @param x - x locations to draw center point of the error bars
-#' @param y - y corresponding y locations to draw the center point of the error bars
-#' @param upper - the upper distance to draw the error bars
-#' @param lower - the lower distance to draw the error bars (by default, drawn the same distance as defined by "upper")
-#' @param length - the width/length of the error bar tops and bottoms
-#' @param draw.lower - true or false, whether to draw the lower bar or not
-#'
-#' @export
-error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, logicle.params=NULL, ...)
+getEnvelope <- function(x, y, upper, lower=upper, logicle.params=NULL)
 {
 	# if(length(x) != length(y) | (length(y) != length(lower) | length(lower) != length(upper))
 	#      stop("vectors must be same length")
@@ -1938,15 +2037,111 @@ error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, log
 		tempYUpper <- y + upper
 		tempYLower <- y - lower
 	}
+	return(list(x=tempX, y=tempY, y.upper=tempYUpper, y.lower=tempYLower))
+}
+
+#' Draw error bars on a graph
+#'
+#' @param x - x locations to draw center point of the error bars
+#' @param y - y corresponding y locations to draw the center point of the error bars
+#' @param upper - the upper distance to draw the error bars
+#' @param lower - the lower distance to draw the error bars (by default, drawn the same distance as defined by "upper")
+#' @param length - the width/length of the error bar tops and bottoms
+#' @param draw.lower - true or false, whether to draw the lower bar or not
+#'
+#' @export
+error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, logicle.params=NULL, env.err=F, env.color=rgb(0,0,0,0.2), env.smooth=T, ...)
+{
+	l(tempX, tempY, tempYUpper, tempYLower) %=% getEnvelope(x=x, y=y, upper=upper, lower=lower, logicle.params=logicle.params)
 	
-	if(draw.lower)
+	if(env.err)
 	{
-		suppressWarnings(arrows(tempX, tempYUpper, tempX, tempYLower, angle=90, code=3, length=length, ...))
+		if(env.smooth)
+		{
+			l(sx, sy) %=% spline.envelope(tempX, tempYUpper, tempYLower, ...)
+			polygon(sx, sy, col = env.color, border = NA)
+		}
+		else
+		{
+			polygon(c(rev(tempX), tempX), c(rev(tempYLower), tempYUpper), col = envelope.color, border = NA)
+		}
 	}
 	else
 	{
-		suppressWarnings(arrows(tempX, tempYUpper, tempX, tempY, angle=90, code=1, length=length, ...))
+		if(draw.lower)
+		{
+			suppressWarnings(arrows(tempX, tempYUpper, tempX, tempYLower, angle=90, code=3, length=length, ...))
+		}
+		else
+		{
+			suppressWarnings(arrows(tempX, tempYUpper, tempX, tempY, angle=90, code=1, length=length, ...))
+		}
 	}
+}
+
+#
+# Splining a polygon.
+#
+#   The rows of 'xy' give coordinates of the boundary vertices, in order.
+#   'vertices' is the number of spline vertices to create.
+#              (Not all are used: some are clipped from the ends.)
+#   'k' is the number of points to wrap around the ends to obtain
+#       a smooth periodic spline.
+#
+#   Returns an list containing the x and y points. 
+# 
+spline.poly <- function(x, y, vertices=10*length(x), k=3, ...) {
+	
+	if(length(x) != length(y))
+	{
+		stop("x and y must be the same length. Aborting spline.poly.")
+	}
+	if(length(x) < k)
+	{
+		stop("length of vectors must be >= k for wrapping the ends of the spline around the polygon.")
+	}
+	# Assert: xy is an n by 2 matrix with n >= k.
+	xy <- matrix(c(x, y), ncol=2)
+	
+	# Wrap k vertices around each end.
+	n <- dim(xy)[1]
+	if (k >= 1) {
+		data <- rbind(xy[(n-k+1):n,], xy, xy[1:k, ])
+	} else {
+		data <- xy
+	}
+	
+	# Spline the x and y coordinates.
+	data.spline <- spline(1:(n+2*k), data[,1], n=vertices, ...)
+	x <- data.spline$x
+	x1 <- data.spline$y
+	x2 <- spline(1:(n+2*k), data[,2], n=vertices, ...)$y
+	
+	# Retain only the middle part.
+	return(list(x=x1[k < x & x <= n+k], y=x2[k < x & x <= n+k]))
+}
+
+#
+# Splining an envelope.
+#
+#   'x' and 'yupper' and 'ylower' give coordinates of the boundary vertices, in order.
+#   'vertices' is the number of spline vertices to create.
+#
+#   Returns an list containing the x and y points. 
+# 
+spline.envelope <- function(x, yupper, ylower, vertices=10*length(x), ...) {
+	
+	if((length(x) != length(yupper)) | (length(x) != length(ylower)))
+	{
+		stop("x and yupper and ylower must be the same length. Aborting spline.poly.")
+	}
+	
+	# Spline the x and y coordinates.
+	data.spline.upper <- spline(x, yupper, n=vertices, ...)
+	data.spline.lower <- spline(x, ylower, n=vertices, ...)
+	
+	# Retain only the middle part.
+	return(list(x=c(rev(data.spline.upper$x),data.spline.lower$x), y=c(rev(data.spline.upper$y), data.spline.lower$y)))
 }
 
 #' Get a JEXData object from a well in a dataset in a database
@@ -2079,6 +2274,12 @@ st <- function(...)
 		out <- paste(out, as.character(txt), sep='')
 	}
 	return(out)
+}
+
+paste.mget <- function(mgetList, sep='', collapse=NULL)
+{
+	args <- c(mgetList, sep=sep, collapse=collapse)
+	return(do.call(paste, args))
 }
 
 #' Reorganize a table from long form to wide form.
@@ -2684,7 +2885,7 @@ calcTransition <- function(x, minN=20)
 	}
 }
 
-get.logicle <- function(x, y, log, logicle.params, neg.rm=T)
+get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T)
 {
 	logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	logX <- grepl('x',x=log,fixed=T)
@@ -2731,6 +2932,17 @@ get.logicle <- function(x, y, log, logicle.params, neg.rm=T)
 		{
 			# Treat all values as 'positive' (i.e., plottable)
 			posY <- rep(T, length(y))
+		}
+		
+		# Then, if necessary, remove negative x and y values and warn the user
+		if(any(is.na(x[posX])) & na.rm)
+		{
+			posX <- posX & !is.na(x)
+		}
+		
+		if(any(is.na(y[posY])) & na.rm)
+		{
+			posY <- posY & !is.na(y)
 		}
 		
 		plottable <- posX & posY
@@ -3846,30 +4058,62 @@ interpolateDerivative <- function(f0, f1, f2, x0, x1, x2, xj)
 
 readJEXMaxima <- function(path)
 {
-     require(data.table)
-     parsePolygon <- function(polygon)
-     {
-          pairs <- strsplit(polygon,';')[[1]]
-          x <- numeric(0)
-          x0 <- numeric(0)
-          y <- numeric(0)
-          y0 <- numeric(0)
-          index <- numeric(0)
-          first <- TRUE
-          for(pair in pairs)
-          {
-               nums <- strsplit(pair,',')[[1]]
-               x <- append(x, as.numeric(nums[1]))
-               y <- append(y, as.numeric(nums[2]))
-               index <- append(index,as.numeric(nums[3]))
-          }
+	require(data.table)
+	parsePolygon <- function(polygon)
+	{
+		pairs <- strsplit(polygon,';')[[1]]
+		x <- numeric(0)
+		x0 <- numeric(0)
+		y <- numeric(0)
+		y0 <- numeric(0)
+		index <- numeric(0)
+		first <- TRUE
+		for(pair in pairs)
+		{
+			nums <- strsplit(pair,',')[[1]]
+			x <- append(x, as.numeric(nums[1]))
+			y <- append(y, as.numeric(nums[2]))
+			index <- append(index,as.numeric(nums[3]))
+		}
+		
+		return(data.table(id=index, x=x, y=y))
+	}
+	y <- data.table(read.arff('/Users/jwarrick/Desktop/x0_y1.jxd'))
+	idCols <- names(y)[!(names(y) %in% c('Metadata','Value'))]
+	x <- y[Metadata=='polygonPts', parsePolygon(Value), by=idCols]
+	return(x)
+}
 
-          return(data.table(id=index, x=x, y=y))
-     }
-     y <- data.table(read.arff('/Users/jwarrick/Desktop/x0_y1.jxd'))
-     idCols <- names(y)[!(names(y) %in% c('Metadata','Value'))]
-     x <- y[Metadata=='polygonPts', parsePolygon(Value), by=idCols]
-     return(x)
+clear.warnings <- function()
+{
+	assign("last.warning", NULL, envir = baseenv())
+}
+
+sig.digits <- function(x, n=2)
+{
+	return(format(signif(x,n), digits=n, justify='right'))
+	# return(sprintf(paste0("%.",n,"g"), signif(x,digits=n)))
+}
+
+getOS <- function()
+{
+	sysinf <- Sys.info()
+	if (!is.null(sysinf))
+	{
+		os <- sysinf['sysname']
+		if (os == 'Darwin')
+			os <- "osx"
+	}
+	else
+	{
+		## mystery machine
+		os <- .Platform$OS.type
+		if (grepl("^darwin", R.version$os))
+			os <- "osx"
+		if (grepl("linux-gnu", R.version$os))
+			os <- "linux"
+	}
+	tolower(os)
 }
 
 # Be sure to have a trailing line or carriage return after last closing bracket.
