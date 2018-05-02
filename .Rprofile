@@ -36,7 +36,7 @@
 	}
 	if(.tableHasFont('Open Sans Light'))
 	{
-		.setFamily(list(OpenSans = 'Open Sans Light'))
+		.setFamily(list(Open = 'Open Sans Light'))
 	}
 	if(.tableHasFont('Muli Light'))
 	{
@@ -44,7 +44,7 @@
 	}
 	if(.tableHasFont('Montserrat Light'))
 	{
-		.setFamily(list(Mont = 'Montserrat Light'))
+		.setFamily(list(Montserrat = 'Montserrat Light'))
 	}
 }
 
@@ -110,6 +110,11 @@
 	}
 }
 
+.pdfHasFont <- function(font)
+{
+	return(font %in% names(pdfFonts()))
+}
+
 .hasFont <- function(font)
 {
 	if(getOS()=='osx')
@@ -137,10 +142,10 @@
 		warning("Couldn't find the desired font. Substituting another light font instead.")
 	}
 	
-	if(.hasFont('OpenSans'))
+	if(.hasFont('Open'))
 	{
-		print("Setting font to OpenSans")
-		par(family = 'OpenSans')
+		print("Setting font to Open (Open Sans)")
+		par(family = 'Open')
 	}
 	else if(.hasFont('Roboto'))
 	{
@@ -157,10 +162,10 @@
 		print("Setting font to Muli")
 		par(family = 'Muli')
 	}
-	else if(.hasFont('Mont'))
+	else if(.hasFont('Montserrat'))
 	{
-		print("Setting font to Mont (Montserrat)")
-		par(family = 'Mont')
+		print("Setting font to Montserrat")
+		par(family = 'Montserrat')
 	}
 	else
 	{
@@ -1358,10 +1363,13 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 						  density.args=NULL, breaks=100, percentile.limits=c(0,1),
 						  h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2,
 						  legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o',
-						  save.file=NULL, save.width=5, save.height=4,
+						  save.file=NULL, save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'),
 						  sample.size=-1, polygons=list(), ...)
 {
-	.use.lightFont()
+	if(is.null(save.file))
+	{
+		.use.lightFont()
+	}
 	if(!(xcol %in% names(data)))
 	{
 		stop(paste0('The xcol provided (', xcol, ') does not exist in the data table. Aborting.'))
@@ -1458,22 +1466,22 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, family=family, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=NULL, family=family, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 	}
 	
@@ -1486,7 +1494,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
 {
 	logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
 	
@@ -1497,9 +1505,20 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		return(floor(counts[grp==grpNum]$nbackgated*(sample.size/counts[grp==grpNum]$ngated)))
 	}
 	
+	embedTheFont <- F
 	if(!is.null(save.file))
 	{
-		pdf(save.file, width=save.width, height=save.height)
+		if(any(.pdfHasFont(family)))
+		{
+			font <- family[which(.pdfHasFont(family))[1]]
+			print(paste0("Setting the font to ", font))
+			pdf(save.file, width=save.width, height=save.height, family=font)
+			embedTheFont <- T
+		}
+		else
+		{
+			pdf(save.file, width=save.width, height=save.height)
+		}
 	}
 	
 	if(type[1] %in% c('p','l'))
@@ -1763,7 +1782,14 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 	
 	if(!is.null(save.file))
 	{
-		dev.off()
+		if(embedTheFont)
+		{
+			dev.off2(save.file)
+		}
+		else
+		{
+			dev.off()
+		}
 	}
 }
 
