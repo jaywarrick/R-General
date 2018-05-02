@@ -131,8 +131,9 @@
 {
 	.define.fonts()
 	
-	if(!is.null(font) && .hasFont(font))
+	if(!is.null(font) && any(.hasFont(font)))
 	{
+		font <- font[which(.hasFont(font))[1]]
 		print(paste0("Setting font to ", font))
 		par(family=font)
 		return()
@@ -142,34 +143,18 @@
 		warning("Couldn't find the desired font. Substituting another light font instead.")
 	}
 	
-	if(.hasFont('Open'))
+	font <- c('Open','Roboto','Quicksand','Muli','Montserrat')
+
+	if(any(.hasFont(font)))
 	{
-		print("Setting font to Open (Open Sans)")
-		par(family = 'Open')
+		font <- font[which(.hasFont(font))[1]]
+		print(paste0("Setting font to ", font))
+		par(family=font)
+		return()
 	}
-	else if(.hasFont('Roboto'))
+	else if(!is.null(font))
 	{
-		print("Setting font to Roboto")
-		par(family = 'Roboto')
-	}
-	else if(.hasFont('Quicksand'))
-	{
-		print("Setting font to Quicksand")
-		par(family = 'Quicksand')
-	}
-	else if(.hasFont('Muli'))
-	{
-		print("Setting font to Muli")
-		par(family = 'Muli')
-	}
-	else if(.hasFont('Montserrat'))
-	{
-		print("Setting font to Montserrat")
-		par(family = 'Montserrat')
-	}
-	else
-	{
-		warning("Couldn't find our favorite light fonts. Giving up.")
+		warning("Couldn't find our favorite light fonts. Giving up and using default.")
 	}
 	
 	# Windows needs help finding ghostscript for embedding fonts
@@ -1368,7 +1353,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 {
 	if(is.null(save.file))
 	{
-		.use.lightFont()
+		if(all(family==c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light')))
+		{
+			family <- c('Open', 'Roboto', 'Quicksand', 'Muli', 'Montserrat')
+		}
+		.use.lightFont(family)
 	}
 	if(!(xcol %in% names(data)))
 	{
