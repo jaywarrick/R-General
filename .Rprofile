@@ -12,36 +12,39 @@
 	{
 		loadfonts(device = "win")
 	}
-	if(getOS()=='osx')
+	# if(getOS()=='osx')
+	# {
+	# 	quartzFonts(Helvetica2 = c('Helvetica Neue Light', 'Helvetica Neue Bold', 'Helvetica Neue Light Oblique', 'Helvetica Neue Bold Oblique'))
+	# }
+	# if('Helvetica Neue2' %in% fonttable()$FamilyName)
+	# {
+	# 	.setFamily(list(Helvetica2 = 'Helvetica Neue2'))
+	# }
+	
+	if(.tableHasFont('Roboto Light'))
 	{
-		quartzFonts(Helvetica2 = c('Helvetica Neue Light', 'Helvetica Neue Bold', 'Helvetica Neue Light Oblique', 'Helvetica Neue Bold Oblique'))
+		.setFamily(list(Roboto = 'Roboto Light'))
 	}
-	else
+	if(.tableHasFont('Quicksand'))
 	{
-		if('Helvetica Neue2' %in% fonttable()$FamilyName)
-		{
-			.setFamily(list(Helvetica2 = 'Helvetica Neue2'))
-		}
-		if('Roboto Thin' %in% fonttable()$FamilyName)
-		{
-			.setFamily(list(Roboto = 'Roboto Light'))
-		}
-		if('Quicksand Light' %in% fonttable()$FamilyName)
-		{
-			.setFamily(list(Quicksand = 'Quicksand'))
-		}
-		if('Open Sans Light' %in% fonttable()$FamilyName)
-		{
-			.setFamily(list(OpenSans = 'Open Sans Light'))
-		}
-		if('Muli ExtraLight' %in% fonttable()$FamilyName)
-		{
-			.setFamily(list(Muli = 'Muli Light'))
-		}
-		if('Montserrat ExtraLight' %in% fonttable()$FamilyName)
-		{
-			.setFamily(list(Mont = 'Montserrat Light'))
-		}
+		.setFamily(list(Quicksand = 'Quicksand'))
+	}
+	if(.tableHasFont('Quicksand Regular'))
+	{
+		# Put this one right after the previous to allow it to take precedent on Mac
+		.setFamily(list(Quicksand = 'Quicksand Regular'))
+	}
+	if(.tableHasFont('Open Sans Light'))
+	{
+		.setFamily(list(OpenSans = 'Open Sans Light'))
+	}
+	if(.tableHasFont('Muli Light'))
+	{
+		.setFamily(list(Muli = 'Muli Light'))
+	}
+	if(.tableHasFont('Montserrat Light'))
+	{
+		.setFamily(list(Mont = 'Montserrat Light'))
 	}
 }
 
@@ -49,11 +52,61 @@
 {
 	if(getOS() == 'osx')
 	{
+		fontList[[names(fontList)[1]]] <- rep(fontList[[1]],4)
+		name <- fontList[[1]][1]
+		if(.tableHasFont(paste0(name, ' Bold')))
+		{
+		   	fontList[[1]][c(2,4)] <- paste0(name, ' Bold')
+		}
+		else if(.tableHasFont(paste0(name, ' SemiBold')))
+		{
+			fontList[[1]][c(2,4)] <- paste0(name, ' SemiBold')
+		}
+		else if(.tableHasFont(paste0(name, ' Medium')))
+		{
+			fontList[[1]][c(2,4)] <- paste0(name, ' Medium')
+		}
+		else if(grepl('Light', name, fixed=T) && .tableHasFont(gsub('Light', 'Bold', name, fixed=T)))
+		{
+			fontList[[1]][c(2,4)] <- gsub('Light', 'Bold', name, fixed=T)
+		}
+		else if(grepl('Light', name, fixed=T) && .tableHasFont(gsub('Light', 'SemiBold', name, fixed=T)))
+		{
+			fontList[[1]][c(2,4)] <- gsub('Light', 'SemiBold', name, fixed=T)
+		}
+		else if(grepl('Light', name, fixed=T) && .tableHasFont(gsub('Light', 'Medium', name, fixed=T)))
+		{
+			fontList[[1]][c(2,4)] <- gsub('Light', 'Medium', name, fixed=T)
+		}
+		else if(grepl('Regular', name, fixed=T) && .tableHasFont(gsub('Regular', 'Bold', name, fixed=T)))
+		{
+			fontList[[1]][c(2,4)] <- gsub('Regular', 'Bold', name, fixed=T)
+		}
+		else if(grepl('Regular', name, fixed=T) && .tableHasFont(gsub('Regular', 'SemiBold', name, fixed=T)))
+		{
+			fontList[[1]][c(2,4)] <- gsub('Regular', 'SemiBold', name, fixed=T)
+		}
+		else if(grepl('Regular', name, fixed=T) && .tableHasFont(gsub('Regular', 'Medium', name, fixed=T)))
+		{
+			fontList[[1]][c(2,4)] <- gsub('Regular', 'Medium', name, fixed=T)
+		}
 		do.call(quartzFonts, fontList)
 	}
 	else
 	{
 		do.call(windowsFonts, fontList)
+	}
+}
+
+.tableHasFont <- function(font)
+{
+	if(getOS() == 'osx')
+	{
+		return(font %in% fonttable()$FullName)
+	}
+	else
+	{
+		return(font %in% fonttable()$FamilyName)
 	}
 }
 
@@ -69,27 +122,44 @@
 	}
 }
 
-.use.lightFont <- function()
+.use.lightFont <- function(font=NULL)
 {
 	.define.fonts()
-	if(.hasFont('Helvetica2'))
+	
+	if(!is.null(font) && .hasFont(font))
 	{
-		par(family = 'Helvetica2')
+		print(paste0("Setting font to ", font))
+		par(family=font)
+		return()
 	}
-	else if(.hasFont('OpenSans'))
+	else
 	{
+		warning("Couldn't find the desired font. Substituting another light font instead.")
+	}
+	
+	if(.hasFont('OpenSans'))
+	{
+		print("Setting font to OpenSans")
 		par(family = 'OpenSans')
 	}
 	else if(.hasFont('Roboto'))
 	{
+		print("Setting font to Roboto")
 		par(family = 'Roboto')
 	}
 	else if(.hasFont('Quicksand'))
 	{
+		print("Setting font to Quicksand")
 		par(family = 'Quicksand')
+	}
+	else if(.hasFont('Muli'))
+	{
+		print("Setting font to Muli")
+		par(family = 'Muli')
 	}
 	else if(.hasFont('Mont'))
 	{
+		print("Setting font to Mont (Montserrat)")
 		par(family = 'Mont')
 	}
 	else
