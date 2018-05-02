@@ -4,21 +4,41 @@
 .define.fonts <- function()
 {
 	library(extrafont)
-	loadfonts()
-	fonts()
-	quartzFonts(Helvetica2 = c('Helvetica Neue Light', 'Helvetica Neue Bold', 'Helvetica Neue Light Oblique', 'Helvetica Neue Bold Oblique'))
-}
-
-.use.helvetica <- function()
-{
-	.define.fonts()
-	if('Helvetica2' %in% fonttable()$FamilyName)
+	if(getOS() == 'osx')
 	{
-		par(family = 'Helvetica2')
+		loadfonts()
 	}
 	else
 	{
-		stop("Need to install Helvetica2 Family with extrafont package font_import.")
+		loadfonts(device = "win")
+	}
+	fonts()
+	if(getOS()=='osx')
+	{
+		quartzFonts(Helvetica2 = c('Helvetica Neue Light', 'Helvetica Neue Bold', 'Helvetica Neue Light Oblique', 'Helvetica Neue Bold Oblique'))
+	}
+}
+
+.use.lightFont <- function()
+{
+	.define.fonts()
+	if(getOS()=='osx' & 'Helvetica2' %in% fonttable()$FamilyName)
+	{
+		par(family = 'Helvetica2')
+	}
+	else if(getOS() == 'osx' & 'Lao Sangam MN' %in% fonttable()$FamilyName)
+	{
+		par(family = 'Lao Sangam MN')
+	}
+	else if(getOS() != 'osx' & 'Segoe UI Light' %in% fonttable()$FamilyName)
+	{
+		par(family = 'Segoe UI Light')
+		gs <- Sys.glob(file.path('C:/','Program Files','gs', 'gs*', 'bin','*c.exe'))
+		Sys.setenv(R_GSCMD = gs)
+	}
+	else
+	{
+		warning("Couldn't find our favorite light fonts. Giving up.")
 	}
 }
 
@@ -1033,6 +1053,72 @@ hue_to_rgb <- function(p, q, t)
 	return(y$ret)
 }
 
+#' Wavelength to RGB
+#'
+#' This function converts a given wavelength of light to an 
+#' approximate RGB color value. 
+#'
+#' @param wavelength A wavelength value, in nanometers, in the human visual range from 380 nm through 750 nm.
+#'        These correspond to frequencies in the range from 789 THz through 400 THz.
+#' @param gamma The \eqn{\gamma} correction for a given display device. The linear RGB values will require
+#'        gamma correction if the display device has nonlinear response.
+#' @return a color string, corresponding to the result of \code{\link[grDevices]{rgb}} on the
+#'        calculated R, G, B components. 
+#' @source Original code taken from  http://www.noah.org/wiki/Wavelength_to_RGB_in_Python
+#' @references http://stackoverflow.com/questions/1472514/convert-light-frequency-to-rgb
+#' @references http://www.fourmilab.ch/documents/specrend/
+
+
+wave2rgb <- function(wavelength, gamma=0.8){
+	
+	#
+	#    Based on code by Dan Bruton
+	#    http://www.physics.sfasu.edu/astro/color/spectra.html
+	#    '''
+	
+	if (wavelength >= 380 & wavelength <= 440) {
+		attenuation = 0.3 + 0.7 * (wavelength - 380) / (440 - 380)
+		R = ((-(wavelength - 440) / (440 - 380)) * attenuation) ^ gamma
+		G = 0.0
+		B = (1.0 * attenuation) ^ gamma
+	}
+	else if (wavelength >= 440 & wavelength <= 490) {
+		R = 0.0
+		G = ((wavelength - 440) / (490 - 440)) ^ gamma
+		B = 1.0
+	}
+	else if (wavelength >= 490 & wavelength <= 510) {
+		R = 0.0
+		G = 1.0
+		B = (-(wavelength - 510) / (510 - 490)) ^ gamma
+	}
+	else if (wavelength >= 510 & wavelength <= 580) {
+		R = ((wavelength - 510) / (580 - 510)) ^ gamma
+		G = 1.0
+		B = 0.0
+	}
+	else if (wavelength >= 580 & wavelength <= 645) {
+		R = 1.0
+		G = (-(wavelength - 645) / (645 - 580)) ^ gamma
+		B = 0.0
+	}
+	else if (wavelength >= 645 & wavelength <= 750) {
+		attenuation = 0.3 + 0.7 * (750 - wavelength) / (750 - 645)
+		R = (1.0 * attenuation) ^ gamma
+		G = 0.0
+		B = 0.0
+	}
+	else {
+		R = 0.0
+		G = 0.0
+		B = 0.0
+	}
+	R = R * 255
+	G = G * 255
+	B = B * 255
+	return (rgb(floor(R), floor(G), floor(B), max=255))
+}
+
 loopingPastels <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
 {
 	cols=hsl(h=seq(min.h,max.h, length.out=max.k+1)[-(max.k+1)], s=s, l=l, a=a)
@@ -1082,6 +1168,31 @@ getAlphas <- function(x, alphas, conds)
 	return(alphas[match(x, conds)])
 }
 
+# library(units)
+# library(gridExtra)
+# library(grid)
+draw.table <- function(x, y, dt, font.size=10, newpage=F, padding=unit(c(1,1), units='mm'))
+{
+	x <- round(x, 1)
+	y <- round(y, 1)
+	x <- min(x, 1)
+	x <- max(x, 0)
+	y <- min(y, 1)
+	y <- max(y, 0)
+	n <- (11*(y*10))+x*10 + 1
+	args <- rep(list(grob()), 11*11)
+	theme <- ttheme_minimal(base_size = font.size, base_family = par('family'))
+	print(theme$core$padding)
+	theme$core$padding <- padding
+	print(theme$core$padding)
+	g <- tableGrob(fit.table, theme=theme, rows=NULL)
+	args[[n]] <- g
+	args$nrow=11
+	args$ncol=11
+	args$newpage=newpage
+	do.call(grid.arrange, args)
+}
+
 # This function is needed to plot within data.table because the graphics devices
 # get confused while looping/grouping causing the wrong data to be plotted or co-plotted
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
@@ -1109,10 +1220,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 						  log='', logicle.params=NULL, xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','l','d','h'),
 						  density.args=NULL, breaks=100, percentile.limits=c(0,1),
 						  h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2,
-						  legend=T, legend.pos='topright', legend.cex=0.5,
+						  legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o',
 						  save.file=NULL, save.width=5, save.height=4,
 						  sample.size=-1, polygons=list(), ...)
 {
+	.use.lightFont()
 	if(!(xcol %in% names(data)))
 	{
 		stop(paste0('The xcol provided (', xcol, ') does not exist in the data table. Aborting.'))
@@ -1209,22 +1321,22 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[grpI==.GRP], save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=NULL, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[grpI==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
+			data[, plot.wrapper(.SD, xcol=xcol, ycol=ycol, main=paste0(paste(plot.by, collapse='.'), ' = ', paste(.BY, collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, ...)]
 		}
 	}
 	
@@ -1237,7 +1349,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
 {
 	logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
 	
@@ -1340,12 +1452,12 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 				legend.colors <- unique(legend.colors, by=c('grp',by))
 				
 				# Then, for only GRPs in the randomly selected list of .GRPs, make the legend from 'legend.colors'
-				legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=legend.colors$my.color, lty=lty, cex=legend.cex, lwd=lwd)
+				legend(legend.pos, legend=legend.colors[GRP %in% grps]$grp, col=legend.colors$my.color, lty=lty, cex=legend.cex, bg=legend.bg, bty=legend.bty, lwd=lwd)
 			}
 			else
 			{
 				# else lines were determined by 'by' and group coloring determined by 'line.color.by'
-				legend(legend.pos, legend=line.color.items, col=loopingPastels(1:length(line.color.items), a=1, l=0.4), lty=lty, cex=legend.cex, lwd=lwd)
+				legend(legend.pos, legend=line.color.items, col=loopingPastels(1:length(line.color.items), a=1, l=0.4), lty=lty, cex=legend.cex, bg=legend.bg, bty=legend.bty, lwd=lwd)
 			}
 		}
 	}
@@ -1425,7 +1537,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
 		if(!is.null(by))
 		{
-			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex)
+			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty)
 		}
 	}
 	else if(type == 'h' | type == 'd')
@@ -1489,7 +1601,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		}
 		if(!is.null(by))
 		{
-			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex)
+			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty)
 		}
 	}
 	
@@ -3970,6 +4082,38 @@ readJEXMaxima <- function(path)
 	idCols <- names(y)[!(names(y) %in% c('Metadata','Value'))]
 	x <- y[Metadata=='polygonPts', parsePolygon(Value), by=idCols]
 	return(x)
+}
+
+clear.warnings <- function()
+{
+	assign("last.warning", NULL, envir = baseenv())
+}
+
+sig.digits <- function(x, n=2)
+{
+	return(format(signif(x,n), digits=n, justify='right'))
+	# return(sprintf(paste0("%.",n,"g"), signif(x,digits=n)))
+}
+
+getOS <- function()
+{
+	sysinf <- Sys.info()
+	if (!is.null(sysinf))
+	{
+		os <- sysinf['sysname']
+		if (os == 'Darwin')
+			os <- "osx"
+	}
+	else
+	{
+		## mystery machine
+		os <- .Platform$OS.type
+		if (grepl("^darwin", R.version$os))
+			os <- "osx"
+		if (grepl("linux-gnu", R.version$os))
+			os <- "linux"
+	}
+	tolower(os)
 }
 
 # Be sure to have a trailing line or carriage return after last closing bracket.
