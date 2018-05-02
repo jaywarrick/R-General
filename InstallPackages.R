@@ -1,3 +1,19 @@
+#' Font installation instructions.
+#' 
+#' Go to the jaywarrick/R-General github repository.
+#' There are 5 open fonts in folders - Open Sans, Roboto, Quicksand, Muli, and Montserrat
+#' 
+#' On windows - type 'fonts' in the windows search bar and hit enter to open system fonts folder
+#' then drag the actual .ttf files from within the github folders to the font folder to install them
+#' 
+#' On mac - open the system's 'Font Book.app' and you can drag each font folder to the
+#' app to install them
+#' 
+#' THEN you can run the following script all the way through the last step where the 'extrafont'
+#' package is installed, loaded, and run to load all system and user fonts, such as those
+#' just installed.
+
+
 install.packages('party')
 install.packages('rpart')
 install.packages('randomForest')
