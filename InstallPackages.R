@@ -26,4 +26,6 @@ install.packages('gridExtra')
 install.packages('units')
 install.packages('extrafont')
 library(extrafont)
+# install.packages('extrafontdb') # To reset font table
 font_import()
+y
