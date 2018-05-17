@@ -4246,6 +4246,7 @@ interpolateDerivative <- function(f0, f1, f2, x0, x1, x2, xj)
 	return(term1 + term2 + term3)
 }
 
+#' path is the file path to the jxd file holding the ROI information
 readJEXMaxima <- function(path)
 {
 	require(data.table)
@@ -4268,7 +4269,7 @@ readJEXMaxima <- function(path)
 		
 		return(data.table(id=index, x=x, y=y))
 	}
-	y <- data.table(read.arff('/Users/jwarrick/Desktop/x0_y1.jxd'))
+	y <- data.table(read.arff(path))
 	idCols <- names(y)[!(names(y) %in% c('Metadata','Value'))]
 	x <- y[Metadata=='polygonPts', parsePolygon(Value), by=idCols]
 	return(x)
