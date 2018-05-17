@@ -2372,76 +2372,127 @@ readJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
 	}
 }
 
-readJEXDataTables <- function(jData, sample.size=-1, time.col=NULL, time.completeness=0.1, non.id.cols=c(time.col,'Measurement','MaskChannel','ImageChannel','Value','T','Time','Label'))
+#' sample.size is how many will try to be samples PER FILE.
+readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), ...)
 {
 	xList <- list()
 	count <- 1;
+	
+	# Get the uniqueIds of samples.to.match.and.append to match against, setting the keys for matching
+	uniques.to.match <- c('ds','x','y',names(samples.to.match.and.append)[(names(samples.to.match.and.append) %in% idCols)])
+	setkeyv(samples.to.match.and.append, uniques.to.match)
+	
+	# Read in each file
 	for(daFile in jData$fileList)
 	{
+		# Read in data
 		temp <- fread(daFile, header=T)
 		others <- !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))
 		toGet <- names(jData)[others]
 		temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
 		setcolorder(temp, c(toGet, names(temp)[!(names(temp) %in% toGet)]))
 		
-		uniques <- names(temp)[!(names(temp) %in% non.id.cols)]
-		setkeyv(temp, uniques)
-		if(!is.null(time.col))
+		# If we have an existing table that we are supposed to find matching data for
+		# then use that to determine sampling and append the new data.
+		if(!is.null(samples.to.match.and.append))
 		{
-			if(time.col %in% names(temp))
+			uniques <- c('ds','x','y',names(temp)[(names(temp) %in% idCols)])
+			if(!(all(uniques) %in% uniques.to.match) || !(all(uniques.to.match) %in% uniques))
 			{
-				nMin <- time.completeness*length(unique(temp[[time.col]]))
-				if(time.completeness <=0 | time.completeness > 1)
-				{
-					stop("time.completeness parameter must be > 0 and <= 1 as it represents the minimum fraction of the timelapse for which as cell must have data in order to be kept.")
-				}
-				nTimes <- temp[, list(N=length(unique(get(time.col)))), by=uniques]
-				nTimes <- nTimes[N >= nMin]
-				nTimes[, N:=NULL]
-				temp <- temp[nTimes]
-				if(nrow(temp)==0)
-				{
-					warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
-				}
+				print(paste0('Uniques to match: ', uniques.to.match))
+				print(paste0('Uniques read: ', uniques))
+				stop("The unique id cols in new data and the data to match up with need to match")
 			}
-			else
-			{
-				stop("Couldn't find the specified time column in the data table being read. Aborting.")
-			}
-		}
-		if(sample.size > 0)
-		{
-			uniqueIds <- unique(temp, by=uniques)[, uniques, with=F]
-			actual.sample.size <- min(nrow(uniqueIds),sample.size)
-			if(actual.sample.size < sample.size)
-			{
-				if(actual.sample.size == 0)
-				{
-					temp <- temp[F]
-					warning("There weren't any samples to sample from. Returning an empty table. Warning.")
-				}
-				else
-				{
-					sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
-					temp <- temp[sampledIds]
-					warning("The number of samples was less than the specified sample size. Returning all samples. Warning.")
-				}
-			}
-			else
-			{
-				# Then sample.size == actual.sample.size
-				sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
-				temp <- temp[sampledIds]
-			}
+			
+			# Set keys in each table to match for indexing/matching
+			setkeyv(temp, uniques.to.match)
+			
+			# Only select uniqueIds from temp that exist in samples.to.match.and.append
+			temp <- temp[unique(samples.to.match.and.append, by=uniques)[, uniques, with=F]]
 			xList[[count]] <- temp
 		}
 		else
 		{
-			xList[[count]] <- temp
+			# We should sample according to other arguments.
+			uniques <- names(temp)[(names(temp) %in% idCols)]
+			setkeyv(temp, uniques)
+			if(!is.null(time.col))
+			{
+				if(time.col %in% names(temp))
+				{
+					nMin <- time.completeness*length(unique(temp[[time.col]]))
+					if(time.completeness <=0 | time.completeness > 1)
+					{
+						stop("time.completeness parameter must be > 0 and <= 1 as it represents the minimum fraction of the timelapse for which as cell must have data in order to be kept.")
+					}
+					nTimes <- temp[, list(N=length(unique(get(time.col)))), by=uniques]
+					nTimes <- nTimes[N >= nMin]
+					nTimes[, N:=NULL]
+					temp <- temp[nTimes]
+					if(nrow(temp)==0)
+					{
+						warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
+					}
+				}
+				else
+				{
+					stop("Couldn't find the specified time column in the data table being read. Aborting.")
+				}
+			}
+			if(sample.size > 0)
+			{
+				uniqueIds <- unique(temp, by=uniques)[, uniques, with=F]
+				actual.sample.size <- min(nrow(uniqueIds),sample.size)
+				if(actual.sample.size < sample.size)
+				{
+					if(actual.sample.size == 0)
+					{
+						temp <- temp[F]
+						warning("There weren't any samples to sample from. Returning an empty table. Warning.")
+					}
+					else
+					{
+						sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
+						temp <- temp[sampledIds]
+						warning("The number of samples was less than the specified sample size. Returning all samples. Warning.")
+					}
+				}
+				else
+				{
+					# Then sample.size == actual.sample.size
+					if(!is.null(sample.order.fun))
+					{
+						# Order the list and sample the top of the list
+						orderedUniqueIds <- sample.order.fun(temp, ...)
+						sampledIds <- orderedUniqueIds[1:actual.sample.size]
+					}
+					else
+					{
+						# Take a random sampling of the list
+						sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
+					}
+					temp <- temp[sampledIds]
+				}
+				xList[[count]] <- temp
+			}
+			else
+			{
+				xList[[count]] <- temp
+			}
 		}
 		count = count + 1
 	}
-	return(rbindlist(xList, use.names=T))
+	
+	# rbind the read in data
+	ret <- rbindlist(xList, use.names=T)
+	
+	if(!is.null(samples.to.match.and.append))
+	{
+		# Then append the read data to the sample data.
+		ret <- rbindlist(list(a=ret, b=sample.to.match.and.append), use.names=T)
+	}
+	
+	return(ret)
 }
 
 st <- function(...)
