@@ -3203,23 +3203,45 @@ plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, 
 		}
 	}
 
-	if(!add & !silent)
+	if(!add & !silent & !is.null(plot.params) & !is.null(plot.params$axes) )
 	{
-		if(log)
-		{
-			if(is.null(logicle.params))
-			{
-				drawLogicleAxis(axisNum=1, las=las[1])
-			}
-			else
-			{
-				drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1])
-			}
-		}
-		else
-		{
-			axis(1)
-		}
+	  # First check to see if plot.params has axes=F
+	  drawTheXAxis <- T
+	  if(!is.null(plot.params))
+	  {
+	    if(!is.null(plot.params$axes))
+	    {
+	      if(!plot.params$axes)
+	      {
+	        drawTheXAxis <- F
+	      }
+	    }
+	    if(!is.null(plot.params$xaxt))
+	    {
+	      if(plot.params$xaxt=='n')
+	      {
+	        drawTheXAxis <- F
+	      }
+	    }
+	  }
+	  if(drawTheXAxis)
+	  {
+	    if(log)
+	    {
+	      if(is.null(logicle.params))
+	      {
+	        drawLogicleAxis(axisNum=1, las=las[1])
+	      }
+	      else
+	      {
+	        drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1])
+	      }
+	    }
+	    else
+	    {
+	      axis(1)
+	    }
+	  }
 	}
 	par(mar=default.mar, mgp=default.mgp, las=default.las)
 	return(ret)
