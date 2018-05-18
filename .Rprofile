@@ -2389,9 +2389,12 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	xList <- list()
 	count <- 1;
 	
-	# Get the uniqueIds of samples.to.match.and.append to match against, setting the keys for matching
-	uniques.to.match <- c('ds','x','y',names(samples.to.match.and.append)[(names(samples.to.match.and.append) %in% idCols)])
-	setkeyv(samples.to.match.and.append, uniques.to.match)
+	if(!is.null(samples.to.match.and.append))
+	{
+		# Get the uniqueIds of samples.to.match.and.append to match against, setting the keys for matching
+		uniques.to.match <- c('ds','x','y',names(samples.to.match.and.append)[(names(samples.to.match.and.append) %in% idCols)])
+		setkeyv(samples.to.match.and.append, uniques.to.match)	
+	}
 	
 	# Read in each file
 	for(daFile in jData$fileList)
