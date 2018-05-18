@@ -1,4 +1,5 @@
 library(data.table)
+library(tuneR)
 # Requires source('/Users/jaywarrick/Documents/GitHub/R-General/.Rprofile')
 # Requires source('/Users/jaywarrick/Documents/GitHub/R-Cytoprofiling/PreProcessingHelpers.R')
 
@@ -203,3 +204,39 @@ makeSymmetric <- function(mat, fill.upper=T)
 	}
 	return(mat)
 }
+
+# try nbands=10 & 5, bwidth=1 also
+getMFCCs <- function(x, k=12, nbands=500, bwidth=100, ignore.n1=T, na.rm=F, mean.center=T, epsilon=1e-6)
+{
+     if(k < 2)
+     {
+          stop('k must be > 1')
+     }
+     if(na.rm)
+     {
+          x <- x[!is.na(x)]
+     }
+     if(mean.center)
+     {
+          x <- getMeanSubtracted(x, na.rm=na.rm) + epsilon # This avoids signals with perfectly zero amplitude
+          x <- x + epsilon
+     }
+     if(length(x) < 10)
+     {
+          return(NULL)
+     }
+     w <- Wave(x, samp.rate=1, bit=32)
+     mfcc <- melfcc(w, numcep = k, wintime = length(w)-2, hoptime = 1, nbands = 500, bwidth=100)
+     ret <- data.table(mfcc.n=1:k, mfcc.a=colMeans(mfcc))
+     if(ignore.n1)
+     {
+          ret <- ret[2:k]
+     }
+     if(any(!is.finite(ret$mfcc.a)))
+     {
+          stop('Found invalid values')
+     }
+     return(ret)
+}
+
+
