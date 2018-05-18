@@ -1485,7 +1485,18 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 
 plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
 {
-	logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
+	if(is.null(xcol))
+	{
+		stop("xcol must exist within the data.table and can't be NULL")
+	}
+	if(is.null(ycol))
+	{
+		logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=NULL, logicle.params=logicle.params)
+	}
+	else
+	{
+		logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
+	}
 	
 	# We have to have ylim as an arg so that we can override the NULL default from data.table.plot.all instead of it being hidden in the elipses
 	
@@ -3475,7 +3486,7 @@ logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=
 		}
 		if(!is.null(logicle.params$base))
 		{
-			base <- logicle.paramsbase
+			base <- logicle.params$base
 		}
 		if(!is.null(logicle.params$tickSep))
 		{
