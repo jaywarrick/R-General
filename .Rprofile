@@ -3283,6 +3283,8 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 	{
 		# Then ylim is not provided and we should calculate based on the data from 'get.logicle'
 		ylim <- range(y1[is.finite(y1)], na.rm=T)
+		# ylim[1] <- 0.9*ylim[1]
+		# ylim[2] <- 1.1*ylim[2]
 	}
 	else
 	{
@@ -3409,7 +3411,10 @@ fillDefaultLogicleParams <- function(x, y, logicle.params)
 	if(is.null(y))
 	{
 		# Then just get params for x
-		transition <- logicle.params$transition
+	  #Not sure whether it is specified in transition or transX so just take whichever is not null via the max function
+		transition <- max(logicle.params$transition, logicle.params$transX)
+		logicle.params$transition <- transition
+		logicle.params$transX <- transition
 		if(is.null(transition))
 		{
 			logicle.params$transition <- calcTransition(x)
