@@ -668,7 +668,17 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 	library(EMCluster)
 	set.seed(rndSeed)
 	
-	yo <- data[!is.na(data)]
+	if(is.null(data))
+	{
+		stop('Data is NULL. Aborting assignToClusters.')
+	}
+	
+	if(length(data[is.finite(data)]) < nClusters)
+	{
+		stop('The number of data points must be >= the number of desired clusters')
+	}
+	
+	yo <- data[is.finite(data)]
 	x <- data.frame(x=yo)
 	
 	# Get basic cluster results (results are potentially out of order)
@@ -4265,10 +4275,11 @@ Mode <- function(x) {
 	ux[which.max(tabulate(match(x, ux)))]
 }
 
-roll.mean <- function(x, win.width=2)
+roll.mean <- function(x, win.width=2, na.rm=T, ...)
 {
 	require(zoo)
-	return(rollmean(x, k=win.width, fill=c(x[1], NA, x[length(x)]), align='center'))
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align='center'))
 }
 
 #' Get the adjustable running window average of the data
