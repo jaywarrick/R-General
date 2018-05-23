@@ -19,6 +19,8 @@ install.packages('rpart')
 install.packages('randomForest')
 install.packages('e1071')
 install.packages('rgl')
+install.packages('caret')
+install.packages('plotly')
 
 install.packages('Matrix')
 install.packages('matrixStats')
