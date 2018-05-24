@@ -175,6 +175,22 @@ dev.off2 <- function(file)
 	embed_fonts(file)
 }
 
+View2 <- function(x)
+{
+	if('data.table' %in% class(x))
+	{
+		View(x[1:(min(1000, nrow(x)))])
+	}
+	else if('data.frame' %in% class(x))
+	{
+		View(x[1:(min(1000, nrow(x))),])
+	}
+	else
+	{
+		View(x)
+	}
+}
+
 ##### NOTES: #####
 
 # This works to keep certain columns along with new calcs
@@ -668,7 +684,17 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 	library(EMCluster)
 	set.seed(rndSeed)
 	
-	yo <- data[!is.na(data)]
+	if(is.null(data))
+	{
+		stop('Data is NULL. Aborting assignToClusters.')
+	}
+	
+	if(length(data[is.finite(data)]) < nClusters)
+	{
+		stop('The number of data points must be >= the number of desired clusters')
+	}
+	
+	yo <- data[is.finite(data)]
 	x <- data.frame(x=yo)
 	
 	# Get basic cluster results (results are potentially out of order)
@@ -1758,6 +1784,20 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 	}
 	else if(type == 'h' | type == 'd')
 	{
+		# Then do as normal
+		# Count the number of unique groups as this will be the range of values that .GRP will take
+		nGrps <- uniqueN(data, by=by)
+		
+		# Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
+		if(sample.size <= 0)
+		{
+			grps <- sample(1:nGrps, nGrps)
+		}
+		else
+		{
+			grps <- sample(1:nGrps, min(sample.size, nGrps))
+		}
+		
 		if(is.character(log))
 		{
 			if(log=='')
@@ -1819,6 +1859,17 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		}
 		if(!is.null(by))
 		{
+			# Then do as normal (lines and colors determined by 'by')
+			# figure out the .GRP numbers for each by combo
+			legend.colors[, GRP:=.GRP, by=by]
+			
+			# Find the index of the .GRP in the randomly selected list of groups to plot (unmatched .GRPs get NA values)
+			legend.colors[, GRPI:=match(GRP, grps)]
+			
+			# Get unique rows (can't remember right now why this is here)
+			legend.colors <- unique(legend.colors, by=c('grp',by))
+			
+			# Then, for only GRPs in the randomly selected list of .GRPs, make the legend from 'legend.colors'
 			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty)
 		}
 	}
@@ -2419,6 +2470,13 @@ readJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
 	}
 }
 
+filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
+{
+	setkeyv(x, idCols)
+	setkeyv(filterTable, idCols)
+	return(x[unique(filterTable, by=idCols)[, idCols, with=F], nomatch=0])
+}
+
 #' sample.size is how many will try to be samples PER FILE.
 readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), ...)
 {
@@ -2429,7 +2487,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	{
 		# Get the uniqueIds of samples.to.match.and.append to match against, setting the keys for matching
 		uniques.to.match <- c('ds','x','y',names(samples.to.match.and.append)[(names(samples.to.match.and.append) %in% idCols)])
-		setkeyv(samples.to.match.and.append, uniques.to.match)	
+		setkeyv(samples.to.match.and.append, uniques.to.match)
 	}
 	
 	# Read in each file
@@ -2447,18 +2505,14 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		if(!is.null(samples.to.match.and.append))
 		{
 			uniques <- c('ds','x','y',names(temp)[(names(temp) %in% idCols)])
-			if(!(all(uniques) %in% uniques.to.match) || !(all(uniques.to.match) %in% uniques))
+			if(!all(uniques %in% uniques.to.match) || !all(uniques.to.match %in% uniques))
 			{
 				print(paste0('Uniques to match: ', uniques.to.match))
 				print(paste0('Uniques read: ', uniques))
 				stop("The unique id cols in new data and the data to match up with need to match")
 			}
 			
-			# Set keys in each table to match for indexing/matching
-			setkeyv(temp, uniques.to.match)
-			
-			# Only select uniqueIds from temp that exist in samples.to.match.and.append
-			temp <- temp[unique(samples.to.match.and.append, by=uniques)[, uniques, with=F]]
+			temp <- filterTableWithIdsFromAnotherTable(temp, samples.to.match.and.append, uniques.to.match)
 			xList[[count]] <- temp
 		}
 		else
@@ -2510,11 +2564,11 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 				else
 				{
 					# Then sample.size == actual.sample.size
-					if(!is.null(sample.order.fun))
+					if(!is.null(sampling.order.fun))
 					{
 						# Order the list and sample the top of the list
-						orderedUniqueIds <- sample.order.fun(temp, ...)
-						sampledIds <- orderedUniqueIds[1:actual.sample.size]
+						orderedUniqueIds <- sampling.order.fun(temp, idCols=idCols, sample.size=actual.sample.size, ...)
+						sampledIds <- orderedUniqueIds
 					}
 					else
 					{
@@ -2539,7 +2593,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	if(!is.null(samples.to.match.and.append))
 	{
 		# Then append the read data to the sample data.
-		ret <- rbindlist(list(a=ret, b=sample.to.match.and.append), use.names=T)
+		ret <- rbindlist(list(a=ret, b=samples.to.match.and.append), use.names=T)
 	}
 	
 	return(ret)
@@ -4291,10 +4345,11 @@ Mode <- function(x) {
 	ux[which.max(tabulate(match(x, ux)))]
 }
 
-roll.mean <- function(x, win.width=2)
+roll.mean <- function(x, win.width=2, na.rm=T, ...)
 {
 	require(zoo)
-	return(rollmean(x, k=win.width, fill=c(x[1], NA, x[length(x)]), align='center'))
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align='center'))
 }
 
 #' Get the adjustable running window average of the data
