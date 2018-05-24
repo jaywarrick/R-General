@@ -753,7 +753,7 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 #'
 #' @export
 bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.column=NULL, error.lower.column=error.upper.column,
-			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, group.names=NULL, color.colors=NULL, rotate.x.labels=F, plot.border=T,
+			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, group.names=NULL, color.colors=NULL, rotate.x.labels=F, rotate.y.labels=F, plot.border=T,
 			 args.error.bar=list(length=0.1),
 			 legend=TRUE, legend.border=F, args.legend=list(),
 			 mar=c(4.5,4.5,2,2), use.pastels=T, ...)
@@ -949,9 +949,20 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	}
 	
 	# Rotate x-axis labels if desired
-	if(rotate.x.labels)
+	if(rotate.x.labels | rotate.y.labels)
 	{
-		args.barplot <- modifyList(args.barplot, list(las=2))
+		if(rotate.x.labels & !rotate.y.labels)
+		{
+			args.barplot <- modifyList(args.barplot, list(las=2))
+		}
+		if(rotate.x.labels & rotate.y.labels)
+		{
+			args.barplot <- modifyList(args.barplot, list(las=3))
+		}
+		if(!rotate.x.labels & rotate.y.labels)
+		{
+			args.barplot <- modifyList(args.barplot, list(las=1))
+		}
 	}
 	
 	# Set the plot margins
@@ -1351,23 +1362,27 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 						  save.file=NULL, save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
 						  sample.size=-1, polygons=list(), ...)
 {
-  # If we are saving the file, then load fonts if possible.
-	if(is.null(save.file))
-	{
-		if(all(family==c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light')))
-		{
-			family <- c('Open', 'Roboto', 'Quicksand', 'Muli', 'Montserrat')
-		}
-		.use.lightFont(family)
-	}
+	# REMEMBER: las works now to rotate the number labels (0-3)
+	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
+	
+	
+  	# If we are saving the file, then load fonts if possible.
+	# if(is.null(save.file))
+	# {
+	# 	if(all(family==c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light')))
+	# 	{
+	# 		family <- c('Open', 'Roboto', 'Quicksand', 'Muli', 'Montserrat')
+	# 	}
+	# 	.use.lightFont(family)
+	# }
   
-  # Abort if 'xcol' is not in the data table
+  	# Abort if 'xcol' is not in the data table
 	if(!(xcol %in% names(data)))
 	{
 		stop(paste0('The xcol provided (', xcol, ') does not exist in the data table. Aborting.'))
 	}
   
-  # Abort if we don't have a ycol and we are doing an l or p plot.
+  	# Abort if we don't have a ycol and we are doing an l or p plot.
 	if(type[1] %in% c('l','p'))
 	{
 		if(!(ycol %in% names(data)))
@@ -1490,7 +1505,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, ...)
 {
 	if(is.null(xcol))
 	{
@@ -1521,10 +1536,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 			{
 				font <- family[which(.pdfHasFont(family))[1]]
 				print(paste0("Setting the font to ", font))
-				if(getOS()=='osx')
-				{
-					pdf(save.file, width=save.width, height=save.height, family=font)
-				}
+				pdf(save.file, width=save.width, height=save.height, family=font)
 				embedTheFont <- T
 			}
 			else
@@ -1554,7 +1566,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 	
 	if(type[1] %in% c('p','l'))
 	{
-		start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, ...)
+		start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, xlim=xlim, ylim=ylim, add=add, ...)
 	}
 	
 	if(type[1] == 'l')
@@ -1628,7 +1640,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		# 	# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
 		# 	data[, if(.GRP %in% grps){data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), env.err=env.err, env.color=loopingPastels(which(paste.mget(mget(line.color.by),sep=':')==line.color.items), max.k=length(line.color.items), a=alphas[1]*env.alpha, l=0.4), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)}, by=by]
 		# }
-		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
+		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
 		if(legend & !is.null(by))
 		{
 			temp <- list(...)
@@ -1738,7 +1750,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		# 	# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10))
 		# 	data[, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY), by=by]
 		# }
-		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd)
+		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add)
 		if(!is.null(by))
 		{
 			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty)
@@ -3237,7 +3249,7 @@ get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T)
 	return(list(x=x1, y=y1))
 }
 
-start.logicle <- function(x, y, log='xy', logicle.params, ...)
+start.logicle <- function(x, y, log='xy', logicle.params, add=F, ...)
 {
 	logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	
@@ -3246,6 +3258,11 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 	
 	# This function works to scale things to logicle scale or for normal log scaling (removing negative values if necessary but leaving things unscaled)
 	l(x1, y1) %=% get.logicle(x=x, y=y, log=log, logicle.params=logicle.params)
+	
+	if(add)
+	{
+		return(list(x=x1, y=y1))
+	}
 	
 	# Determine xlim
 	xlim <- list(...)$xlim
@@ -3327,29 +3344,38 @@ start.logicle <- function(x, y, log='xy', logicle.params, ...)
 	return(list(x=x1, y=y1))
 }
 
-finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd)
+finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd, add=F, ...)
 {
 	#logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	# Determine which axes to transform
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
 	
-	# Draw axes if logicle.params was provided and the particular axis is logicle-scaled
-	if(logX == 1)
+	las <- 0
+	if(!is.null(list(...)$las))
 	{
-		drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
+		las <- list(...)$las
 	}
-	else
+	
+	if(!add)
 	{
-		axis(1)
-	}
-	if(logY == 1)
-	{
-		drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base)
-	}
-	else
-	{
-		axis(2)
+		# Draw axes if logicle.params was provided and the particular axis is logicle-scaled
+		if(logX == 1)
+		{
+			drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las)
+		}
+		else
+		{
+			axis(1, las=las)
+		}
+		if(logY == 1)
+		{
+			drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las)
+		}
+		else
+		{
+			axis(2, las=las)
+		}
 	}
 	
 	# This is now done within drawLogiclAxis
