@@ -950,19 +950,32 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	
 	if(!is.null(group.column))
 	{
-		args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
-						 col=color.colors,
-						 legend.text=color.names.display, args.legend=args.legend, xpd=TRUE,
-						 xlab=if(is.null(xlab)) group.column else xlab,
-						 ylab=if(is.null(ylab)) y.column else ylab)
+		if(legend)
+		{
+			args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
+							 col=color.colors,
+							 legend.text=color.names.display, args.legend=args.legend, xpd=TRUE,
+							 xlab=if(is.null(xlab)) group.column else xlab,
+							 ylab=if(is.null(ylab)) y.column else ylab)
+		}
+		else
+		{
+			args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
+							 col=color.colors,
+							 legend.text=F, args.legend=NULL, xpd=TRUE,
+							 xlab=if(is.null(xlab)) group.column else xlab,
+							 ylab=if(is.null(ylab)) y.column else ylab)
+		}
+		
 	}
 	else
 	{
 		args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=color.names.display,
 						 col=color.colors,
-						 legend.text=NULL, args.legend=NULL, xpd=TRUE,
+						 legend.text=F, args.legend=NULL, xpd=TRUE,
 						 xlab=if(is.null(xlab)) group.column else xlab,
 						 ylab=if(is.null(ylab)) y.column else ylab)
+		
 	}
 	
 	args.barplot <- modifyList(args.barplot, list(...))
@@ -1193,9 +1206,9 @@ colorizeBlueToRed <- function(x, s=0.7, l=0.5, a=1)
 hsl <- function(h, s=1, l=0.5, a=1) {
 	x <- data.table(h=h, s=s, l=l, a=a)
 	# x[, h:=h / 360]
-	ret <- data.table(r=rep(0,nrow(x)), g=as.double(0.0), b=as.double(0.0))
+	#ret <- data.table(r=rep(0,nrow(x)), g=as.double(0.0), b=as.double(0.0))
 	x[, ':='(r=0, g=0, b=0)]
-	ret[s==0, ':='(r=l, g=l, b=l)]
+	x[s==0, ':='(r=l, g=l, b=l)]
 	x[s!=0, q:=ifelse(l < 0.5, l * (1.0 + s), l + s - (l*s))]
 	x[s!=0, p:= 2.0 * l - q]
 	x[s!=0, r:= hue_to_rgb(p, q, h + 1/3)]
@@ -2132,42 +2145,74 @@ bigcor <- function(x, y=NULL, fun=c("cor","cov"), size=2000, verbose=TRUE, conve
 	}
 }
 
+
+getWilcoxStats <- function(x, y, ...)
+{
+	x <- x[is.finite(x)]
+	y <- y[is.finite(y)]
+	if(length(x) == 0 || length(y) == 0)
+	{
+		# This results in a missing row in the results details table for the experiment with either missing x or y data
+		return(NULL)
+	}
+	temp <- wilcox.test(x=x, y=y, ...)
+	W <- as.numeric(temp$statistic)
+	
+	counts <- table(c(x, y))
+	
+	n.x <- length(x)
+	n.y <- length(y)
+	N <- n.x + n.y
+	
+	# Taken from R source code for wilcox.test
+	z <- W - n.x * n.y / 2
+	z <- z - sign(z)*0.5
+	SIGMA <- sqrt((n.x * n.y / 12) * ((n.x + n.y + 1) - sum(counts^3 - counts) / ((n.x + n.y) * (n.x + n.y - 1))))
+	sigma <- sqrt((n.x * n.y / 12) * (n.x + n.y + 1))
+	effect.size <- z/sigma
+	z <- z/SIGMA
+	 
+	
+	p1 <- 2*pnorm(-abs(z))
+	
+	p.approx <- 2*pnorm(-abs(z))
+	
+	return(list(W=W, p.value=temp$p.value, N=N, median.x=median(x), median.y=median(y), n.x=n.x, n.y=n.y, E=n.x * n.y / 2, V=SIGMA^2, z.score=z, effect.size=effect.size, p.value.approx=p.approx))
+}
+
+#' Returns either the Hedge's g (like Cohen's d for unequal variance and sample size)
+#' or the rank biseral coefficien (-1 to +1)
+#'
+getEffectSize <- function(x1, x2, rank.biserial=F)
+{
+	if(rank.biserial)
+	{
+		# http://core.ecu.edu/psyc/wuenschk/docs30/Nonparametric-EffectSize.pdf
+		# Kirby (2014)
+		# 1-2*U/(n1*n2) Rank Biserial Correlation
+		# Result is 0-1 being the chance that a random sample from one sample will exceed that of a sample from the other population
+		U <- wilcox.test(x1, x2)$statistic # W and U are same for R
+		return(c(rb=as.numeric(1-2*U/(length(x1)*length(x2)))))
+	}
+	else
+	{
+		# https://en.wikipedia.org/wiki/Effect_size#Hedges'_g
+		# Hedge's g
+		s.star.num <- ((length(x1)-1)*sd(x1)^2)+((length(x2)-1)*sd(x2)^2)
+		s.star.den <- length(x1) + length(x2) - 2
+		s.star <- s.star.num/s.star.den
+		g <- (mean(x2)-mean(x1))/s.star
+		return(c(g=g))
+	}
+}
+
 # This is for calculating the p-value by combining multiple experiments
 wilcox.test.combined <- function(data, replCols, condCol, valCol, exact=NULL, two.tailed=TRUE)
 {
 	require(data.table)
 	x1 <- data.table(data)
 	
-	getStats <- function(x, y, cond1, cond2, ...)
-	{
-		x <- x[is.finite(x)]
-		y <- y[is.finite(y)]
-		if(length(x) == 0 || length(y) == 0)
-		{
-			# This results in a missing row in the results details table for the experiment with either missing x or y data
-			return(NULL)
-		}
-		temp <- wilcox.test(x=x, y=y, ...)
-		W <- as.numeric(temp$statistic)
-		
-		counts <- table(c(x, y))
-		
-		n.x <- length(x)
-		n.y <- length(y)
-		N <- n.x + n.y
-		
-		# Taken from R source code for wilcox.test
-		z <- W - n.x * n.y / 2
-		z <- z - sign(z)*0.5
-		SIGMA <- sqrt((n.x * n.y / 12) * ((n.x + n.y + 1) - sum(counts^3 - counts) / ((n.x + n.y) * (n.x + n.y - 1))))
-		z <- z/SIGMA
-		
-		p1 <- 2*pnorm(-abs(z))
-		
-		p.approx <- 2*pnorm(-abs(z))
-		
-		return(list(W=W, p.value=temp$p.value, N=N, median.x=median(x), median.y=median(y), n.x=n.x, n.y=n.y, E=n.x * n.y / 2, V=SIGMA^2, z.score=z, p.value.approx=p.approx))
-	}
+	
 	
 	conds <- unique(x1[[condCol]])
 	if(length(conds) != 2)
@@ -2178,7 +2223,7 @@ wilcox.test.combined <- function(data, replCols, condCol, valCol, exact=NULL, tw
 	{
 		conds <- rev(conds)
 	}
-	x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]], exact=exact), by=replCols]
+	x2 <- x1[,getWilcoxStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]], exact=exact), by=replCols]
 	# x2 <- x1[,getStats(x=.SD[get(condCol)==conds[1]][[valCol]], y=.SD[get(condCol)==conds[2]][[valCol]])$p.value, by=replCols]
 	
 	x2[,':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=replCols]
@@ -4055,8 +4100,18 @@ plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, 
 		{
 			if(add)
 			{
-				# Add zero levels before and after sequence of numbers
-				polygon(ret, col=col, border=border)
+				if(col==rgb(0,0,0,0))
+				{
+					# Draw lines and no polygon or border
+					plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border), plot.params)
+					do.call(lines, plot.params)
+				}
+				else
+				{
+					# Draw polygon border
+					# Add zero levels before and after sequence of numbers
+					polygon(ret, col=col, border=border)
+				}
 			}
 			else
 			{
@@ -4538,3 +4593,4 @@ getOS <- function()
 # 	x[valsToAdjust] <- transition + log10(x[valsToAdjust]/transition)*tickSep
 # 	return(x)
 # }
+
