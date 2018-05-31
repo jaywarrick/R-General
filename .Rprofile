@@ -3490,17 +3490,27 @@ fillDefaultLogicleParams <- function(x, y, logicle.params)
 	{
 		return(NULL)
 	}
+	
+	# Calculate a transition if necessary
+	if(!is.null(x) && is.null(logicle.params$transition) && is.null(logicle.params$transX))
+	{
+		logicle.params$transition <- calcTransition(x)
+	}
+	if(!is.null(y) && is.null(logicle.params$transY))
+	{
+		logicle.params$transY <- calcTransition(y)
+	}
+	
 	if(is.null(y))
 	{
-		# Then just get params for x
-	  #Not sure whether it is specified in transition or transX so just take whichever is not null via the max function
-		transition <- max(logicle.params$transition, logicle.params$transX)
+		suppressWarnings(transition <- max(logicle.params$transition, logicle.params$transX))
+		# max will return -Inf when provided all NULL args, so catch and set to NULL to use log scaling instead of logicle.
+		if(!is.finite(transition))
+		{
+			transition <- NULL
+		}
 		logicle.params$transition <- transition
 		logicle.params$transX <- transition
-		if(is.null(transition))
-		{
-			logicle.params$transition <- calcTransition(x)
-		}
 	}
 	else
 	{
@@ -3662,10 +3672,6 @@ logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=
 	{
 		base <- 10
 	}
-	if(is.null(tickSep))
-	{
-		tickSep <- transition*log(base)
-	}
 	if(is.null(transition))
 	{
 		if(neg.rm)
@@ -3685,8 +3691,12 @@ logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=
 	}
 	if(transition <= 0)
 	{
-		warning('Transition must be greater than 0. Setting to 1.')
+		warning(paste0('Transition that was provided (', transition, '), must be greater than 0. Setting to 1.'))
 		transition <- 1
+	}
+	if(is.null(tickSep))
+	{
+		tickSep <- transition*log(base)
 	}
 	# Just do it for the right indicies
 	valsAbove <- (x > transition) & !is.na(x)
