@@ -1556,9 +1556,10 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 	embedTheFont <- F
 	if(!is.null(save.file))
 	{
+		daFamily <- strsplit(family, ' ', fixed=T)[[1]][1]
 		if(getOS()=='osx')
 		{
-			if(any(.pdfHasFont(family)))
+			if(any(.pdfHasFont(grepfamily)))
 			{
 				font <- family[which(.pdfHasFont(family))[1]]
 				print(paste0("Setting the font to ", font))
@@ -2245,6 +2246,7 @@ getPSymbol <- function(pval)
 	ret[pval <= 0.05] <- '*'
 	ret[pval <= 0.01] <- '**'
 	ret[pval <= 0.001] <- '***'
+	ret[pval <= 0.0001] <- '****'
 	return(ret)
 }
 
@@ -3843,12 +3845,12 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 	{
 		if(axisNum == 2)
 		{
-			axis(axisNum, at=ticks, labels=prettyLabels, las=2)
+			axis(axisNum, at=ticks, labels=prettyLabels, las=2, ...)
 			axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
 		}
 		else
 		{
-			axis(axisNum, at=ticks, labels=prettyLabels, las=las)
+			axis(axisNum, at=ticks, labels=prettyLabels, las=las, ...)
 			axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE, las=las)
 		}
 	}
