@@ -785,7 +785,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 			 mar=c(4.5,4.5,2,2), use.pastels=T, ...)
 {
 	# Save default margins
-	default.mar <- par('mar')
+	# default.mar <- par('mar')
 	
 	# Detect whether or not upper and lower error bars will be plotted
 	has.upper <- FALSE
@@ -1050,7 +1050,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	
 	# If a plot border is desired, draw it
 	if(plot.border) box()
-	par(mar=default.mar)
+	# par(mar=default.mar)
 }
 
 plotPolygon <- function(x, y, ...)
@@ -4053,12 +4053,24 @@ getLogParam <- function(logX, logY)
 #' Note that you can add params such as mgp (default c(3,1,0)) to move axis labels out (increase 3)
 #' Note that you can rotate labels 90
 #' Note, you can plot just the center 'x' percentile of data (e.g., the middle 90 percent setting the limits to the top and bottom 5 percent)
-plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=c(5.1,5.1,4.1,2.1), mgp=c(4,1,0), las=c(0,2), silent=F, ...)
+plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=NULL, mgp=NULL, las=NULL, silent=F, ...)
 {
 	logicle.params <- fillDefaultLogicleParams(x=x, y=NULL, logicle.params=logicle.params)
 	default.mar <- par('mar')
 	default.mgp <- par('mgp')
 	default.las <- par('las')
+	if(is.null(mar))
+	{
+		mar <- default.mar
+	}
+	if(is.null(mgp))
+	{
+		mgp <- default.mgp
+	}
+	if(is.null(las))
+	{
+		las <- default.las
+	}
 	par(mar=mar, mgp=mgp, las=las[1])
 	plot.params <- list(...)
 	# Adjust the data to log/logicle scale if needed FIRST
@@ -4103,7 +4115,8 @@ plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, 
 				if(col==rgb(0,0,0,0))
 				{
 					# Draw lines and no polygon or border
-					plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border), plot.params)
+					plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
+					# clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
 					do.call(lines, plot.params)
 				}
 				else
@@ -4593,4 +4606,3 @@ getOS <- function()
 # 	x[valsToAdjust] <- transition + log10(x[valsToAdjust]/transition)*tickSep
 # 	return(x)
 # }
-
