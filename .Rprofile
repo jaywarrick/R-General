@@ -56,7 +56,7 @@
 		name <- fontList[[1]][1]
 		if(.tableHasFont(paste0(name, ' Bold')))
 		{
-		   	fontList[[1]][c(2,4)] <- paste0(name, ' Bold')
+			fontList[[1]][c(2,4)] <- paste0(name, ' Bold')
 		}
 		else if(.tableHasFont(paste0(name, ' SemiBold')))
 		{
@@ -144,7 +144,7 @@
 	}
 	
 	font <- c('Open','Roboto','Quicksand','Muli','Montserrat')
-
+	
 	if(any(.hasFont(font)))
 	{
 		font <- font[which(.hasFont(font))[1]]
@@ -779,13 +779,13 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 #'
 #' @export
 bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.column=NULL, error.lower.column=error.upper.column,
-			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, group.names=NULL, color.colors=NULL, rotate.x.labels=F, rotate.y.labels=F, plot.border=T,
+			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, alpha=0.4, group.names=NULL, color.colors=NULL, rotate.x.labels=F, rotate.y.labels=F, plot.border=T,
 			 args.error.bar=list(length=0.1),
 			 legend=TRUE, legend.border=F, args.legend=list(),
 			 mar=c(4.5,4.5,2,2), use.pastels=T, ...)
 {
 	# Save default margins
-	default.mar <- par('mar')
+	# default.mar <- par('mar')
 	
 	# Detect whether or not upper and lower error bars will be plotted
 	has.upper <- FALSE
@@ -936,7 +936,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	{
 		if(use.pastels)
 		{
-			color.colors <- loopingPastels(seq_along(color.names)) #hcl(h=seq(0,270, 270/(length(color.names)))[-length(color.names)])
+			color.colors <- loopingPastels(seq_along(color.names), a=alpha) #hcl(h=seq(0,270, 270/(length(color.names)))[-length(color.names)])
 		}
 		else
 		{
@@ -1050,7 +1050,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	
 	# If a plot border is desired, draw it
 	if(plot.border) box()
-	par(mar=default.mar)
+	# par(mar=default.mar)
 }
 
 plotPolygon <- function(x, y, ...)
@@ -1406,7 +1406,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
 	
 	
-  	# If we are saving the file, then load fonts if possible.
+	# If we are saving the file, then load fonts if possible.
 	# if(is.null(save.file))
 	# {
 	# 	if(all(family==c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light')))
@@ -1415,14 +1415,14 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	# 	}
 	# 	.use.lightFont(family)
 	# }
-  
-  	# Abort if 'xcol' is not in the data table
+	
+	# Abort if 'xcol' is not in the data table
 	if(!(xcol %in% names(data)))
 	{
 		stop(paste0('The xcol provided (', xcol, ') does not exist in the data table. Aborting.'))
 	}
-  
-  	# Abort if we don't have a ycol and we are doing an l or p plot.
+	
+	# Abort if we don't have a ycol and we are doing an l or p plot.
 	if(type[1] %in% c('l','p'))
 	{
 		if(!(ycol %in% names(data)))
@@ -1430,7 +1430,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 			stop(paste0('The ycol provided (', ycol, ') does not exist in the data table. Aborting.'))
 		}
 	}
-  
+	
 	# Create a temporary gating column if necessary
 	hasGatedCol <- !is.null(data[['gated']])
 	if(!hasGatedCol)
@@ -1628,26 +1628,26 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		
 		if(is.null(line.color.by))
 		{
-		  tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, col, env.alpha)
-		  {
-		    data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=col, ...)
-		    if(!is.null(upper))
-		    {
-		      data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(col, env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
-		    }
-		  }
-		  if(is.null(errcol))
-		  {
-		    # Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
-		    # Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-		    data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), env.alpha=env.alpha)}, by=by]
-		  }
-		  else
-		  {
-		    # Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
-		    # Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-		    data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol), log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), env.alpha=env.alpha)}, by=by]
-		  }
+			tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, col, env.alpha)
+			{
+				data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=col, ...)
+				if(!is.null(upper))
+				{
+					data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(col, env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
+				}
+			}
+			if(is.null(errcol))
+			{
+				# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
+				# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
+				data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), env.alpha=env.alpha)}, by=by]
+			}
+			else
+			{
+				# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
+				# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
+				data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol), log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), env.alpha=env.alpha)}, by=by]
+			}
 		}
 		else
 		{
@@ -1861,27 +1861,31 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, line.c
 		}
 		else
 		{
-			data[gated==T, data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=F, ...), by=by]
+			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params)
 		
-		if(log==T)
+		if(!((!is.null(list(...)$xaxt) && list(...)$xaxt=='n') | (!is.null(list(...)$axes) && list(...)$axes==F)))
 		{
-			if(is.null(logicle.params))
+			if(log==T)
 			{
-				drawLogicleAxis(axisNum=1)
+				if(is.null(logicle.params))
+				{
+					drawLogicleAxis(axisNum=1)
+				}
+				else
+				{
+					drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
+				}
 			}
 			else
 			{
-				drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
-			}
+				axis(1)
+			}	
 		}
-		else
-		{
-			axis(1)
-		}
-		if(!is.null(by))
+		
+		if(!is.null(by) && legend)
 		{
 			# Then do as normal (lines and colors determined by 'by')
 			# figure out the .GRP numbers for each by combo
@@ -2069,6 +2073,40 @@ pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
 	return(ret)
 }
 
+data.table.pairwise.t.test <- function(x, valCol, by, test.by=by, pair.by=NULL, p.adjust.method='BH', ...)
+{
+	t.test2_ <- function(dt1, dt2, valCol, pair.by=NULL, ...)
+	{
+		if(is.null(pair.by))
+		{
+			p.value <- t.test(dt1[[valCol]], dt2[[valCol]], paired=F, ...)$p.value
+		}
+		else
+		{
+			# pair.by represents the replicates that should be matched
+			setkeyv(dt1, pair.by)
+			setkeyv(dt2, pair.by)
+			subDt1 <- merge(dt1, dt2[, ..pair.by])
+			subDt2 <- merge(dt2, dt1[, ..pair.by])
+			p.value <- t.test(dt1[[valCol]], dt2[[valCol]], paired=T, ...)$p.value
+			N <- nrow(subDt1)
+		}
+		return(list(p.value=p.value, N=N))
+	}
+	
+	t.test_ <- function(dt, valCol, test.by, pair.by=NULL, ...)
+	{
+		dt[, splitNames:=paste(mget(test.by), collapse='.')]
+		splits <- as.data.table(t(combn(uniqueo(dt$splitNames),2)))
+		splits[, t.test2_(dt1=dt[splitNames==V1], dt2=dt[splitNames==V2], valCol=valCol, pair.by=pair.by, ...), by=.(V1,V2)]
+		splits[, p.value.adj:=p.adjust(p.value, method=p.adjust.method)]
+		return(splits)
+	}
+	
+	ret <- x[, t.test_(.SD, valCol=valCol, test.by=test.by, pair.by=pair.by, ...), by=by]
+	return(ret)
+}
+
 #' This function is borrowed from http://www.dr-spiess.de/scripts/bigcor.R (by A.N. Spiess)
 #'
 #' Use convert to convert the output from a hard disk matrix to a RAM matrix
@@ -2181,13 +2219,27 @@ getWilcoxStats <- function(x, y, ...)
 	sigma <- sqrt((n.x * n.y / 12) * (n.x + n.y + 1))
 	effect.size <- z/sigma
 	z <- z/SIGMA
-	 
+	
 	
 	p1 <- 2*pnorm(-abs(z))
 	
 	p.approx <- 2*pnorm(-abs(z))
 	
 	return(list(W=W, p.value=temp$p.value, N=N, median.x=median(x), median.y=median(y), n.x=n.x, n.y=n.y, E=n.x * n.y / 2, V=SIGMA^2, z.score=z, effect.size=effect.size, p.value.approx=p.approx))
+}
+
+getCombnEffectSize_ <- function(dt, valCol, combn.by, rank.biserial)
+{
+	dt2 <- copy(dt)
+	dt2[, splitNames:=paste(mget(combn.by), collapse='.'), by=combn.by]
+	splits <- as.data.table(t(combn(uniqueo(dt2$splitNames),2)))
+	splits[, ':='(effect.size=getEffectSize(x1=dt2[splitNames==V1][[valCol]], x2=dt2[splitNames==V2][[valCol]], rank.biserial=rank.biserial), N1=nrow(dt2[splitNames==V1]), N2=nrow(dt2[splitNames==V2])), by=.(V1,V2)]
+	return(splits)
+}
+
+getCombnEffectSize <- function(dt, valCol, group.by, combn.by, rank.biserial=F)
+{
+	return(dt[, getCombnEffectSize_(.SD, valCol=valCol, combn.by=combn.by, rank.biserial=rank.biserial), by=group.by][])
 }
 
 #' Returns either the Hedge's g (like Cohen's d for unequal variance and sample size)
@@ -2551,7 +2603,14 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	for(daFile in jData$fileList)
 	{
 		# Read in data
-		temp <- fread(daFile, header=T)
+		if(endsWith(daFile,'.arff'))
+		{
+			temp <- data.table(read.arff(daFile))
+		}
+		else
+		{
+			temp <- fread(daFile, header=T)
+		}
 		others <- !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))
 		toGet <- names(jData)[others]
 		temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
@@ -2729,10 +2788,10 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 		{
 			args$fun <- NULL
 			warning("An aggregation function can't be supplied to this function in the normal way
-                         Instead, you must define a function called 'agg' in the parent environment
-	                    then call this function. The function will find that 'agg' exists and supply
-	                    it as the fun.aggregate argument. This is a workaround for an intracacy of
-	                    the dcast function. Using default fun.aggregate=length instead.")
+				   Instead, you must define a function called 'agg' in the parent environment
+				   then call this function. The function will find that 'agg' exists and supply
+				   it as the fun.aggregate argument. This is a workaround for an intracacy of
+				   the dcast function. Using default fun.aggregate=length instead.")
 			args <- c(list(data=data, formula=formula, value.var=valueCols), args)
 			data <- as.data.table(do.call(dcast, args))
 		}
@@ -3503,35 +3562,35 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 
 finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col='black', v.lty=1, v.lwd=2, log='', logicle.params=NULL)
 {
-  
-  #logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
-  # Determine which axes to transform
-  logX <- grepl('x',x=log,fixed=T)
-  logY <- grepl('y',x=log,fixed=T)
-  
-  # Plot h and v lines
-  if(!is.null(h))
-  {
-    if(logY & !is.null(logicle.params))
-    {
-      abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F), col=h.col, lty=h.lty, lwd=h.lwd)
-    }
-    else
-    {
-      abline(h=h, col=h.col, lty=h.lty, lwd=h.lwd)
-    }
-  }
-  if(!is.null(v))
-  {
-    if(logX & !is.null(logicle.params))
-    {
-      abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F), col=v.col, lty=v.lty, lwd=v.lwd)
-    }
-    else
-    {
-      abline(v=v, col=v.col, lty=v.lty, lwd=v.lwd)
-    }
-  }
+	
+	#logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
+	# Determine which axes to transform
+	logX <- grepl('x',x=log,fixed=T)
+	logY <- grepl('y',x=log,fixed=T)
+	
+	# Plot h and v lines
+	if(!is.null(h))
+	{
+		if(logY & !is.null(logicle.params))
+		{
+			abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F), col=h.col, lty=h.lty, lwd=h.lwd)
+		}
+		else
+		{
+			abline(h=h, col=h.col, lty=h.lty, lwd=h.lwd)
+		}
+	}
+	if(!is.null(v))
+	{
+		if(logX & !is.null(logicle.params))
+		{
+			abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F), col=v.col, lty=v.lty, lwd=v.lwd)
+		}
+		else
+		{
+			abline(v=v, col=v.col, lty=v.lty, lwd=v.lwd)
+		}
+	}
 }
 
 getPrettyNum <- function(x, sigFigs=3)
@@ -4063,12 +4122,24 @@ getLogParam <- function(logX, logY)
 #' Note that you can add params such as mgp (default c(3,1,0)) to move axis labels out (increase 3)
 #' Note that you can rotate labels 90
 #' Note, you can plot just the center 'x' percentile of data (e.g., the middle 90 percent setting the limits to the top and bottom 5 percent)
-plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=c(5.1,5.1,4.1,2.1), mgp=c(4,1,0), las=c(0,2), silent=F, ...)
+plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=NULL, mgp=NULL, las=NULL, silent=F, ...)
 {
 	logicle.params <- fillDefaultLogicleParams(x=x, y=NULL, logicle.params=logicle.params)
 	default.mar <- par('mar')
 	default.mgp <- par('mgp')
 	default.las <- par('las')
+	if(is.null(mar))
+	{
+		mar <- default.mar
+	}
+	if(is.null(mgp))
+	{
+		mgp <- default.mgp
+	}
+	if(is.null(las))
+	{
+		las <- default.las
+	}
 	par(mar=mar, mgp=mgp, las=las[1])
 	plot.params <- list(...)
 	# Adjust the data to log/logicle scale if needed FIRST
@@ -4113,7 +4184,8 @@ plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, 
 				if(col==rgb(0,0,0,0))
 				{
 					# Draw lines and no polygon or border
-					plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border), plot.params)
+					plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
+					# clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
 					do.call(lines, plot.params)
 				}
 				else
@@ -4141,48 +4213,48 @@ plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, 
 			}
 		}
 	}
-
+	
 	if(!add & !silent & !is.null(plot.params) & !is.null(plot.params$axes) )
 	{
-	  # First check to see if plot.params has axes=F
-	  drawTheXAxis <- T
-	  if(!is.null(plot.params))
-	  {
-	    if(!is.null(plot.params$axes))
-	    {
-	      if(!plot.params$axes)
-	      {
-	        drawTheXAxis <- F
-	      }
-	    }
-	    if(!is.null(plot.params$xaxt))
-	    {
-	      if(plot.params$xaxt=='n')
-	      {
-	        drawTheXAxis <- F
-	      }
-	    }
-	  }
-	  if(drawTheXAxis)
-	  {
-	    if(log)
-	    {
-	      if(is.null(logicle.params))
-	      {
-	        drawLogicleAxis(axisNum=1, las=las[1])
-	      }
-	      else
-	      {
-	        drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1])
-	      }
-	    }
-	    else
-	    {
-	      axis(1)
-	    }
-	  }
+		# First check to see if plot.params has axes=F
+		drawTheXAxis <- T
+		if(!is.null(plot.params))
+		{
+			if(!is.null(plot.params$axes))
+			{
+				if(!plot.params$axes)
+				{
+					drawTheXAxis <- F
+				}
+			}
+			if(!is.null(plot.params$xaxt))
+			{
+				if(plot.params$xaxt=='n')
+				{
+					drawTheXAxis <- F
+				}
+			}
+		}
+		if(drawTheXAxis)
+		{
+			if(log)
+			{
+				if(is.null(logicle.params))
+				{
+					drawLogicleAxis(axisNum=1, las=las[1])
+				}
+				else
+				{
+					drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1])
+				}
+			}
+			else
+			{
+				axis(1)
+			}
+		}
 	}
-	par(mar=default.mar, mgp=default.mgp, las=default.las)
+	# par(mar=default.mar, mgp=default.mgp, las=default.las)
 	return(ret)
 }
 
@@ -4604,3 +4676,89 @@ getOS <- function()
 # 	return(x)
 # }
 
+# x1,y1 is the central point (i.e., the point of interest and x0,y0 and x2,y2 are neighbors)
+getColinearity <- function(x0, y0, x1, y1, x2, y2)
+{
+	# Test Code
+	# maxI <- 100
+	# n <- 1000
+	# rndPts <- data.table(x=runif(n,-1,1), y=runif(n,-1,1))
+	# rndPts <- rndPts[x^2+y^2 <= 1]
+	# rndPts[, cId:=1:.N]
+	# rndPts[, alpha:=getColinearity(sample(x), sample(y), 0, 0, sample(x), sample(y))]
+	# hist(rndPts$alpha)
+	
+	v <- data.table(ax=x1-x0,ay=y1-y0,bx=x2-x1,by=y2-y1)
+	v[, ':='(amag=sqrt(ax^2+ay^2), bmag=sqrt(bx^2+by^2), dot=ax*bx+ay*by)]
+	v[, val:=dot/(amag*bmag)]
+	v[, ret:=1-2*acos(abs(val))/pi]
+	return(v$ret)
+}
+
+# x1,y1 is the central point (i.e., the point of interest and x0,y0 and x2,y2 are neighbors)
+getPackingIndex <- function(x0, y0, x1, y1, x2, y2)
+{
+	# Test Code
+	# maxI <- 100
+	# n <- 1000
+	# rndPts <- data.table(x=runif(n,-1,1), y=runif(n,-1,1))
+	# rndPts <- rndPts[x^2+y^2 <= 1]
+	# rndPts[, cId:=1:.N]
+	# rndPts[, alpha:=getColinearity(sample(x), sample(y), 0, 0, sample(x), sample(y))]
+	# hist(rndPts$alpha)
+	
+	v <- data.table(ax=x1-x0,ay=y1-y0,bx=x2-x1,by=y2-y1)
+	v[, ':='(amag=sqrt(ax^2+ay^2), bmag=sqrt(bx^2+by^2), dot=ax*bx+ay*by)]
+	v[, val:=dot/(amag*bmag)]
+	v[, ret:=1-acos(val)/pi]
+	# v[, ret:=180*acos(val)/pi]
+	
+	return(list(dmin=pmin(v$amag,v$bmag), dmax=pmax(v$amag,v$bmag), alpha=v$ret))
+}
+
+# The first point is the point of interest and the next two are the neighbors
+getPackingIndex_Helper <- function(x, y)
+{
+	return(getPackingIndex(x[2], y[2], x[1], y[1], x[3], y[3]))
+}
+
+getCandidates <- function(dt, cId, xcol, ycol, xpos, ypos, searchRadius, N)
+{
+	dt[, r:=as.double((get(xcol)-xpos)^2 + (get(ycol)-ypos)^2)]
+	dt <- dt[order(r)]
+	dt <- dt[1:N]
+	return(as.vector(dt[r < searchRadius^2, c(cId), with=F]))
+}
+
+getNearestNeighbors <- function(x, searchRadius=0.1, cIdCol='cId', xcol='Geometric.COMX_None_Nuc', ycol='Geometric.COMY_None_Nuc', N=1)
+{
+	x$neighbors <- NULL
+	x2 <- copy(x)
+	x[, neighbors:=list()]
+	for(ex in uniqueo(x$x))
+	{
+		for(ey in uniqueo(x$y))
+		{
+			x[x==ex & y==ey, neighbors:=list(list(getCandidates(x2[x==ex & y==ey], cId=cIdCol, xcol=xcol, ycol=ycol, xpos=get(xcol), ypos=get(ycol), searchRadius=searchRadius, N=N))), by=cIdCol]
+		}
+	}
+	return(x)
+}
+
+# The first point is the point of interest and the next two are the neighbors
+getColinearity_Helper <- function(x, y)
+{
+	return(getColinearity(x[2], y[2], x[1], y[1], x[3], y[3]))
+}
+
+getColinearityOfcIds <- function(x, cIdCol, cIds, xcol, ycol)
+{
+	temp <- x[match(cIds, get(cIdCol))]
+	return(getColinearity_Helper(temp[[xcol]], temp[[ycol]]))
+}
+
+getPackingIndexOfcIds <- function(x, cIdCol, cIds, xcol, ycol)
+{
+	temp <- x[match(cIds, get(cIdCol))]
+	return(getPackingIndex_Helper(temp[[xcol]], temp[[ycol]]))
+}
