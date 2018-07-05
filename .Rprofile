@@ -4752,3 +4752,35 @@ getPackingIndexOfcIds <- function(x, cIdCol, cIds, xcol, ycol)
 	temp <- x[match(cIds, get(cIdCol))]
 	return(getPackingIndex_Helper(temp[[xcol]], temp[[ycol]]))
 }
+
+#' CRatio is the Nuclear:Cytoplasmic Concentration Ratio
+#' RL is the Radial Localization
+#' RLMax is the max RL for the cell / imaging setup
+#' t is the fit paramter that is specific to the cell geometry and imaging setup
+calcRL <- function(CRatio, RLMax=1.1, t=1)
+{
+	s <- (RLMax^2)/t
+	RL <- sqrt((CRatio*s/(CRatio*s+1))*(1-RLMax^2) + RLMax^2)
+	return(RL)
+}
+
+#' Error function to be minimized
+#' par is a named vector with parameter 't'
+#' as its first and only parameter
+#' #' t is the fit paramter that is specific to the cell geometry and imaging setup
+errRL <- function(par, CRatio, RL)
+{
+	RL2 <- RL(CRatio=CRatio, RLMax=max(RL), t=par[1])
+	err <- sum((RL-RL2)^2)
+	return(err)
+}
+
+#' CRatio is the Nuclear:Cytoplasmic Concentration Ratio
+#' RL is the Radial Localization
+#' RLMax is the max RL for the cell / imaging setup
+#' t is the fit paramter that is specific to the cell geometry and imaging setup
+calcCRatio <- function(RL, RLMax, t)
+{
+	s <- (RLMax^2)/t
+	return((s*t-RL^2)/((RL^2-1)*s))
+}
