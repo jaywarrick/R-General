@@ -4757,20 +4757,42 @@ getPackingIndexOfcIds <- function(x, cIdCol, cIds, xcol, ycol)
 #' RL is the Radial Localization
 #' RLMax is the max RL for the cell / imaging setup
 #' t is the fit paramter that is specific to the cell geometry and imaging setup
-calcRL <- function(CRatio, RLMax=1.1, t=1)
+calcRL <- function(CRatio, RLMin=1, RLMax=1.1, s=1)
 {
-	s <- (RLMax^2)/t
-	RL <- sqrt((CRatio*s/(CRatio*s+1))*(1-RLMax^2) + RLMax^2)
+	RL <- RLMin*sqrt((CRatio*s/(CRatio*s+1))*(1-RLMax^2) + RLMax^2)
 	return(RL)
 }
 
 #' Error function to be minimized
-#' par is a named vector with parameter 't'
+#' par is a named vector with parameter 's'
 #' as its first and only parameter
-#' #' t is the fit paramter that is specific to the cell geometry and imaging setup
-errRL <- function(par, CRatio, RL)
+#' s is the fit paramter that is specific to the cell geometry and imaging setup
+errRL1 <- function(par, CRatio, RL)
 {
-	RL2 <- RL(CRatio=CRatio, RLMax=max(RL), t=par[1])
+	RL2 <- calcRL(CRatio=CRatio, RLMin=1, RLMax=max(RL), s=par[1])
+	err <- sum((RL-RL2)^2)
+	return(err)
+}
+
+#' Error function to be minimized
+#' par is a named vector with parameters 's' and 'RLMax' (in that order)
+#' s is the fit paramter that is specific to the cell geometry and imaging setup
+#' RLMax is the fit paramter that represents the maximum value of RoGProtein / ROGHoechst
+errRL2 <- function(par, CRatio, RL)
+{
+	RL2 <- calcRL(CRatio=CRatio, RLMin=1, RLMax=par[2], s=par[1])
+	err <- sum((RL-RL2)^2)
+	return(err)
+}
+
+#' Error function to be minimized
+#' par is a named vector with parameters 's', 'RLMin', and 'RLMax' (in that order)
+#' s is the fit paramter that is specific to the cell geometry and imaging setup
+#' RLMax is the fit paramter that represents the maximum possible value of RoGProtein / ROGHoechst
+#' RLMin is the fit paramter that represents the minimum possible value of RoGProtein / ROGHoechst
+errRL3 <- function(par, CRatio, RL)
+{
+	RL2 <- calcRL(CRatio=CRatio, RLMin=par[3], RLMax=par[2], s=par[1])
 	err <- sum((RL-RL2)^2)
 	return(err)
 }
@@ -4779,8 +4801,24 @@ errRL <- function(par, CRatio, RL)
 #' RL is the Radial Localization
 #' RLMax is the max RL for the cell / imaging setup
 #' t is the fit paramter that is specific to the cell geometry and imaging setup
-calcCRatio <- function(RL, RLMax, t)
+calcCRatio <- function(RL, RLMin, RLMax, s)
 {
-	s <- (RLMax^2)/t
-	return((s*t-RL^2)/((RL^2-1)*s))
+	ret <- ((RLMax^2-RL^2)/((RL^2-1)*s))
+	ret[ret < 0 & ret > -1] <- 0
+	ret[ret < 0 & ret <= -1] <- Inf
+	ret[ret == Inf] <- Inf
+	return(ret)
 }
+
+#' ARatio is the Nuclear:Cytoplasmic Amount Ratio
+#' RL is the Radial Localization
+#' RLMax is the max RL for the cell / imaging setup
+#' t is the fit paramter that is specific to the cell geometry and imaging setup
+calcARatio <- function(RL, RLMin, RLMax, sSampled, sActual)
+{
+	CRatio <- calcCRatio(RL, RLMin, RLMax, s=sSampled)
+	return(CRatio*sActual/(CRatio*sActual + 1))
+}
+
+
+
