@@ -4813,10 +4813,9 @@ errRL3 <- function(par, CRatio, RL)
 #' t is the fit paramter that is specific to the cell geometry and imaging setup
 calcCRatio <- function(RL, RLMin, RLMax, s)
 {
-	ret <- ((RLMax^2-RL^2)/((RL^2-1)*s))
+	ret <- ((RLMin^2*RLMax^2-RL^2)/((RL^2-RLMin^2)*s))
 	ret[ret < 0 & ret > -1] <- 0
 	ret[ret < 0 & ret <= -1] <- Inf
-	ret[ret == Inf] <- Inf
 	return(ret)
 }
 
