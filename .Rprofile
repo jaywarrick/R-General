@@ -1509,7 +1509,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 	if(is.null(ylab))
 	{
-		if(type[1] %in% c('l','p') & !is.null(ycol))
+		if(type[1] %in% c('l','p','c') & !is.null(ycol))
 		{
 			ylab <- ycol
 		}
@@ -1824,8 +1824,8 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			
 			for(i in 1:nrow(cross.data))
 			{
-				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params, col='black', pch=cross.pch, cex=cross.cex, lwd=cross.lwd*1.3, add=T, ...)
-				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params, col=setColor(cross.data$my.temp.color[i], 1), pch=cross.pch, cex=cross.cex, lwd=cross.lwd*0.65, add=T, ...)
+				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, col='black', pch=cross.pch, cex=cross.cex, lwd=cross.lwd*1.3, add=T, ...)
+				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, col=setColor(cross.data$my.temp.color[i], 1), pch=cross.pch, cex=cross.cex, lwd=cross.lwd*0.65, add=T, ...)
 			}
 		}
 		
@@ -1878,15 +1878,16 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			suppressWarnings(
 				if(type[1] == 'h')
 				{
-					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
+					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
 				}
 				else
 				{
+					# is is a density plot
 					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
 				}
 			)
 			# Function needs to return a single value so we arbitraritly use 'max' of the 'y'
-			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(0,max(ylims[['maxY']])), xaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		else
 		{
@@ -3448,7 +3449,7 @@ get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T)
 	return(list(x=x1, y=y1))
 }
 
-start.logicle <- function(x, y, log='xy', logicle.params, add=F, mar=par('mar'), ...)
+start.logicle <- function(x, y, log='xy', logicle.params, add=F, mar=par('mar'), percentile.limits=c(0,1,0,1), ...)
 {
 	logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	
@@ -3458,34 +3459,41 @@ start.logicle <- function(x, y, log='xy', logicle.params, add=F, mar=par('mar'),
 	# This function works to scale things to logicle scale or for normal log scaling (removing negative values if necessary but leaving things unscaled)
 	l(x1, y1) %=% get.logicle(x=x, y=y, log=log, logicle.params=logicle.params)
 	
+	# Establish limits
+	lims <- c(getPercentileLimits(x1, percentile.limits[1], percentile.limits[2]), getPercentileLimits(y1, percentile.limits[3], percentile.limits[4]))
+	if(!is.null(list(...)$xlim))
+	{
+		lims[1:2] <- logicle(x=list(...)$xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
+	}
+	if(!is.null(list(...)$ylim))
+	{
+		lims[3:4] <- logicle(x=list(...)$ylim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
+	}
+	
 	if(add)
 	{
-		return(list(x=x1, y=y1))
+		return(list(x=x1, y=y1, xlim=lims[1:2], ylim=lims[3:4]))
 	}
 	
 	# Determine xlim
 	xlim <- list(...)$xlim
 	if(is.null(xlim))
 	{
-		# Then xlim is not provided and we should calculate based on the data from 'get.logicle'
-		xlim <- range(x1[is.finite(x1)], na.rm=T)
+		# Then xlim is not provided and we should use the calculated lims based on the data from 'get.logicle'
+		xlim <- lims[1:2]
 	}
 	else
 	{
 		# Then it is provided in '...', but if if logicle.params is provided and the axis is to be scaled, we might need to scale the limits to the logicle scaling
 		if(!is.null(logicle.params) & logX)
 		{
-			if(logX)
-			{
-				# Then scale the limits
-				xlim <- range(logicle(x=xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F))
-			}
-			# Otherwise, don't do anything
-		}
+			# Then scale the limits
+			xlim <- logicle(x=xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
+		} # Otherwise, don't do anything
 		
 		# However, if it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
 		# Check and change if necessary, printing a warning.
-		if(is.null(logicle.params) & logX & min(xlim) <= 0)
+		if(is.null(logicle.params) && logX && min(xlim) <= 0)
 		{
 			xlim[1] <- min(x1) # Which is guaranteed to no not be zero based on 'get.logicle'
 			warning('A 0 or negative limit was provided to the log-scaled x axis. Setting to min of the positive x values.')
@@ -3497,42 +3505,24 @@ start.logicle <- function(x, y, log='xy', logicle.params, add=F, mar=par('mar'),
 	ylim <- list(...)$ylim
 	if(is.null(ylim))
 	{
-		# Then ylim is not provided and we should calculate based on the data from 'get.logicle'
-		ylim <- range(y1, finite=T, na.rm=T)
-		# ylim[1] <- 0.9*ylim[1]
-		# ylim[2] <- 1.1*ylim[2]
+		# Then ylim is not provided and we should use the calculated lims based on the data from 'get.logicle'
+		ylim <- lims[3:4]
 	}
 	else
 	{
-		if(logY && is.null(logicle.params) && min(ylim) <= 0)
+		# Then it is provided in '...', but if if logicle.params is provided and the axis is to be scaled, we might need to scale the limits to the logicle scaling
+		if(!is.null(logicle.params) & logY)
+		{
+			# Then scale the limits
+			ylim <- logicle(x=ylim, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F)
+		} # Otherwise, don't do anything
+		
+		# However, if it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
+		# Check and change if necessary, printing a warning.
+		if(is.null(logicle.params) && logY && min(ylim) <= 0)
 		{
 			stop('ylim values must be > 0 when using log scale for y axis.')
 		}
-		# Then ylim is provided in '...', but if logicle.params is provided and the axis is to be scaled, we might need to scale the limits to the logicle scaling
-		if(logY)
-		{
-			if(is.null(logicle.params))
-			{
-				# Then scale the limits
-				ylim <- range(logicle(x=ylim))
-			}
-			else
-			{
-				# Then scale the limits
-				ylim <- range(logicle(x=ylim, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base))
-			}
-			# Otherwise, don't do anything
-		}
-		# else leave ylim alone
-		
-		# This should be taken care of by 'logicle' function now
-		# # However, if it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
-		# # Check and change if necessary, printing a warning.
-		# if(is.null(logicle.params) & logY & min(ylim) <= 0)
-		# {
-		# 	ylim[1] <- min(y1) # Which is guaranteed to no not be zero based on 'get.logicle'
-		# 	warning('A 0 or negative limit was provided to the log-scaled y axis. Setting to min of the positive y values.')
-		# }
 	}
 	
 	pars.plot <- list(...)
@@ -3689,32 +3679,42 @@ fillDefaultLogicleParams <- function(x, y, logicle.params)
 	return(logicle.params)
 }
 
-plot.logicle <- function(x, y, type='p', mar=par('mar'), log='', logicle.params=NULL, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, add=F, randomize=T, contour.levels=5, contour.ngrid=20, ...)
+plot.logicle <- function(x, y, type='p', mar=par('mar'), log='', logicle.params=NULL, percentile.limits=c(0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, add=F, randomize=T, contour.levels=5, contour.ngrid=20, ...)
 {
 	logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
-	if(!add)
-	{
-		l(x1, y1) %=% start.logicle(x=x, y=y, log=log, logicle.params=logicle.params, mar=mar, ...)
-	}
-	else
-	{
-		if(grepl('x',log,fixed=T) & !is.null(logicle.params))
-		{
-			x1 <- logicle(x=x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
-		}
-		else
-		{
-			x1 <- x
-		}
-		if(grepl('y',log,fixed=T) & !is.null(logicle.params))
-		{
-			y1 <- logicle(x=y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F)
-		}
-		else
-		{
-			y1 <- y
-		}
-	}
+	
+	# Logicle the data (add=T)
+	l(x1, y1, xlim, ylim) %=% start.logicle(x=x, y=y, log=log, logicle.params=logicle.params, mar=mar, add=add, percentile.limits=percentile.limits, ...)
+	
+	
+	
+	# Initialize the logicle plot (add=F)
+	l(x1, y1) %=% start.logicle(x=x, y=y, log=log, logicle.params=logicle.params, mar=mar, add=F, xlim=lims[1:2], ylim=lims[3:4], ...)
+	
+	# Plot
+	# if(!add)
+	# {
+	# 	l(x1, y1) %=% start.logicle(x=x, y=y, log=log, logicle.params=logicle.params, mar=mar, ...)
+	# }
+	# else
+	# {
+	# 	if(grepl('x',log,fixed=T) & !is.null(logicle.params))
+	# 	{
+	# 		x1 <- logicle(x=x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
+	# 	}
+	# 	else
+	# 	{
+	# 		x1 <- x
+	# 	}
+	# 	if(grepl('y',log,fixed=T) & !is.null(logicle.params))
+	# 	{
+	# 		y1 <- logicle(x=y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F)
+	# 	}
+	# 	else
+	# 	{
+	# 		y1 <- y
+	# 	}
+	# }
 	if(type == 'p')
 	{
 		points(x1, y1, ...)
@@ -3722,7 +3722,7 @@ plot.logicle <- function(x, y, type='p', mar=par('mar'), log='', logicle.params=
 	else if(type == 'c' && sum(is.finite(x1) & is.finite(y1)) > 0)
 	{
 		require('MASS')
-		lims <- c(range(x1, finite=T), range(y1, finite=T))
+		lims <- c(getPercentileLimits(x1, percentile.limits[1], percentile.limits[2]), getPercentileLimits(y1, percentile.limits[3], percentile.limits[4]))
 		if(!is.null(list(...)$xlim))
 		{
 			lims[1:2] <- logicle(x=list(...)$xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
@@ -4381,9 +4381,16 @@ plot.hist <- function(x, type=c('d','h'), log=F, neg.rm=T, logicle.params=NULL, 
 	return(ret)
 }
 
-getPercentileLimits <- function(x, lower, upper)
+getPercentileLimits <- function(x, lower, upper, finite=T, na.rm=T)
 {
-	temp <- as.numeric(quantile(x, c(lower, upper), na.rm=T))
+	if(finite)
+	{
+		temp <- as.numeric(quantile(x[is.finite(x)], c(lower, upper), na.rm=na.rm))
+	}
+	else
+	{
+		temp <- as.numeric(quantile(x, c(lower, upper), na.rm=na.rm))
+	}
 	return(c(temp[1], temp[2]))
 }
 
