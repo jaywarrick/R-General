@@ -43,6 +43,7 @@ install.packages('Rserve')
 install.packages('TeachingDeoms')
 install.packages('gridExtra')
 install.packages('units')
+install.packages('survminer')
 install.packages('extrafont')
 
 library(extrafont)
