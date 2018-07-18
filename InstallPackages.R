@@ -40,9 +40,11 @@ install.packages('psych')
 install.packages('EMCluster')
 install.packages('data.table')
 install.packages('Rserve')
+install.packages('TeachingDeoms')
 install.packages('gridExtra')
 install.packages('units')
 install.packages('extrafont')
+
 library(extrafont)
 # install.packages('extrafontdb') # To reset font table
 font_import()
