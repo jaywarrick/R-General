@@ -5137,8 +5137,8 @@ getPaddedRange <- function(x, frac=0.01, lo=frac, hi=frac)
 filled.contour3 <-
 function (x = seq(0, 1, length.out = nrow(z)),
 		y = seq(0, 1, length.out = ncol(z)), z, zlim = range(z, finite = TRUE), 
-		levels = NULL, nlevels = 4, color.palette = loopingPastels, 
-		quantiles=F, col = color.palette(1:(length(levels) - 1)), plot.title, plot.axes, 
+		levels = NULL, nlevels = 4, color.palette = loopingPastels, nnlevels = if (is.null(levels)) {nlevels} else {length(levels)},
+		quantiles=F, col = color.palette(1:(nnlevels - 1)), plot.title, plot.axes, 
 		key.title, key.axes, xaxs = "i", yaxs = "i", las = 1, 
 		axes = TRUE, frame.plot = axes,mar, add=F, ...) 
 {
@@ -5178,12 +5178,12 @@ function (x = seq(0, 1, length.out = nrow(z)),
 		if(quantiles)
 		{
 			# Make quantile levels
-			seq(0, 1, length.out=nlevels+2)[2:(nlevels+2)]
+			levels <- seq(0, 1, length.out=nlevels+2)[2:(nlevels+2)]
 		}
 		else
 		{
 			# Make z levels
-			seq(zlim[1], zlim[2], length.out=nlevels+2)[2:(nlevels+2)]
+			levels <- seq(zlim[1], zlim[2], length.out=nlevels+2)[2:(nlevels+2)]
 		}
 	}
 	else
