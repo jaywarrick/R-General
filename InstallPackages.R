@@ -21,6 +21,7 @@ install.packages('e1071')
 install.packages('rgl')
 install.packages('caret')
 install.packages('plotly')
+install.packages('boot')
 
 install.packages('Matrix')
 install.packages('matrixStats')
