@@ -143,7 +143,14 @@
 		warning("Couldn't find the desired font. Substituting another light font instead.")
 	}
 	
-	font <- c('Open','Roboto','Quicksand','Muli','Montserrat')
+	if(getOS()=='osx')
+	{
+		font <- c('Open','Roboto','Quicksand','Muli','Montserrat')
+	}
+	else
+	{
+		font <- c('Open Sans Light','Roboto Light','Quicksand Light','Muli Light','Montserrat Light')
+	}
 	
 	if(any(.hasFont(font)))
 	{
@@ -1394,7 +1401,7 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 #' @param gates list of gate objects returned by gatePointsInPlot function
 data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.5, by=NULL, plot.by=NULL, line.color.by=NULL,
 						  gates=list(),
-						  colors=NULL, min.h=0.666, max.h=min.h+1, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
+						  colors=NULL, min.h=0.666, max.h=min.h+1, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
 						  env.err=T, env.alpha=0.5,
 						  log='', logicle.params=NULL, trans.logit=c(F,F), xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
 						  density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1),
@@ -1554,7 +1561,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), ...)
 {
 	if(is.null(xcol))
 	{
@@ -1616,7 +1623,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 	
 	if(type[1] %in% c('p','l','c') && (is.null(list(...)$add) || !list(...)$add))
 	{
-		start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
+		l(x1, y1, xlim, ylim) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
 	}
 	
 	if(type[1] == 'l')
@@ -1803,10 +1810,16 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		}
 		
 		# Plot the backgated data if desired
-		plot.logicle(x=data[[xcol]][sampling.backgated], y=data[[ycol]][sampling.backgated], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, add=T, col=pch.outline, bg=rgb(0,0,0,alpha.backgated), pch=21, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=T, contour.adj=contour.adj, ...)
+		if(sum(sampling.backgated) > 0)
+		{
+			plot.logicle(x=data[[xcol]][sampling.backgated], y=data[[ycol]][sampling.backgated], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=rgb(0,0,0,alpha.backgated), pch=21, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=T, contour.adj=contour.adj, ...)
+		}
 		
 		# Plot the gated data
-		plot.logicle(x=data[[xcol]][sampling.gated], y=data[[ycol]][sampling.gated], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, add=T, col=pch.outline, bg=data[['my.temp.color']][sampling.gated], pch=21, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)
+		if(sum(sampling.gated) > 0)
+		{
+			plot.logicle(x=data[[xcol]][sampling.gated], y=data[[ycol]][sampling.gated], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=data[['my.temp.color']][sampling.gated], pch=21, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)
+		}
 		
 		# # data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
 		# if(!is.null(errcol))
@@ -3499,72 +3512,50 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 	logY <- grepl('y',x=log,fixed=T)
 	
 	# This function works to scale things to logicle scale or for normal log scaling (removing negative values if necessary but leaving things unscaled)
-	l(x1, y1) %=% get.logicle(x=x, y=y, log=log, logicle.params=logicle.params)
+	l(x1, y1) %=% get.logicle(x=x, y=y, log=log, logicle.params=logicle.params, trans.logit=trans.logit, neg.rm=F, na.rm=F)
 	
 	# Establish limits
 	lims <- c(getPercentileValues(x1, levels=percentile.limits[1:2]), getPercentileValues(y1, levels=percentile.limits[3:4]))
 	if(!is.null(list(...)$xlim))
 	{
-		lims[1:2] <- logicle(x=list(...)$xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
+		lims[1:2] <- list(...)$xlim
+		if(logX | trans.logit[1])
+		{
+			lims[1:2] <- logicle(x=lims[1:2], transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit)
+		}
 	}
 	if(!is.null(list(...)$ylim))
 	{
-		lims[3:4] <- logicle(x=list(...)$ylim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
+		lims[3:4] <- list(...)$ylim
+		if(logY | trans.logit[2])
+		{
+			lims[3:4] <- logicle(x=lims[3:4], transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit)
+		}
 	}
+	
+	# Determine xlim
+	# If it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
+	# Check and change if necessary, printing a warning.
+	if(is.na(lims[1]))
+	{
+		lims[1] <- min(x1, na.rm=T) # Which is guaranteed to no not be zero if we remove NA and NaNs
+		warning('A 0 or negative limit was provided to the log-scaled x axis. Setting to min of the positive x values.')
+	}
+	xlim <- lims[1:2]
+	
+	# Determine ylim
+	# If it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
+	# Check and change if necessary, printing a warning.
+	if(is.na(lims[3]))
+	{
+		lims[3] <- min(y1, na.rm=T) # Which is guaranteed to no not be zero based on 'get.logicle'
+		warning('A 0 or negative limit was provided to the log-scaled x axis. Setting to min of the positive x values.')
+	}
+	ylim <- lims[3:4]
 	
 	if(add)
 	{
 		return(list(x=x1, y=y1, xlim=lims[1:2], ylim=lims[3:4]))
-	}
-	
-	# Determine xlim
-	xlim <- list(...)$xlim
-	if(is.null(xlim))
-	{
-		# Then xlim is not provided and we should use the calculated lims based on the data from 'get.logicle'
-		xlim <- lims[1:2]
-	}
-	else
-	{
-		# Then it is provided in '...', but if if logicle.params is provided and the axis is to be scaled, we might need to scale the limits to the logicle scaling
-		if(!is.null(logicle.params) & logX)
-		{
-			# Then scale the limits
-			xlim <- logicle(x=xlim, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
-		} # Otherwise, don't do anything
-		
-		# However, if it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
-		# Check and change if necessary, printing a warning.
-		if(is.null(logicle.params) && logX && min(xlim) <= 0)
-		{
-			xlim[1] <- min(x1) # Which is guaranteed to no not be zero based on 'get.logicle'
-			warning('A 0 or negative limit was provided to the log-scaled x axis. Setting to min of the positive x values.')
-		}
-	}
-	
-	
-	# Determine ylim
-	ylim <- list(...)$ylim
-	if(is.null(ylim))
-	{
-		# Then ylim is not provided and we should use the calculated lims based on the data from 'get.logicle'
-		ylim <- lims[3:4]
-	}
-	else
-	{
-		# Then it is provided in '...', but if if logicle.params is provided and the axis is to be scaled, we might need to scale the limits to the logicle scaling
-		if(!is.null(logicle.params) & logY)
-		{
-			# Then scale the limits
-			ylim <- logicle(x=ylim, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F)
-		} # Otherwise, don't do anything
-		
-		# However, if it regular log scaling, the user might have provided a lower limit <=0 which could cause issues.
-		# Check and change if necessary, printing a warning.
-		if(is.null(logicle.params) && logY && min(ylim) <= 0)
-		{
-			stop('ylim values must be > 0 when using log scale for y axis.')
-		}
 	}
 	
 	pars.plot <- list(...)
@@ -4820,8 +4811,12 @@ sim.untransform <- function(x)
 	return( (exp(x) - 1) / (exp(x) + 1) )
 }
 
-logit.transform <- function(x, base=10) { log(x/(1-x), base=base) }
-logit.untransform <- function(x, base=exp(1))
+logit.transform <- function(x, base=10)
+{
+	log(x/(1-x), base=base)
+}
+
+logit.untransform <- function(x, base=10)
 {
 	ret <- x
 	ret[is.finite(x)] <- base^(x[is.finite(x)])/(1+base^(x[is.finite(x)]))
@@ -5189,7 +5184,7 @@ function (x = seq(0, 1, length.out = nrow(z)),
 		else
 		{
 			# Make z levels
-			levels <- seq(zlim[1], zlim[2], length.out=nlevels+2)[2:(nlevels+2)]
+			levels <- unique(seq(zlim[1], zlim[2], length.out=nlevels+2)[2:(nlevels+2)])
 		}
 	}
 	else
@@ -5197,7 +5192,7 @@ function (x = seq(0, 1, length.out = nrow(z)),
 		if(quantiles)
 		{
 			# Convert quantile levels to z levels
-			levels <- getDensityQuantiles(xvec=x, yvec=y, zmat=z, levels=levels)
+			levels <- unique(getDensityQuantiles(xvec=x, yvec=y, zmat=z, levels=levels))
 		}
 	}
 	
