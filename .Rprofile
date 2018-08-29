@@ -1878,20 +1878,20 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			suppressWarnings(
 				if(type[1] == 'h')
 				{
-					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
+					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
 				}
 				else
 				{
 					# is is a density plot
-					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
+					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
 				}
 			)
 			# Function needs to return a single value so we arbitraritly use 'max' of the 'y'
-			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		else
 		{
-			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params, trans.logit=trans.logit)
@@ -1902,22 +1902,22 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			{
 				if(is.null(logicle.params))
 				{
-					drawLogicleAxis(axisNum=1)
+					drawLogicleAxis(axisNum=1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
 				}
 				else
 				{
-					drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base)
+					drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
 				}
 			}
 			else
 			{
 				if(trans.logit[1])
 				{
-					drawLogitAxis(axisNum=1)
+					drawLogitAxis(axisNum=1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
 				}
 				else
 				{
-					axis(1)
+					axis(1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
 				}
 			}	
 		}
@@ -4567,28 +4567,40 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 			{
 				if(is.null(logicle.params))
 				{
-					drawLogicleAxis(axisNum=1, las=las[1])
+					drawLogicleAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
 				}
 				else
 				{
-					drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1])
+					drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
 				}
 			}
 			else
 			{
 				if(trans.logit[1])
 				{
-					drawLogitAxis(axisNum=1, las=las[1])
+					drawLogitAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
 				}
 				else
 				{
-					axis(1)
+					axis(1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
 				}
 			}
 		}
 	}
 	# par(mar=default.mar, mgp=default.mgp, las=default.las)
 	return(ret)
+}
+
+getDefault <- function(x, default, test=is.null)
+{
+	if(test(x))
+	{
+		return(default)
+	}
+	else
+	{
+		return(x)
+	}
 }
 
 getPercentileValues <- function(x, levels=c(0,1), finite=T, na.rm=T)
