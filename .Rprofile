@@ -382,12 +382,7 @@ lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric,
 #' @export
 makeComplexId <- function(x, cols, sep='.', idName='cId')
 {
-	require(data.table)
-	if(!is.data.table(x))
-	{
-		stop('This function requires a data.table')
-	}
-	x[, c(idName):=paste(mget(cols), collapse=sep), by=cols]
+	paste.cols(x=x, cols=cols, name=idName, sep=sep)
 }
 
 #' Fill missing rows in a data.table
@@ -778,8 +773,7 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 #' @param rotate.x.labels - TRUE or FALSE whether to rotate the x labels 90 degrees or not so they fit (default FALSE)
 #' @param plot.border - TRUE or FALSE whether to plot a black line around the plot (default TRUE)
 #' @param args.error.bar - list with arguments for the error.bar function (default list(length=0.1)) (See error.bar specified in this file)
-#' @param legend - TRUE or FALSE, whether to include a legend or not in the graph (only when a group.column is specified and present)
-#' @param legend.border - TRUE or FALSE whether to plot a border around the legend
+#' @param legend.plot - TRUE or FALSE, whether to include a legend or not in the graph (only when a group.column is specified and present)
 #' @param args.legend - list of parameters to pass to the 'legend' function (overrides automatically determined parameters) (see ?legend)
 #' @param mar - numeric vector indicating the margins our the plot border. Units are lines (default c(4.5,4.5,2,2) = c(lower, left, upper, right))
 #' @param ... - additional arguments that are passed to the barplot function (see ?barplot)
@@ -1406,7 +1400,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 						  log='', logicle.params=NULL, trans.logit=c(F,F), xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
 						  density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1),
 						  h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2,
-						  legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o',
+						  legend.plot=T, legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0),
 						  save.file=NULL, save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
 						  sample.size=-1, polygons=list(),
 						  cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, ...)
@@ -1497,15 +1491,24 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	
 	# Initialize values for legend colors but
 	# do not apply alpha to legend.
+	
 	if(is.null(plot.by))
 	{
-		legend.colors <- data[, list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1]), by=by]
+		legend.colors <- data[, list(grp=paste0(.BY, collapse='.'), by.index=.GRP, my.color=my.temp.color[1]), by=by]
 	}
 	else
 	{
 		legend.colors <- unique(data[, append(mget(plot.by), list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1])), by=by])
 	}
 	legend.colors[, plot.by.index:=.GRP, by=plot.by]
+	paste.cols(legend.colors, cols=by, name='names', sep=':')
+	if(!is.null(line.color.by))
+	{
+		legend.colors[, line.color.by.index:=.GRP, by=line.color.by]
+		paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
+		# redo colors by 'line.color.by' instead of by 'by'
+		legend.colors[, my.color:=loopingPastels(k=line.color.by.index, min.h=min.h, max.h=max.h, max.k=max(line.color.by.index, na.rm=T), l=0.45, a=1)]
+	}
 	
 	# # Now apply alpha
 	data[, my.temp.color:=adjustColor(my.temp.color, alpha.factor=alphas)]
@@ -1533,22 +1536,22 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, legend=legend, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend=legend, legend.pos=legend.pos, legend.cex=legend.cex, legend.bg=legend.bg, legend.bty=legend.bty, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
 		}
 	}
 	
@@ -1561,7 +1564,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend=T, legend.pos='topright', legend.cex=0.5, legend.bg='white', legend.bty='o', legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), ...)
 {
 	if(is.null(xcol))
 	{
@@ -1668,18 +1671,18 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		else
 		{
 			# Count the number of unique line.color.by.groups
-			line.color.items <- unique(data[, line.color.by, with=F], by=line.color.by)
-			line.color.items <- line.color.items[, names:=paste.mget(mget(line.color.by), sep=':')]$names
+			# line.color.items <- unique(data[, line.color.by, with=F], by=line.color.by)
+			# line.color.items <- line.color.items[, names:=paste.mget(mget(line.color.by), sep=':')]$names
 			
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
 			
 			tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, line.color.items, alphas, env.alpha)
 			{
-				data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=loopingPastels(which(paste.mget(line.color.by,sep=':')==line.color.items), max.k=length(line.color.items), a=alphas[1], l=0.4), ...)
+				data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=legend.colors[names==paste.mget(line.color.by,sep=':')]$my.color[1], ...)
 				if(!is.null(upper))
 				{
-					data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=loopingPastels(which(paste.mget(line.color.by,sep=':')==line.color.items), max.k=length(line.color.items), a=alphas[1]*env.alpha, l=0.4), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
+					data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(legend.colors[names==paste.mget(line.color.by,sep=':')]$my.color[1], alpha.factor=env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
 				}
 			}
 			if(is.null(errcol))
@@ -1698,7 +1701,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		# 	data[, if(.GRP %in% grps){data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), env.err=env.err, env.color=loopingPastels(which(paste.mget(mget(line.color.by),sep=':')==line.color.items), max.k=length(line.color.items), a=alphas[1]*env.alpha, l=0.4), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)}, by=by]
 		# }
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
-		if(legend & !is.null(by))
+		if(legend.plot & !is.null(by))
 		{
 			temp <- list(...)
 			lwd=1
@@ -1712,25 +1715,33 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 				lty=temp$lty
 			}
 			
+			# Find the index of the .GRP in the randomly selected list of groups to plot (unmatched .GRPs get NA values)
+			legend.colors[, sampled.by.index:=match(by.index, grps)]
+			
+			# Get unique rows (because the last operation was an assignment i.e. not list(sampled.by.index=...))
+			legend.colors <- unique(legend.colors, by=c('grp',by))
+			
+			
 			if(is.null(line.color.by))
 			{
 				# Then do as normal (lines and colors determined by 'by')
 				# figure out the .GRP numbers for each by combo
-				legend.colors[, by.index:=.GRP, by=by]
-				
-				# Find the index of the .GRP in the randomly selected list of groups to plot (unmatched .GRPs get NA values)
-				legend.colors[, sampled.by.index:=match(by.index, grps)]
-				
-				# Get unique rows (because the last operation was an assignment i.e. not list(sampled.by.index=...))
-				legend.colors <- unique(legend.colors, by=c('grp',by))
 				
 				# Then, for only by.indices in the sampled.by.indices, make the legend from 'legend.colors'
-				legend(legend.pos, legend=legend.colors[by.index %in% grps]$grp, col=legend.colors$my.color[legend.colors$sampled.by.index], lty=lty, cex=legend.cex, bg=legend.bg, bty=legend.bty, lwd=lwd)
+				legend.args$legend <- legend.colors$names[legend.colors$sampled.by.index]
+				legend.args$col <- legend.colors$my.color[legend.colors$sampled.by.index]
+				legend.args$lwd <- lwd
+				do.call(legend, legend.args)
+				# legend(legend.pos, legend=legend.colors$names[legend.colors$sampled.by.index], col=, lty=lty, cex=legend.cex, bg=legend.bg, title=legend.title, bty=legend.bty, lwd=lwd)
 			}
 			else
 			{
 				# else lines were determined by 'by' and group coloring determined by 'line.color.by'
-				legend(legend.pos, legend=line.color.items, col=loopingPastels(1:length(line.color.items), a=1, l=0.4), lty=lty, cex=legend.cex, bg=legend.bg, bty=legend.bty, lwd=lwd)
+				legend.args$legend <- legend.colors$names
+				legend.args$col <- legend.colors$my.color
+				legend.args$lwd <- lwd
+				do.call(legend, legend.args)
+				# legend(legend.pos, legend=legend.colors$names, col=legend.colors$my.color, lty=lty, cex=legend.cex, bg=legend.bg, bty=legend.bty, title=legend.title, lwd=lwd)
 			}
 		}
 	}
@@ -1843,9 +1854,14 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		}
 		
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, trans.logit=trans.logit, ...)
-		if(!is.null(by) && legend)
+		if(!is.null(by) && legend.plot)
 		{
-			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty)
+			legend.args$legend <- legend.colors$names
+			legend.args$col <- pch.outline
+			legend.args$pt.bg <- legend.colors$my.color
+			legend.args$pch=21
+			do.call(legend, legend.args)
+			# legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty, title=legend.title)
 		}
 	}
 	else if(type == 'h' | type == 'd')
@@ -1935,7 +1951,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			}	
 		}
 		
-		if(!is.null(by) && legend)
+		if(!is.null(by) && legend.plot)
 		{
 			# Then do as normal (lines and colors determined by 'by')
 			# figure out the .GRP numbers for each by combo
@@ -1948,7 +1964,12 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			legend.colors <- unique(legend.colors, by=c('grp',by))
 			
 			# Then, for only GRPs in the randomly selected list of .GRPs, make the legend from 'legend.colors'
-			legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty)
+			legend.args$legend <- legend.colors$names
+			legend.args$col <- pch.outline
+			legend.args$pt.bg <- legend.colors$my.color
+			legend.args$pch=21
+			do.call(legend, legend.args)
+			# legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty, title=legend.title)
 		}
 	}
 	
@@ -2787,6 +2808,29 @@ paste.mget <- function(mgetList, sep='', collapse=NULL)
 	return(do.call(paste, args))
 }
 
+#' Paste together information from columns
+#'
+#' This function pastes the values of the specified columns together
+#' with a user-defined separator and assigns it to a user-defined
+#' column name.
+#'
+#' @param x the data.table
+#' @param cols the cols that define the complex ID
+#' @param idName string defining the name of the complex ID column, default is cId
+#' @param sep the string that will be used to separate the complex ID components
+#'
+#' @return edits the table by reference so no return value
+#' @export
+paste.cols <- function(x, cols, name, sep='')
+{
+	require(data.table)
+	if(!is.data.table(x))
+	{
+		stop('This function requires a data.table')
+	}
+	x[, c(name):=do.call(paste, c(.SD, sep=sep)), .SDcols=cols]
+}
+
 #' Reorganize a table from long form to wide form.
 #'
 #' This function can be applied to data.frame objects or data.table objects. It
@@ -3565,7 +3609,7 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 		par(mar=mar)
 	}
 	do.call(plot, pars.plot)
-	box(col='black',lwd=2)
+	box(col='black',lwd=1)
 	
 	return(list(x=x1, y=y1, xlim=xlim, ylim=ylim))
 }
@@ -3600,32 +3644,32 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 		# Draw axes if logicle.params was provided and the particular axis is logicle-scaled
 		if(logX == 1)
 		{
-			drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las, cex.axis=cex.axis, cex.lab=cex.lab)
+			drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
 		}
 		else
 		{
 			if(trans.logit[1])
 			{
-				drawLogitAxis(1, las=las, cex.axis=cex.axis, cex.lab=cex.lab)
+				drawLogitAxis(1, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
 			}
 			else
 			{
-				axis(1, las=las, cex.axis=cex.axis, cex.lab=cex.lab)
+				axis(1, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
 			}
 		}
 		if(logY == 1)
 		{
-			drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las, cex.axis=cex.axis, cex.lab=cex.lab)
+			drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
 		}
 		else
 		{
 			if(trans.logit[2])
 			{
-				drawLogitAxis(2, las=las, cex.axis=cex.axis, cex.lab=cex.lab)
+				drawLogitAxis(2, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
 			}
 			else
 			{
-				axis(2, las=las, cex.axis=cex.axis, cex.lab=cex.lab)
+				axis(2, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
 			}
 		}
 	}
@@ -4054,7 +4098,7 @@ drawLogitAxis <- function(axisNum=1, base=10, n.minor.ticks=8, las=0, ...)
 	axis(axisNum, at=logit.transform(seq(0.2,0.8,0.1), base=base), tcl=par("tcl")*0.5, labels=FALSE)
 }
 
-drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', ...)
+drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, ...)
 {
 	if(is.null(base))
 	{
@@ -4203,7 +4247,7 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 	{
 		if(axisNum == 2)
 		{
-			axis(axisNum, at=ticks, labels=prettyLabels, las=2, ...)
+			axis(axisNum, at=ticks, labels=prettyLabels, las=las, ...)
 			axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
 		}
 		else
