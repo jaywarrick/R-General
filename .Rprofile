@@ -1408,6 +1408,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
 	
+	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0), legend.args)
 	
 	# If we are saving the file, then load fonts if possible
 	# if(is.null(save.file))
@@ -1498,7 +1499,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	}
 	else
 	{
-		legend.colors <- unique(data[, append(mget(plot.by), list(grp=paste0(.BY, collapse='.'), my.color=my.temp.color[1])), by=by])
+		legend.colors <- unique(data[, append(mget(plot.by), list(grp=paste0(.BY, collapse='.'), by.index=.GRP, my.color=my.temp.color[1])), by=by])
 	}
 	legend.colors[, plot.by.index:=.GRP, by=plot.by]
 	paste.cols(legend.colors, cols=by, name='names', sep=':')
@@ -1592,7 +1593,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		daFamily <- strsplit(family, ' ', fixed=T)[[1]][1]
 		if(getOS()=='osx')
 		{
-			if(any(.pdfHasFont(grepfamily)))
+			if(any(.pdfHasFont(daFamily)))
 			{
 				font <- family[which(.pdfHasFont(family))[1]]
 				print(paste0("Setting the font to ", font))
@@ -1931,22 +1932,22 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			{
 				if(is.null(logicle.params))
 				{
-					drawLogicleAxis(axisNum=1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
+					drawLogicleAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 				else
 				{
-					drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
+					drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 			}
 			else
 			{
 				if(trans.logit[1])
 				{
-					drawLogitAxis(axisNum=1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
+					drawLogitAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 				else
 				{
-					axis(1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
+					axis(1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 			}	
 		}
@@ -3644,32 +3645,36 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 		# Draw axes if logicle.params was provided and the particular axis is logicle-scaled
 		if(logX == 1)
 		{
-			drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
+			drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 		}
 		else
 		{
 			if(trans.logit[1])
 			{
-				drawLogitAxis(1, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
+				drawLogitAxis(1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 			}
 			else
 			{
-				axis(1, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
+				otherParams <- merge.lists(list(side=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1)), list(...))
+				otherParams <- merge.lists(otherParams, list(lwd=1))
+				do.call(axis, otherParams)
 			}
 		}
 		if(logY == 1)
 		{
-			drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
+			drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 		}
 		else
 		{
 			if(trans.logit[2])
 			{
-				drawLogitAxis(2, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
+				drawLogitAxis(2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 			}
 			else
 			{
-				axis(2, las=las, cex.axis=cex.axis, cex.lab=cex.lab, ...)
+				otherParams <- merge.lists(list(side=2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1)), list(...))
+				otherParams <- merge.lists(otherParams, list(lwd=1))
+				do.call(axis, otherParams)
 			}
 		}
 	}
@@ -4092,9 +4097,9 @@ drawLogitAxis <- function(axisNum=1, base=10, n.minor.ticks=8, las=0, ...)
 	ticks <- logit.transform(x=prettyNums, base=base)
 	minor.ticks <- logit.transform(x=minor.ticks, base=base)
 	
-	axis(axisNum, at=ticks, labels=formatC(logit.untransform(ticks, base=base), digits=5, format='f', drop0trailing = T), las=2, ...)
+	axis(axisNum, at=ticks, labels=formatC(logit.untransform(ticks, base=base), digits=5, format='f', drop0trailing = T), las=las, ...)
 	axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
-	axis(axisNum, at=logit.transform(0.5, base=base), labels='0.5', las=2, ...)
+	axis(axisNum, at=logit.transform(0.5, base=base), labels='0.5', las=las, ...)
 	axis(axisNum, at=logit.transform(seq(0.2,0.8,0.1), base=base), tcl=par("tcl")*0.5, labels=FALSE)
 }
 
@@ -4224,37 +4229,51 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 	ticks <- logicle(x=prettyNums, transition=transition, tickSep=tickSep, base=base, neg.rm=F)
 	minor.ticks <- logicle(x=minor.ticks, transition=transition, tickSep=tickSep, base=base, neg.rm=F)
 	
+	# Override lwd which is intended for curves, not axes.
+	otherParams <- merge.lists(list(...), list(lwd=1))
+	
 	if(rgl)
 	{
 		temp <- ticks[ticks >= axis.limits[1] & ticks <= axis.limits[2]]
 		if(axisNum == 1)
 		{
-			axis3d(paste0('x',rgl.side), at=temp, labels=unlogicle(temp, transition=transition, base=base, tickSep=tickSep), las=2, ...)
-			axis3d(paste0('x',rgl.side), at=minor.ticks[minor.ticks >= axis.limits[1] & minor.ticks <= axis.limits[2]], tcl=par("tcl")*0.5, labels=FALSE, ...)
+			otherParams2 <- merge.lists(otherParams, list(edge=paste0('x',rgl.side), at=temp, labels=unlogicle(temp, transition=transition, base=base, tickSep=tickSep), las=2))
+			do.call(axis3d, otherParams2)
+			otherParams2 <- merge.lists(otherParams, list(edge=paste0('x',rgl.side), at=minor.ticks[minor.ticks >= axis.limits[1] & minor.ticks <= axis.limits[2]], tcl=par("tcl")*0.5, labels=FALSE))
+			do.call(axis3d, otherParams2)
 		}
 		else if(axisNum == 2)
 		{
-			axis3d(paste0('y',rgl.side), at=temp, labels=unlogicle(temp, transition=transition, base=base, tickSep=tickSep), las=2, ...)
-			axis3d(paste0('y',rgl.side), at=minor.ticks[minor.ticks >= axis.limits[1] & minor.ticks <= axis.limits[2]], tcl=par("tcl")*0.5, labels=FALSE, ...)
+			otherParams2 <- merge.lists(otherParams, list(edge=paste0('y',rgl.side), at=temp, labels=unlogicle(temp, transition=transition, base=base, tickSep=tickSep), las=2))
+			do.call(axis3d, otherParams2)
+			otherParams2 <- merge.lists(otherParams, list(edge=paste0('y',rgl.side), at=minor.ticks[minor.ticks >= axis.limits[1] & minor.ticks <= axis.limits[2]], tcl=par("tcl")*0.5, labels=FALSE))
+			do.call(axis3d, otherParams2)
 		}
 		else
 		{
-			axis3d(paste0('z',rgl.side), at=temp, labels=unlogicle(temp, transition=transition, base=base, tickSep=tickSep), las=2, ...)
-			axis3d(paste0('z',rgl.side), at=minor.ticks[minor.ticks >= axis.limits[1] & minor.ticks <= axis.limits[2]], tcl=par("tcl")*0.5, labels=FALSE, las=las, ...)
+			otherParams2 <- merge.lists(otherParams, list(edge=paste0('z',rgl.side), at=temp, labels=unlogicle(temp, transition=transition, base=base, tickSep=tickSep), las=2))
+			do.call(axis3d, otherParams2)
+			otherParams2 <- merge.lists(otherParams, list(edge=paste0('z',rgl.side), at=minor.ticks[minor.ticks >= axis.limits[1] & minor.ticks <= axis.limits[2]], tcl=par("tcl")*0.5, labels=FALSE, las=las))
+			do.call(axis3d, otherParams2)
 		}
 	}
 	else
 	{
-		if(axisNum == 2)
-		{
-			axis(axisNum, at=ticks, labels=prettyLabels, las=las, ...)
-			axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
-		}
-		else
-		{
-			axis(axisNum, at=ticks, labels=prettyLabels, las=las, ...)
-			axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE, las=las)
-		}
+		otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=ticks, labels=prettyLabels, las=las))
+		do.call(axis, otherParams2)
+		otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE))
+		do.call(axis, otherParams2)
+		
+		# if(axisNum == 2)
+		# {
+		# 	axis(axisNum, at=ticks, labels=prettyLabels, las=las, ...)
+		# 	axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE)
+		# }
+		# else
+		# {
+		# 	axis(axisNum, at=ticks, labels=prettyLabels, las=las, ...)
+		# 	axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE, las=las)
+		# }
 	}
 }
 
@@ -4608,22 +4627,22 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 			{
 				if(is.null(logicle.params))
 				{
-					drawLogicleAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
+					drawLogicleAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 				else
 				{
-					drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
+					drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 			}
 			else
 			{
 				if(trans.logit[1])
 				{
-					drawLogitAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
+					drawLogitAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 				else
 				{
-					axis(1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1))
+					axis(1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 			}
 		}
