@@ -2665,7 +2665,7 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 }
 
 #' sample.size is how many will try to be samples PER FILE.
-readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), ...)
+readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), header=T, order.all.cols=T, ...)
 {
 	xList <- list()
 	count <- 1;
@@ -2687,12 +2687,20 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		}
 		else
 		{
-			temp <- fread(daFile, header=T)
+			temp <- fread(daFile, header=header)
 		}
 		others <- !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))
 		toGet <- names(jData)[others]
 		temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
-		setcolorder(temp, c(toGet, names(temp)[!(names(temp) %in% toGet)]))
+		if(order.all.cols)
+		{
+			setcolorder(temp, c(toGet, names(temp)[!(names(temp) %in% toGet)]))
+		}
+		else
+		{
+			setcolorder(temp, c(toGet))
+		}
+		
 		
 		# If we have an existing table that we are supposed to find matching data for
 		# then use that to determine sampling and append the new data.
@@ -2713,7 +2721,10 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		{
 			# We should sample according to other arguments.
 			uniques <- names(temp)[(names(temp) %in% idCols)]
-			setkeyv(temp, uniques)
+			if(length(uniques) > 0)
+			{
+				setkeyv(temp, uniques)
+			}
 			if(!is.null(time.col))
 			{
 				if(time.col %in% names(temp))
