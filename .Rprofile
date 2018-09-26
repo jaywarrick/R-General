@@ -385,6 +385,18 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 	paste.cols(x=x, cols=cols, name=idName, sep=sep)
 }
 
+getUniqueCombos <- function(x, idCols)
+{
+	unique(temp, by=idCols)[, idCols, with=F]
+}
+
+getUniqueCombosAsStringVector <- function(x, idCols)
+{
+	dt <- getUniqueCombos(x, idCols)
+	makeComplexId(dt, idCols)
+	return(dt$cId)
+}
+
 #' Fill missing rows in a data.table
 #'
 #' After merging tables, sometimes there are combinations of column
@@ -1630,6 +1642,11 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		l(x1, y1, xlim, ylim) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
 	}
 	
+	las <- c(0,2)
+	if(!is.null(list(...)$las))
+	{
+		las <- list(...)$las
+	}
 	if(type[1] == 'l')
 	{
 		# Then do as normal
@@ -1908,20 +1925,20 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			suppressWarnings(
 				if(type[1] == 'h')
 				{
-					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
+					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
 				}
 				else
 				{
 					# is is a density plot
-					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
+					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
 				}
 			)
 			# Function needs to return a single value so we arbitraritly use 'max' of the 'y'
-			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		else
 		{
-			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params, trans.logit=trans.logit)
@@ -1948,6 +1965,32 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 				else
 				{
 					axis(1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				}
+			}	
+		}
+		
+		if(!((!is.null(list(...)$xaxt) && list(...)$yaxt=='n') | (!is.null(list(...)$axes) && list(...)$axes==F)))
+		{
+			if(log==T)
+			{
+				if(is.null(logicle.params))
+				{
+					drawLogicleAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				}
+				else
+				{
+					drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				}
+			}
+			else
+			{
+				if(trans.logit[2])
+				{
+					drawLogitAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				}
+				else
+				{
+					axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 			}	
 		}
@@ -2611,7 +2654,7 @@ spline.envelope <- function(x, yupper, ylower, vertices=10*length(x), ...) {
 #' Use a list() for labels to assign label values to all items
 #' in the object.
 #'
-readJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
+readJEXData <- function(dbPath, ds=NULL, x=NULL, y=NULL, type=NULL, name=NULL, labels=list())
 {
 	library(foreign)
 	library(data.table)
@@ -2629,31 +2672,40 @@ readJEXData <- function(dbPath, ds, x, y, type, name, labels=list())
 		}
 	}
 	
-	ret$ds <- ds
-	ret$x <- x
-	ret$y <- y
-	ret$type <- type
-	ret$name <- name
-	ret$dbPath <- dbPath
-	ret$tmpPath <- file.path(dbPath,'temp','RScriptTempFolder')
-	ret$jxdDir <- file.path(dbPath, ds, paste0('Cell_x',x,'_y',y), paste0(type,'-',name))
-	ret$jxdFilePath <- file.path(ret$jxdDir, paste0('x',x,'_y',y,'.jxd'))
-	temp <- list()
-	if(file.exists(ret$jxdFilePath))
+	if(!is.null(ds))
 	{
-		temp <- as.list(read.arff(ret$jxdFilePath))
-		if(type == 'File' | type == 'Movie' | type == 'Image' | type == 'Roi' | type == 'Workflow')
+		ret$ds <- ds
+		ret$x <- x
+		ret$y <- y
+		ret$type <- type
+		ret$name <- name
+		ret$dbPath <- dbPath
+		ret$tmpPath <- file.path(dbPath,'temp','RScriptTempFolder')
+		ret$jxdDir <- file.path(dbPath, ds, paste0('Cell_x',x,'_y',y), paste0(type,'-',name))
+		ret$jxdFilePath <- file.path(ret$jxdDir, paste0('x',x,'_y',y,'.jxd'))
+		temp <- list()
+		if(file.exists(ret$jxdFilePath))
 		{
-			temp$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
+			temp <- as.list(read.arff(ret$jxdFilePath))
+			if(type == 'File' | type == 'Movie' | type == 'Image' | type == 'Roi' | type == 'Workflow')
+			{
+				temp$fileList <- file.path(ret$db,read.arff(ret$jxdFilePath)$Value)
+			}
+			temp$fileList <- gsub('\\\\','/',temp$fileList,fixed=T)
+			ret <- as.data.table(c(ret, temp))
+			return(ret)
 		}
-		temp$fileList <- gsub('\\\\','/',temp$fileList,fixed=T)
-		ret <- as.data.table(c(ret, temp))
+		else
+		{
+			warning(paste('Could not find the specified file:', ret$jxdFilePath))
+			ret <- as.data.table(ret)
+		}
 		return(ret)
 	}
 	else
 	{
-		warning(paste('Could not find the specified file:', ret$jxdFilePath))
-		ret <- as.data.table(ret)
+		ret$fileList <- dbPath
+		return(ret)
 	}
 }
 
@@ -2665,7 +2717,7 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 }
 
 #' sample.size is how many will try to be samples PER FILE.
-readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), header=T, order.all.cols=T, ...)
+readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
 	xList <- list()
 	count <- 1;
@@ -2687,7 +2739,20 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		}
 		else
 		{
-			temp <- fread(daFile, header=header)
+			words <- paste(lines.with, collapse="|")
+			words <- gsub('$', "\\$", words, fixed=T)
+			if(!is.null(lines.with))
+			{
+				temp <- fread(paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+			}
+			else if(!is.null(lines.without))
+			{
+				temp <- fread(paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+			}
+			else
+			{
+				temp <- fread(daFile, header=header)
+			}
 		}
 		others <- !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))
 		toGet <- names(jData)[others]
