@@ -49,6 +49,10 @@ install.packages('extrafont')
 install.packages('fontcm')
 install.packages('Cairo')
 
+# Enabling bash on Windows for data.table line parsing capabilities...
+# Install Cygwin https://cygwin.com/install.html
+# Add C:\cygwin64\bin to the system 'Path' variable (right-click computer > advanced settings > environment variables)
+
 library(extrafont)
 # install.packages('extrafontdb') # To reset font table
 font_import()

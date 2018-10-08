@@ -2743,11 +2743,11 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 			words <- gsub('$', "\\$", words, fixed=T)
 			if(!is.null(lines.with))
 			{
-				temp <- fread(paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+				temp <- fread(cmd=paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
 			}
 			else if(!is.null(lines.without))
 			{
-				temp <- fread(paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+				temp <- fread(cmd=paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
 			}
 			else
 			{
