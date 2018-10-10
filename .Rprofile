@@ -387,7 +387,7 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 
 getUniqueCombos <- function(x, idCols)
 {
-	unique(temp, by=idCols)[, idCols, with=F]
+	unique(x, by=idCols)[, idCols, with=F]
 }
 
 getUniqueCombosAsStringVector <- function(x, idCols)
@@ -2746,7 +2746,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	}
 	
 	makeComplexId(jData, c('x','y'))
-	# Read in each file
+	# For each entry
 	for(tempId in uniqueo(jData$cId))
 	{
 		# Read all the files for this entry
@@ -2779,7 +2779,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 			k <- k + 1
 		}
 		temp <- rbindlist(dtList, use.names = T)
-		toGet <- names(jData)[!(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
+		toGet <- names(jData)[!(names(jData) %in% names(temp)) & !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
 		temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
 		if(order.all.cols)
 		{
