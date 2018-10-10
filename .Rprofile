@@ -745,7 +745,16 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 	for(i in nrow(tempMu2):2)
 	{
 		# Find the value that discriminates between each pair of clusters
-		tempThresh <- max(temp2[temp2$Cluster.Raw == i-1 & temp2$x < tempMu2$mu[i],'x'])
+		itemsBetweenMeans <- temp2$Cluster.Raw == i-1 & temp2$x < tempMu2$mu[i] & temp2$x > tempMu2$mu[i-1]
+		if(!any(itemsBetweenMeans))
+		{
+			warning(paste("Couldn't find a threshold between", tempMu2$mu[i-1], "and", tempMu2$mu[i], ". Setting threshold halfway between means."))
+			tempThresh <- mean(c(tempMu2$mu[i], tempMu2$mu[i-1]))
+		}
+		else
+		{
+			tempThresh <- max(temp2[itemsBetweenMeans,'x'])
+		}
 		if(!length(tempThresh)==0 && !is.infinite(tempThresh[1]))
 		{
 			# Then we found a threshold
@@ -2756,11 +2765,11 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 				words <- gsub('$', "\\$", words, fixed=T)
 				if(!is.null(lines.with))
 				{
-					dtList[[k]] <- fread(paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+					dtList[[k]] <- fread(cmd=paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
 				}
 				else if(!is.null(lines.without))
 				{
-					dtList[[k]] <- fread(paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+					dtList[[k]] <- fread(cmd=paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
 				}
 				else
 				{
