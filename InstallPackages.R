@@ -48,6 +48,7 @@ install.packages('survminer')
 install.packages('extrafont')
 install.packages('fontcm')
 install.packages('Cairo')
+install.packages('varhandle')
 
 library(extrafont)
 # install.packages('extrafontdb') # To reset font table

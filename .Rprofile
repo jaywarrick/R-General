@@ -2650,6 +2650,12 @@ spline.envelope <- function(x, yupper, ylower, vertices=10*length(x), ...) {
 	return(list(x=c(rev(data.spline.upper$x),data.spline.lower$x), y=c(rev(data.spline.upper$y), data.spline.lower$y)))
 }
 
+unfactorizeNumerics <- function(x)
+{
+	require(varhandle)
+	lapply.data.table(x, unfactor, col.filter = function(x){ if(is.factor(x)){ return(all(check.numeric(x))) }else{ return(F) } }, in.place = T)
+}
+
 #' Get a JEXData object from a well in a dataset in a database
 #' Use a list() for labels to assign label values to all items
 #' in the object.
@@ -2693,6 +2699,7 @@ readJEXData <- function(dbPath, ds=NULL, x=NULL, y=NULL, type=NULL, name=NULL, l
 			}
 			temp$fileList <- gsub('\\\\','/',temp$fileList,fixed=T)
 			ret <- as.data.table(c(ret, temp))
+			unfactorizeNumerics(ret)
 			return(ret)
 		}
 		else
@@ -2729,33 +2736,41 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		setkeyv(samples.to.match.and.append, uniques.to.match)
 	}
 	
+	makeComplexId(jData, c('x','y'))
 	# Read in each file
-	for(daFile in jData$fileList)
+	for(tempId in uniqueo(jData$cId))
 	{
-		# Read in data
-		if(endsWith(daFile,'.arff'))
+		# Read all the files for this entry
+		dtList <- list()
+		k <- 1
+		for(daFile in jData[cId==tempId]$fileList)
 		{
-			temp <- data.table(read.arff(daFile))
-		}
-		else
-		{
-			words <- paste(lines.with, collapse="|")
-			words <- gsub('$', "\\$", words, fixed=T)
-			if(!is.null(lines.with))
+			# Read in data
+			if(endsWith(daFile,'.arff'))
 			{
-				temp <- fread(paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
-			}
-			else if(!is.null(lines.without))
-			{
-				temp <- fread(paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+				dtList[[k]] <- data.table(read.arff(daFile))
 			}
 			else
 			{
-				temp <- fread(daFile, header=header)
+				words <- paste(lines.with, collapse="|")
+				words <- gsub('$', "\\$", words, fixed=T)
+				if(!is.null(lines.with))
+				{
+					dtList[[k]] <- fread(paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+				}
+				else if(!is.null(lines.without))
+				{
+					dtList[[k]] <- fread(paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+				}
+				else
+				{
+					dtList[[k]] <- fread(daFile, header=header)
+				}
 			}
+			k <- k + 1
 		}
-		others <- !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))
-		toGet <- names(jData)[others]
+		temp <- rbindlist(dtList, use.names = T)
+		toGet <- names(jData)[!(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
 		temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
 		if(order.all.cols)
 		{
