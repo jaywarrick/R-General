@@ -2745,7 +2745,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		setkeyv(samples.to.match.and.append, uniques.to.match)
 	}
 	
-	makeComplexId(jData, c('x','y'))
+	makeComplexId(jData, c('ds','x','y'))
 	# For each entry
 	for(tempId in uniqueo(jData$cId))
 	{
@@ -5071,6 +5071,13 @@ getDerivative <- function(x, t)
 getDeltas <- function(x)
 {
 	return(x[2:length(x)] - x[1:(length(x)-1)])
+}
+
+#' Get the derivative of a vector
+#' @param x A numeric vector on which to calculate the deltas (t+1) - (t)
+getPaddedDeltas <- function(x, pad=NA)
+{
+	return(c(pad, x[2:length(x)] - x[1:(length(x)-1)]))
 }
 
 #' Get the local derivative around a point in a vector accounding for boundary scenarios at the start and end of the vector
