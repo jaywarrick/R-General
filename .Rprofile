@@ -1985,28 +1985,29 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		
 		if(!((!is.null(list(...)$xaxt) && list(...)$yaxt=='n') | (!is.null(list(...)$axes) && list(...)$axes==F)))
 		{
-			if(log==T)
-			{
-				if(is.null(logicle.params))
-				{
-					drawLogicleAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-				else
-				{
-					drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-			}
-			else
-			{
-				if(trans.logit[2])
-				{
-					drawLogitAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-				else
-				{
-					axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-			}	
+			axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# if(log==T)
+			# {
+			# 	if(is.null(logicle.params))
+			# 	{
+			# 		drawLogicleAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# 	}
+			# 	else
+			# 	{
+			# 		drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# 	}
+			# }
+			# else
+			# {
+			# 	if(trans.logit[2])
+			# 	{
+			# 		drawLogitAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# 	}
+			# 	else
+			# 	{
+			# 		axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# 	}
+			# }	
 		}
 		
 		if(!is.null(by) && legend.plot)
@@ -2750,7 +2751,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		setkeyv(samples.to.match.and.append, uniques.to.match)
 	}
 	
-	makeComplexId(jData, c('x','y'))
+	makeComplexId(jData, c('ds','x','y'))
 	# For each entry
 	for(tempId in uniqueo(jData$cId))
 	{
@@ -5076,6 +5077,13 @@ getDerivative <- function(x, t)
 getDeltas <- function(x)
 {
 	return(x[2:length(x)] - x[1:(length(x)-1)])
+}
+
+#' Get the derivative of a vector
+#' @param x A numeric vector on which to calculate the deltas (t+1) - (t)
+getPaddedDeltas <- function(x, pad=NA)
+{
+	return(c(pad, x[2:length(x)] - x[1:(length(x)-1)]))
 }
 
 #' Get the local derivative around a point in a vector accounding for boundary scenarios at the start and end of the vector
