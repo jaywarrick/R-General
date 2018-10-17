@@ -1980,28 +1980,29 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		
 		if(!((!is.null(list(...)$xaxt) && list(...)$yaxt=='n') | (!is.null(list(...)$axes) && list(...)$axes==F)))
 		{
-			if(log==T)
-			{
-				if(is.null(logicle.params))
-				{
-					drawLogicleAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-				else
-				{
-					drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-			}
-			else
-			{
-				if(trans.logit[2])
-				{
-					drawLogitAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-				else
-				{
-					axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-			}	
+			axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# if(log==T)
+			# {
+			# 	if(is.null(logicle.params))
+			# 	{
+			# 		drawLogicleAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# 	}
+			# 	else
+			# 	{
+			# 		drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# 	}
+			# }
+			# else
+			# {
+			# 	if(trans.logit[2])
+			# 	{
+			# 		drawLogitAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# 	}
+			# 	else
+			# 	{
+			# 		axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# 	}
+			# }	
 		}
 		
 		if(!is.null(by) && legend.plot)
