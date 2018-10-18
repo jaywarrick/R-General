@@ -2232,6 +2232,11 @@ data.table.pairwise.t.test <- function(x, valCol, by, test.by=by, pair.by=NULL, 
 	return(ret)
 }
 
+file.open <- function(path)
+{
+	shell(path)
+}
+
 #' This function is borrowed from http://www.dr-spiess.de/scripts/bigcor.R (by A.N. Spiess)
 #'
 #' Use convert to convert the output from a hard disk matrix to a RAM matrix
@@ -3716,18 +3721,18 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 	return(list(x=x1, y=y1, xlim=xlim, ylim=ylim))
 }
 
-finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd, add=F, trans.logit=c(F,F), ...)
+finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd, add=F, trans.logit=c(F,F), las=c(0,0), ...)
 {
 	#logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	# Determine which axes to transform
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
 	
-	las <- 0
-	if(!is.null(list(...)$las))
-	{
-		las <- list(...)$las
-	}
+	# las <- 0
+	# if(!is.null(list(...)$las))
+	# {
+	# 	las <- list(...)$las
+	# }
 	
 	cex.axis <- 1
 	if(!is.null(list(...)$cex.axis))
