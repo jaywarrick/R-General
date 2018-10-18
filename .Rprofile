@@ -385,15 +385,20 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 	paste.cols(x=x, cols=cols, name=idName, sep=sep)
 }
 
-getUniqueCombos <- function(x, idCols)
+getUniqueCombos <- function(x, idCols, ordered=T)
 {
-	unique(x, by=idCols)[, idCols, with=F]
+	ret <- unique(x, by=idCols)[, idCols, with=F]
+	if(ordered)
+	{
+		setorderv(x, cols=idCols)
+	}
+	return(ret)
 }
 
-getUniqueCombosAsStringVector <- function(x, idCols)
+getUniqueCombosAsStringVector <- function(x, idCols, ordered=T)
 {
-	dt <- getUniqueCombos(x, idCols)
-	makeComplexId(dt, idCols)
+	dt <- getUniqueCombos(x=x, idCols=idCols, ordered=ordered)
+	makeComplexId(x=dt, cols=idCols)
 	return(dt$cId)
 }
 
