@@ -2237,6 +2237,11 @@ data.table.pairwise.t.test <- function(x, valCol, by, test.by=by, pair.by=NULL, 
 	return(ret)
 }
 
+file.open <- function(path)
+{
+	shell(path)
+}
+
 #' This function is borrowed from http://www.dr-spiess.de/scripts/bigcor.R (by A.N. Spiess)
 #'
 #' Use convert to convert the output from a hard disk matrix to a RAM matrix
@@ -2755,135 +2760,142 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	# For each entry
 	for(tempId in uniqueo(jData$cId))
 	{
-		# Read all the files for this entry
-		dtList <- list()
-		k <- 1
-		for(daFile in jData[cId==tempId]$fileList)
+		if(!is.null(jData[cId==tempId]$Valid) && jData[cId==tempId]$Valid[1]=='true')
 		{
-			print(paste('Reading', daFile))
-			# Read in data
-			if(endsWith(daFile,'.arff'))
+			for(daFile in jData[cId==tempId]$fileList)
 			{
-				dtList[[k]] <- data.table(read.arff(daFile))
-			}
-			else
-			{
-				words <- paste(lines.with, collapse="|")
-				words <- gsub('$', "\\$", words, fixed=T)
-				if(!is.null(lines.with))
+				print(paste('Reading', daFile))
+				
+				dtList <- list()
+				k <- 1
+				# Read in data
+				if(endsWith(daFile,'.arff'))
 				{
-					dtList[[k]] <- fread(cmd=paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
-				}
-				else if(!is.null(lines.without))
-				{
-					dtList[[k]] <- fread(cmd=paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+					dtList[[k]] <- data.table(read.arff(daFile))
 				}
 				else
 				{
-					dtList[[k]] <- fread(daFile, header=header)
+					words <- paste(lines.with, collapse="|")
+					words <- gsub('$', "\\$", words, fixed=T)
+					if(!is.null(lines.with))
+					{
+						dtList[[k]] <- fread(cmd=paste("grep -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+					}
+					else if(!is.null(lines.without))
+					{
+						dtList[[k]] <- fread(cmd=paste("grep -v -E \"", words, "\" \'", daFile, "\'", sep=""), header=T)
+					}
+					else
+					{
+						dtList[[k]] <- fread(daFile, header=header)
+					}
 				}
+				k <- k + 1
 			}
-			k <- k + 1
-		}
-		temp <- rbindlist(dtList, use.names = T)
-		toGet <- names(jData)[!(names(jData) %in% names(temp)) & !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
-		temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
-		if(order.all.cols)
-		{
-			setcolorder(temp, c(toGet, names(temp)[!(names(temp) %in% toGet)]))
-		}
-		else
-		{
-			setcolorder(temp, c(toGet))
-		}
-		
-		
-		# If we have an existing table that we are supposed to find matching data for
-		# then use that to determine sampling and append the new data.
-		if(!is.null(samples.to.match.and.append))
-		{
-			uniques <- c('ds','x','y',names(temp)[(names(temp) %in% idCols)])
-			if(!all(uniques %in% uniques.to.match) || !all(uniques.to.match %in% uniques))
+			temp <- rbindlist(dtList, use.names = T)
+			toGet <- names(jData)[!(names(jData) %in% names(temp)) & !(names(jData) %in% c('type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
+			temp[, c(toGet):=jData[fileList==daFile, c(toGet), with=F]]
+			if(order.all.cols)
 			{
-				print(paste0('Uniques to match: ', uniques.to.match))
-				print(paste0('Uniques read: ', uniques))
-				stop("The unique id cols in new data and the data to match up with need to match")
+				setcolorder(temp, c(toGet, names(temp)[!(names(temp) %in% toGet)]))
+			}
+			else
+			{
+				setcolorder(temp, c(toGet))
 			}
 			
-			temp <- filterTableWithIdsFromAnotherTable(temp, samples.to.match.and.append, uniques.to.match)
-			xList[[count]] <- temp
-		}
-		else
-		{
-			# We should sample according to other arguments.
-			uniques <- names(temp)[(names(temp) %in% idCols)]
-			if(length(uniques) > 0)
+			
+			# If we have an existing table that we are supposed to find matching data for
+			# then use that to determine sampling and append the new data.
+			if(!is.null(samples.to.match.and.append))
 			{
-				setkeyv(temp, uniques)
-			}
-			if(!is.null(time.col))
-			{
-				if(time.col %in% names(temp))
+				uniques <- c('ds','x','y',names(temp)[(names(temp) %in% idCols)])
+				if(!all(uniques %in% uniques.to.match) || !all(uniques.to.match %in% uniques))
 				{
-					nMin <- time.completeness*length(unique(temp[[time.col]]))
-					if(time.completeness <=0 | time.completeness > 1)
-					{
-						stop("time.completeness parameter must be > 0 and <= 1 as it represents the minimum fraction of the timelapse for which as cell must have data in order to be kept.")
-					}
-					nTimes <- temp[, list(N=length(unique(get(time.col)))), by=uniques]
-					nTimes <- nTimes[N >= nMin]
-					nTimes[, N:=NULL]
-					temp <- temp[nTimes]
-					if(nrow(temp)==0)
-					{
-						warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
-					}
+					print(paste0('Uniques to match: ', uniques.to.match))
+					print(paste0('Uniques read: ', uniques))
+					stop("The unique id cols in new data and the data to match up with need to match")
 				}
-				else
-				{
-					stop("Couldn't find the specified time column in the data table being read. Aborting.")
-				}
-			}
-			if(sample.size > 0)
-			{
-				uniqueIds <- unique(temp, by=uniques)[, uniques, with=F]
-				actual.sample.size <- min(nrow(uniqueIds),sample.size)
-				if(actual.sample.size < sample.size)
-				{
-					if(actual.sample.size == 0)
-					{
-						temp <- temp[F]
-						warning("There weren't any samples to sample from. Returning an empty table. Warning.")
-					}
-					else
-					{
-						sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
-						temp <- temp[sampledIds]
-						warning("The number of samples was less than the specified sample size. Returning all samples. Warning.")
-					}
-				}
-				else
-				{
-					# Then sample.size == actual.sample.size
-					if(!is.null(sampling.order.fun))
-					{
-						# Order the list and sample the top of the list
-						orderedUniqueIds <- sampling.order.fun(temp, idCols=idCols, sample.size=actual.sample.size, ...)
-						sampledIds <- orderedUniqueIds
-					}
-					else
-					{
-						# Take a random sampling of the list
-						sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
-					}
-					temp <- temp[sampledIds]
-				}
+				
+				temp <- filterTableWithIdsFromAnotherTable(temp, samples.to.match.and.append, uniques.to.match)
 				xList[[count]] <- temp
 			}
 			else
 			{
-				xList[[count]] <- temp
+				# We should sample according to other arguments.
+				uniques <- names(temp)[(names(temp) %in% idCols)]
+				if(length(uniques) > 0)
+				{
+					setkeyv(temp, uniques)
+				}
+				if(!is.null(time.col))
+				{
+					if(time.col %in% names(temp))
+					{
+						nMin <- time.completeness*length(unique(temp[[time.col]]))
+						if(time.completeness <=0 | time.completeness > 1)
+						{
+							stop("time.completeness parameter must be > 0 and <= 1 as it represents the minimum fraction of the timelapse for which as cell must have data in order to be kept.")
+						}
+						nTimes <- temp[, list(N=length(unique(get(time.col)))), by=uniques]
+						nTimes <- nTimes[N >= nMin]
+						nTimes[, N:=NULL]
+						temp <- temp[nTimes]
+						if(nrow(temp)==0)
+						{
+							warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
+						}
+					}
+					else
+					{
+						stop("Couldn't find the specified time column in the data table being read. Aborting.")
+					}
+				}
+				if(sample.size > 0)
+				{
+					uniqueIds <- unique(temp, by=uniques)[, uniques, with=F]
+					actual.sample.size <- min(nrow(uniqueIds),sample.size)
+					if(actual.sample.size < sample.size)
+					{
+						if(actual.sample.size == 0)
+						{
+							temp <- temp[F]
+							warning("There weren't any samples to sample from. Returning an empty table. Warning.")
+						}
+						else
+						{
+							sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
+							temp <- temp[sampledIds]
+							warning("The number of samples was less than the specified sample size. Returning all samples. Warning.")
+						}
+					}
+					else
+					{
+						# Then sample.size == actual.sample.size
+						if(!is.null(sampling.order.fun))
+						{
+							# Order the list and sample the top of the list
+							orderedUniqueIds <- sampling.order.fun(temp, idCols=idCols, sample.size=actual.sample.size, ...)
+							sampledIds <- orderedUniqueIds
+						}
+						else
+						{
+							# Take a random sampling of the list
+							sampledIds <- uniqueIds[sample(nrow(uniqueIds), actual.sample.size)]
+						}
+						temp <- temp[sampledIds]
+					}
+					xList[[count]] <- temp
+				}
+				else
+				{
+					xList[[count]] <- temp
+				}
 			}
+		}
+		else
+		{
+			print(paste('Skipping', tempId, "because it was marked as not 'valid'"))
 		}
 		count = count + 1
 	}
@@ -3722,18 +3734,18 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 	return(list(x=x1, y=y1, xlim=xlim, ylim=ylim))
 }
 
-finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd, add=F, trans.logit=c(F,F), ...)
+finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd, add=F, trans.logit=c(F,F), las=c(0,0), ...)
 {
 	#logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
 	# Determine which axes to transform
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
 	
-	las <- 0
-	if(!is.null(list(...)$las))
-	{
-		las <- list(...)$las
-	}
+	# las <- 0
+	# if(!is.null(list(...)$las))
+	# {
+	# 	las <- list(...)$las
+	# }
 	
 	cex.axis <- 1
 	if(!is.null(list(...)$cex.axis))
