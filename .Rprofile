@@ -2744,7 +2744,7 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 }
 
 #' sample.size is how many will try to be samples PER FILE.
-readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
+readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, times=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
 	xList <- list()
 	count <- 1;
@@ -2762,12 +2762,17 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	{
 		if(!is.null(jData[cId==tempId]$Valid) && jData[cId==tempId]$Valid[1]=='true')
 		{
+			dtList <- list()
+			k <- 1
 			for(daFile in jData[cId==tempId]$fileList)
 			{
+				if(!is.null(times) && !(jData[cId==tempId & fileList==daFile][[time.col]][1] %in% times))
+				{
+					print(paste('Skipping', daFile))
+					next
+				}
 				print(paste('Reading', daFile))
 				
-				dtList <- list()
-				k <- 1
 				# Read in data
 				if(endsWith(daFile,'.arff'))
 				{
