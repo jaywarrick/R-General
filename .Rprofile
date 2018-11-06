@@ -417,7 +417,7 @@ getUniqueCombosAsStringVector <- function(x, idCols, ordered=T)
 #' @export
 fillMissingRows <- function(x, cols, fill=NULL, tempIdColName='tempId')
 {
-	require(data.table)
+	library(data.table)
 	if(!is.data.table(x))
 	{
 		stop('This function requires a data.table')
@@ -1385,7 +1385,7 @@ loopingPalette <- function(k, cols=palette()[-1])
 
 adjustColor <- function(my.colors, alpha.factor)
 {
-	require(grDevices)
+	library(grDevices)
 	x <- col2rgb(my.colors, alpha = TRUE)/255
 	x <- data.table(t(x))
 	x[, alpha:=alpha*alpha.factor]
@@ -1395,7 +1395,7 @@ adjustColor <- function(my.colors, alpha.factor)
 
 removeAlpha <- function(my.colors)
 {
-	require(grDevices)
+	library(grDevices)
 	x <- col2rgb(my.colors)/255
 	ret <- rgb(x[1L,],x[2L,],x[3L,])
 	return(ret)
@@ -1403,7 +1403,7 @@ removeAlpha <- function(my.colors)
 
 setColor <- function(my.colors, alpha)
 {
-	require(grDevices)
+	library(grDevices)
 	x <- col2rgb(my.colors)/255
 	x <- data.table(t(x), alpha=alpha)
 	ret <- rgb(x$red,x$green,x$blue,x$alpha)
@@ -2215,7 +2215,7 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 # The optional args '...' are passed to corr.test in the psych package
 pairwise.cor.test.internal <- function(x, id.cols=c(), ...)
 {
-	require('psych')
+	library('psych')
 	measurement.cols <- getAllColNamesExcept(x, id.cols)
 	temp <- x[, ..measurement.cols]
 	return(corr.test(temp))
@@ -2237,7 +2237,7 @@ getSortedCorrelations <- function(cor.result)
 
 pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
 {
-	require('psych')
+	library('psych')
 	if(!is.null(id.cols))
 	{
 		measurement.cols <- getAllColNamesExcept(x, c(id.cols, by))
@@ -2330,7 +2330,7 @@ file.open <- function(path)
 #' Use convert to convert the output from a hard disk matrix to a RAM matrix
 bigcor <- function(x, y=NULL, fun=c("cor","cov"), size=2000, verbose=TRUE, convert=T, ...)
 {
-	require('ff')
+	library('ff')
 	fun <- match.arg(fun)
 	if (fun == "cor") FUN <- cor else FUN <- cov
 	if (fun == "cor") STR <- "Correlation" else STR <- "Covariance"
@@ -2521,7 +2521,7 @@ getEffectSize <- function(x1, x2, rank.biserial=F)
 # This is for calculating the p-value by combining multiple experiments
 wilcox.test.combined <- function(data, replCols, condCol, valCol, exact=NULL, two.tailed=TRUE)
 {
-	require(data.table)
+	library(data.table)
 	x1 <- data.table(data)
 
 
@@ -2799,7 +2799,7 @@ spline.envelope <- function(x, yupper, ylower, vertices=10*length(x), ...) {
 
 unfactorizeNumerics <- function(x)
 {
-	require(varhandle)
+	library(varhandle)
 	lapply.data.table(x, unfactor, col.filter = function(x){ if(is.factor(x)){ return(all(check.numeric(x))) }else{ return(F) } }, in.place = T)
 }
 
@@ -2880,7 +2880,7 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 }
 
 #' sample.size is how many will try to be samples PER FILE.
-readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
+readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, times=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
 	xList <- list()
 	count <- 1;
@@ -2898,11 +2898,17 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	{
 		if(!is.null(jData[cId==tempId]$Valid) && jData[cId==tempId]$Valid[1]=='true')
 		{
-			# Read all the files for this entry
 			dtList <- list()
 			k <- 1
 			for(daFile in jData[cId==tempId]$fileList)
 			{
+				if(!is.null(times) && !(jData[cId==tempId & fileList==daFile][[time.col]][1] %in% times))
+				{
+					print(paste('Skipping', daFile))
+					next
+				}
+				print(paste('Reading', daFile))
+				
 				# Read in data
 				if(endsWith(daFile,'.arff'))
 				{
@@ -3078,7 +3084,7 @@ paste.mget <- function(mgetList, sep='', collapse=NULL)
 #' @export
 paste.cols <- function(x, cols, name, sep='')
 {
-	require(data.table)
+	library(data.table)
 	if(!is.data.table(x))
 	{
 		stop('This function requires a data.table')
@@ -3178,7 +3184,7 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 #' @param valueCol The name of the column with the values of the properties listed in the \code{nameCol}
 reorganizeTable <- function (data, baseName = NA, convertToNumeric = TRUE, nameCol = "Measurement", valueCol = "Value")
 {
-	require(plyr)
+	library(plyr)
 	idCols <- names(data)
 	idCols <- idCols[-which(idCols %in% c(nameCol, valueCol))]
 	newData <- data.frame(stringsAsFactors = FALSE)
@@ -3222,8 +3228,8 @@ reorganizeTable <- function (data, baseName = NA, convertToNumeric = TRUE, nameC
 
 reorganizeFeatureTable <- function (data, baseName = NA, specialNames = c("Channel"), convertToNumeric = TRUE, nameCol='Measurement', valueCol='Value')
 {
-	require(data.table)
-
+	library(data.table)
+	
 	myfunc <- function(keys, values, allKeys, sd)
 	{
 		names(values) <- keys
@@ -3268,7 +3274,7 @@ first <- function(x)
 
 last <- function(x)
 {
-	require(pracma)
+	library(pracma)
 	return(x[numel(x)])
 }
 
@@ -3642,8 +3648,8 @@ merge.lists <- function(list1, list2)
 source_https <- function(url, ...)
 {
 	# load package
-	require(RCurl)
-
+	library(RCurl)
+	
 	# parse and evaluate each .R script
 	sapply(c(url, ...), function(u)
 	{
@@ -3653,7 +3659,7 @@ source_https <- function(url, ...)
 
 sourceGitHubFile <- function(user, repo, branch, file)
 {
-	require(curl)
+	library(curl)
 	destfile <- tempfile()
 	fileToGet <- paste0("https://raw.githubusercontent.com/", user, "/", repo, "/", branch, "/", file)
 	curl_download(url=fileToGet, destfile)
@@ -4066,7 +4072,7 @@ plot.logicle <- function(x, y, type='p', mar=par('mar'), log='', logicle.params=
 	}
 	else if(type == 'c' && sum(is.finite(x1) & is.finite(y1)) > 0)
 	{
-		require('MASS')
+		library('MASS')
 		lims <- c(getPercentileValues(x1, levels=percentile.limits[1:2]), getPercentileValues(y1, levels=percentile.limits[3:4]))
 		if(!is.null(list(...)$xlim))
 		{
@@ -4313,9 +4319,9 @@ logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=
 drawLogitAxis <- function(axisNum=1, base=10, n.minor.ticks=8, las=0, ...)
 {
 	###
-	require(boot)
-	require(zoo)
-
+	library(boot)
+	library(zoo)
+	
 	## Generate logit ticks
 	duh <- 0.9*10^(0:-10)
 	duh <- cumsum(duh)
@@ -4967,8 +4973,8 @@ autoGate <- function(x, y, border='red', lwd=2, log='', logicle.params=NULL, met
 
 gatePointsInPlot <- function(x, y, border='red', lwd=2, pch=21, plot.logicle=T, log='', logicle.params=NULL, ...)
 {
-	require(spatstat)
-
+	library(spatstat)
+	
 	if(plot.logicle)
 	{
 		plot.logicle(x, y, type='p', pch=pch, log=log, logicle.params=logicle.params, ...)
@@ -5091,7 +5097,7 @@ ellipse <- function (x, y, a, b, n)
 
 plot.ellipse <- function(x, y, a, b, n=100, border='red', lwd=2, log='', logicle.params=NULL, add=T)
 {
-	require(spatstat)
+	library(spatstat)
 	ret <- ellipse(x, y, a, b, n)
 	if(!is.null(logicle.params))
 	{
@@ -5180,7 +5186,7 @@ Mode <- function(x) {
 
 roll.mean <- function(x, win.width=2, na.rm=T, ...)
 {
-	require(zoo)
+	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
 	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align='center'))
 }
@@ -5290,7 +5296,7 @@ interpolateDerivative <- function(f0, f1, f2, x0, x1, x2, xj)
 #' path is the file path to the jxd file holding the ROI information
 readJEXMaxima <- function(path)
 {
-	require(data.table)
+	library(data.table)
 	parsePolygon <- function(polygon)
 	{
 		pairs <- strsplit(polygon,';')[[1]]
@@ -5727,8 +5733,8 @@ getDensityQuantiles <- function(xvec, yvec, zmat, levels=c(0.25, 0.5, 0.75), res
 getSurfaceVolume <- function(xvec, yvec, zmat)
 {
 	df <- data.frame(x=rep(xvec, each=length(yvec)), y=yvec, z=as.vector(zmat))
-	require(geometry)
-
+	library(geometry)
+	
 	#find triangular tesselation of (x,y) grid
 	res=delaunayn(as.matrix(df[,-3]),full=TRUE,options="Qz")
 
@@ -5988,7 +5994,7 @@ markDuplicates <- function(x, by=key(x))
 # 		axis(2, at=1, las=1)
 # 		if(!(stain == 'cRel' && stim==T))
 # 		{
-# 			require(TeachingDemos)
+# 			library(TeachingDemos)
 # 			w <- grconvertX(par('usr')[1:2], from='user', to='in')
 # 			w <- w[2]-w[1]
 # 			h <- grconvertY(par('usr')[3:4], from='user', to='in')
