@@ -395,6 +395,16 @@ getUniqueCombos <- function(x, idCols, ordered=T)
 	return(ret)
 }
 
+getUniqueCombosN <- function(x, idCols, ordered=T)
+{
+	ret <- x[, list(N=.N), by=idCols]
+	if(ordered)
+	{
+		setorderv(x, cols=idCols)
+	}
+	return(ret)
+}
+
 getUniqueCombosAsStringVector <- function(x, idCols, ordered=T)
 {
 	dt <- getUniqueCombos(x=x, idCols=idCols, ordered=ordered)
@@ -1466,13 +1476,13 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 #'
 #' @param sample.size -1 = sample all, 0 = equal sample sizes of the same size of the smallest grouping, any number > 0 defines the sampled size, e.g. 100
 #' @param gates list of gate objects returned by gatePointsInPlot function
-data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.5, by=NULL, plot.by=NULL, line.color.by=NULL,
+data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.5, by=NULL, plot.by=NULL, line.color.by=by, randomize=F,
 						  gates=list(),
 						  colors=NULL, min.h=0.666, max.h=min.h+1, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
 						  env.err=T, env.alpha=0.5,
 						  log='', logicle.params=NULL, trans.logit=c(F,F), xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
 						  density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1),
-						  h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2,
+						  h=NULL, h.col='black', h.lty=2, h.lwd=1, v=NULL, v.col='black', v.lty=2, v.lwd=1,
 						  legend.plot=T, legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
 						  save.file=NULL, save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
 						  sample.size=-1, polygons=list(),
@@ -1481,8 +1491,15 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
 
+	if(is.null(data) | nrow(data)==0)
+	{
+		warning('Data is empty. Nothing to plot.')
+		return()
+	}
 	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1), legend.args)
-
+	
+	setkeyv(data, cols=c(plot.by, by))
+	
 	# If we are saving the file, then load fonts if possible
 	# if(is.null(save.file))
 	# {
@@ -1508,33 +1525,38 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 		}
 	}
 
-	# Create a temporary gating column if necessary
-	hasGatedCol <- !is.null(data[['gated']])
-	if(!hasGatedCol)
-	{
-		data[, gated:=T]
-	}
+	# # Create a temporary gating column if necessary
+	# hasGatedCol <- !is.null(data[['gated']])
+	# if(!hasGatedCol)
+	# {
+	# 	data[, gated:=T]
+	# }
 
-	# Determine point colors
-	if(is.null(by))
+	# Create the legend table
+	legend.colors <- getUniqueCombosN(data, idCols=c(plot.by, by))
+	legend.colors[, plot.by.index:=.GRP, by=plot.by]
+	legend.colors[, by.index:=.GRP, by=by]
+	paste.cols(legend.colors, cols=by, name='names', sep=':')
+	legend.colors[, line.color.by.index:=.GRP, by=line.color.by]
+	paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
+	if(is.null(line.color.by))
 	{
-		data[, my.temp.color:='black']
+		legend.colors[, my.color:='black']
+	}
+	else if(is.null(colors))
+	{
+		legend.colors[, my.color:=loopingPastels(k=line.color.by.index, min.h=min.h, max.h=max.h, max.k=max(line.color.by.index), l=0.45, a=1)]
 	}
 	else
 	{
-		# Store base colors
-		numGrps <- nrow(unique(data, by=by))
-		if(is.null(colors))
-		{
-			data[, my.temp.color:=loopingPastels(k=.GRP, min.h=min.h, max.h=max.h, max.k=numGrps, l=0.45, a=1), by=by]
-		}
-		else
-		{
-			data[, my.temp.color:=colors[.GRP], by=by]
-		}
-		# # Store base colors
-		# data[, my.temp.color:=loopingPalette(k=.GRP), by=by]
+		legend.colors[, my.color:=colors[line.color.by.index]]
 	}
+	setkeyv(legend.colors, c(plot.by, by))
+	# Done creating legend table
+	
+	data <- data[legend.colors, nomatch=0]
+	setnames(data, 'my.color', 'my.temp.color')
+	setkeyv(data, c(plot.by, by))
 
 	# Determine alphas
 	if(!is.null(alphacol))
@@ -1563,34 +1585,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 		data[, alphas:=alpha]
 	}
 
-	# Initialize values for legend colors but
-	# do not apply alpha to legend.
-
-	if(is.null(plot.by))
-	{
-		legend.colors <- data[, list(grp=paste0(.BY, collapse='.'), by.index=.GRP, my.color=my.temp.color[1]), by=by]
-	}
-	else
-	{
-		legend.colors <- unique(data[, append(mget(plot.by), list(grp=paste0(.BY, collapse='.'), by.index=.GRP, my.color=my.temp.color[1])), by=by])
-	}
-	legend.colors[, plot.by.index:=.GRP, by=plot.by]
-	paste.cols(legend.colors, cols=by, name='names', sep=':')
-	if(!is.null(line.color.by))
-	{
-		legend.colors[, line.color.by.index:=.GRP, by=line.color.by]
-		paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
-		# redo colors by 'line.color.by' instead of by 'by'
-		legend.colors[, my.color:=loopingPastels(k=line.color.by.index, min.h=min.h, max.h=max.h, max.k=max(line.color.by.index, na.rm=T), l=0.45, a=1)]
-	}
-
 	# # Now apply alpha
 	data[, my.temp.color:=adjustColor(my.temp.color, alpha.factor=alphas)]
 
-	if(is.null(xlab))
-	{
-		xlab <- xcol
-	}
+	# set xlab and ylab if necessary
+	xlab <- getDefault(xlab, xcol)
 	if(is.null(ylab))
 	{
 		if(type[1] %in% c('l','p','c') & !is.null(ycol))
@@ -1610,36 +1609,44 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, ...)]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, ...), by=plot.by]
 		}
 	}
+	
+	print('Finished plotting.')
 
-	data[, my.temp.color:=NULL]
+	# data[, my.temp.color:=NULL]
+	# data[, alphas:=NULL]
 
-	# If necessary, remove gating column
-	if(!hasGatedCol)
-	{
-		data[, gated:=NULL]
-	}
+	# # If necessary, remove gating column
+	# if(!hasGatedCol)
+	# {
+	# 	data[, gated:=NULL]
+	# }
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), randomize=F, ...)
 {
+	if(is.null(data) | nrow(data)==0)
+	{
+		warning('Data is empty. Nothing to plot.')
+		return()
+	}
 	if(is.null(xcol))
 	{
 		stop("xcol must exist within the data.table and can't be NULL")
@@ -1651,13 +1658,6 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 	else
 	{
 		logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
-	}
-
-	# We have to have ylim as an arg so that we can override the NULL default from data.table.plot.all instead of it being hidden in the elipses
-
-	calcNumToSample <- function(counts, sample.size, grpNum)
-	{
-		return(floor(counts[grp==grpNum]$nbackgated*(sample.size/counts[grp==grpNum]$ngated)))
 	}
 
 	embedTheFont <- F
@@ -1702,214 +1702,74 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 	{
 		l(x1, y1, xlim, ylim) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
 	}
-
-	las <- c(0,2)
-	if(!is.null(list(...)$las))
+	
+	# Set some internal functions and sampling parameters
+	seed <- sample(1:100,1)
+	my.sample <- function(x, size, seed)
 	{
-		las <- list(...)$las
+		set.seed(seed)
+		return(sample(x=x, size=size))
 	}
+	if(sample.size <= 0)
+	{
+		sample.size <- .Machine$integer.max
+	}
+	tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, col, env.alpha)
+	{
+		data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=col, ...)
+		if(!is.null(upper))
+		{
+			data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(col, env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
+		}
+	}
+	# tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, alphas, env.alpha)
+	# {
+	# 	data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=legend.colors[names==paste.mget(line.color.by,sep=':')]$my.color[1], ...)
+	# 	if(!is.null(upper))
+	# 	{
+	# 		data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(legend.colors[names==paste.mget(line.color.by,sep=':')]$my.color[1], alpha.factor=env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
+	# 	}
+	# }
+
+	# Plot the data
+	las <- getDefault(list(...)$las, c(0,2))
 	if(type[1] == 'l')
 	{
-		# Then do as normal
-		# Count the number of unique groups as this will be the range of values that .GRP will take
-		nGrps <- uniqueN(data, by=by)
-
-		# Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
-		if(sample.size <= 0)
+		temp <- copy(data)
+		temp[, grp:=.GRP, by=by]
+		temp <- temp[grp %in% my.sample(max(grp), max(grp), seed=seed)]
+		# Get sample
+		if(randomize)
 		{
-			grps <- sample(1:nGrps, nGrps)
+			temp[, grp:=as.numeric(factor(grp, levels=my.sample(max(grp), max(grp), seed=seed)))]
+			setorderv(temp, c('grp', by))
 		}
-		else
+		
+		# Plot
+		if(is.null(errcol))
 		{
-			grps <- sample(1:nGrps, min(sample.size, nGrps))
-		}
-
-		if(is.null(line.color.by))
-		{
-			tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, col, env.alpha)
-			{
-				data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=col, ...)
-				if(!is.null(upper))
-				{
-					data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(col, env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
-				}
-			}
-			if(is.null(errcol))
-			{
-				# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
-				# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-				data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), env.alpha=env.alpha)}, by=by]
-			}
-			else
-			{
-				# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
-				# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-				data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol), log=log, logicle.params=logicle.params, col=loopingPastels(which(grps==.GRP), max.k=max(grps), l=0.45, a=alphas[1]), env.alpha=env.alpha)}, by=by]
-			}
-		}
-		else
-		{
-			# Count the number of unique line.color.by.groups
-			# line.color.items <- unique(data[, line.color.by, with=F], by=line.color.by)
-			# line.color.items <- line.color.items[, names:=paste.mget(mget(line.color.by), sep=':')]$names
-
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-
-			tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, line.color.items, alphas, env.alpha)
-			{
-				data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=legend.colors[names==paste.mget(line.color.by,sep=':')]$my.color[1], ...)
-				if(!is.null(upper))
-				{
-					data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(legend.colors[names==paste.mget(line.color.by,sep=':')]$my.color[1], alpha.factor=env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
-				}
-			}
-			if(is.null(errcol))
-			{
-				data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, line.color.by=mget(line.color.by), line.color.items=line.color.items, alphas=alphas, env.alpha=env.alpha)}, by=by]
-			}
-			else
-			{
-				data[, if(.GRP %in% grps){tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol), log=log, logicle.params=logicle.params, line.color.by=mget(line.color.by), line.color.items=line.color.items, alphas=alphas, env.alpha=env.alpha)}, by=by]
-			}
-			# data[, if(.GRP %in% grps){data.table.lines(x=get(xcol), y=get(ycol), log=log, logicle.params=logicle.params, col=adjustColor(loopingPalette(which(paste.mget(mget(line.color.by),sep=':')==line.color.items)), alphas[1]), ...)}, by=by]
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, col=my.temp.color[1], env.alpha=env.alpha), by='grp']
 		}
-		# if(!is.null(errcol))
-		# {
-		# 	# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10)
-		# 	data[, if(.GRP %in% grps){data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), env.err=env.err, env.color=loopingPastels(which(paste.mget(mget(line.color.by),sep=':')==line.color.items), max.k=length(line.color.items), a=alphas[1]*env.alpha, l=0.4), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)}, by=by]
-		# }
-		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
-		if(legend.plot & !is.null(by))
+		else
 		{
-			temp <- list(...)
-			lwd=1
-			lty=1
-			if(!is.null(temp$lwd))
-			{
-				lwd=temp$lwd
-			}
-			if(!is.null(temp$tly))
-			{
-				lty=temp$lty
-			}
-
-			# Find the index of the .GRP in the randomly selected list of groups to plot (unmatched .GRPs get NA values)
-			legend.colors[, sampled.by.index:=match(by.index, grps)]
-
-			# Get unique rows (because the last operation was an assignment i.e. not list(sampled.by.index=...))
-			legend.colors <- unique(legend.colors, by=c('grp',by))
-
-
-			if(is.null(line.color.by))
-			{
-				# Then do as normal (lines and colors determined by 'by')
-				# figure out the .GRP numbers for each by combo
-
-				# Then, for only by.indices in the sampled.by.indices, make the legend from 'legend.colors'
-				legend.args$legend <- legend.colors$names[legend.colors$sampled.by.index]
-				legend.args$col <- legend.colors$my.color[legend.colors$sampled.by.index]
-				legend.args$lwd <- lwd
-				do.call(legend, legend.args)
-				# legend(legend.pos, legend=legend.colors$names[legend.colors$sampled.by.index], col=, lty=lty, cex=legend.cex, bg=legend.bg, title=legend.title, bty=legend.bty, lwd=lwd)
-			}
-			else
-			{
-				# else lines were determined by 'by' and group coloring determined by 'line.color.by'
-				legend.args$legend <- legend.colors$names
-				legend.args$col <- legend.colors$my.color
-				legend.args$lwd <- lwd
-				do.call(legend, legend.args)
-				# legend(legend.pos, legend=legend.colors$names, col=legend.colors$my.color, lty=lty, cex=legend.cex, bg=legend.bg, bty=legend.bty, title=legend.title, lwd=lwd)
-			}
+			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
+			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol), log=log, logicle.params=logicle.params, col=my.temp.color[1], env.alpha=env.alpha), by='grp']
 		}
+		
+		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
 	}
 	else if(type[1] == 'p' || type[1] == 'c')
 	{
-		# Collect points to actually plot (both gated and backgated)
-		if(sample.size >= 0)
+		temp <- data[, .SD[my.sample(.N, min(.N,sample.size), seed)], by=line.color.by]
+		if(randomize)
 		{
-			if(!is.null(by))
-			{
-				counts <- data[, list(n=.N, ngated=sum(gated), nbackgated=sum(!gated), grp=.GRP), by=by]
-				minN <- min(counts$ngated)
-				if(sample.size == 0)
-				{
-					sampling.gated <- data[, list(i=sample(.I[gated], minN)), by=by]$i
-					sampling.backgated <- data[, list(i=sample(.I[!gated], calcNumToSample(counts=counts, sample.size=minN, grpNum=.GRP))), by=by]$i
-					if(type!='c')
-					{
-						sampling.gated <- sample(sampling.gated) # Randomize the order of the sampling so not all groups are plotted one after another.
-						sampling.backgated <- sample(sampling.backgated) # Randomize the order of the sampling so not all groups are plotted one after another.
-					}
-				}
-				else
-				{
-					if(sample.size > minN)
-					{
-						warning(paste0('The specified sample.size was larger than the size of the smallest population being samples. The size of the smallest population was ', minN, '. Setting the sample.size to ', minN, ' and continuing.'))
-						sample.size <- minN
-					}
-					sampling.gated <- data[, list(i=sample(.I[gated], sample.size)), by=by]$i
-					sampling.backgated <- data[, list(i=sample(.I[!gated], calcNumToSample(counts=counts, sample.size=sample.size, grpNum=.GRP))), by=by]$i
-					if(type!='c')
-					{
-						sampling.gated <- sample(sampling.gated) # Randomize the order of the sampling so not all groups are plotted one after another.
-						sampling.backgated <- sample(sampling.backgated) # Randomize the order of the sampling so not all groups are plotted one after another.}
-					}
-				}
-			}
-			else
-			{
-				if(sample.size == 0)
-				{
-					# Sample everything because there is only one group.
-					sampling.gated <- sample(which(data[['gated']]))
-					sampling.backgated <- sample(which(!data[['gated']]))
-				}
-				else
-				{
-					n <- sum(data[['gated']])
-					if(sample.size > n)
-					{
-						warning(paste0('The specified sample.size was larger than the number of gated events which is ', n, '. Continuing by using the reduced sample size.'))
-						sample.size <- n
-					}
-					# Sample the specified amount
-					sampling.gated <- sample(which(data[['gated']]), size=sample.size)
-					sampling.backgated <- sample(which(!data[['gated']]), size=sample.size)
-				}
-			}
-		}
-		else
-		{
-			# Sample everything.
-			if(type!='c')
-			{
-				# This randomizes the order of the points so that
-				# one group isn't plotted completely over the top of
-				# another group.
-				sampling.gated <- sample(which(data[['gated']]))
-				sampling.backgated <- sample(which(!data[['gated']]))
-			}
-			else
-			{
-				sampling.gated <- which(data[['gated']])
-				sampling.backgated <- which(!data[['gated']])
-			}
+			temp <- temp[sample(.N,.N)]
 		}
 
-		# Plot the backgated data if desired
-		if(length(sampling.backgated) > 0)
-		{
-			plot.logicle(x=data[[xcol]][sampling.backgated], y=data[[ycol]][sampling.backgated], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=rgb(0,0,0,alpha.backgated), pch=21, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=T, contour.adj=contour.adj, ...)
-		}
-
-		# Plot the gated data
-		if(length(sampling.gated) > 0)
-		{
-			plot.logicle(x=data[[xcol]][sampling.gated], y=data[[ycol]][sampling.gated], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=data[['my.temp.color']][sampling.gated], pch=21, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)
-		}
+		plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=21, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)
 
 		# # data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
 		# if(!is.null(errcol))
@@ -1922,7 +1782,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		if(cross.plot)
 		{
 			# Plot the gated data
-			cross.data <- data[sampling.gated, list(x=do.call(cross.fun, c(list(x=get(xcol)), cross.args)), y=do.call(cross.fun, c(list(x=get(ycol)), cross.args))), by=c('my.temp.color',by)]
+			cross.data <- temp[, list(x=do.call(cross.fun, c(list(x=get(xcol)), cross.args)), y=do.call(cross.fun, c(list(x=get(ycol)), cross.args))), by=c('my.temp.color',by)]
 			setorderv(cross.data, cols=by, order=-1L)
 
 			for(i in 1:nrow(cross.data))
@@ -1933,32 +1793,9 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		}
 
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, trans.logit=trans.logit, ...)
-		if(!is.null(by) && legend.plot)
-		{
-			legend.args$legend <- legend.colors$names
-			legend.args$col <- pch.outline
-			legend.args$pt.bg <- legend.colors$my.color
-			legend.args$pch=21
-			do.call(legend, legend.args)
-			# legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty, title=legend.title)
-		}
 	}
 	else if(type == 'h' | type == 'd')
 	{
-		# Then do as normal
-		# Count the number of unique groups as this will be the range of values that .GRP will take
-		nGrps <- uniqueN(data, by=by)
-
-		# Randomly sample a number from 1:nGrps or from the desired sample.size (whichever is smaller)
-		if(sample.size <= 0)
-		{
-			grps <- sample(1:nGrps, nGrps)
-		}
-		else
-		{
-			grps <- sample(1:nGrps, min(sample.size, nGrps))
-		}
-
 		if(is.character(log))
 		{
 			if(log=='')
@@ -1986,96 +1823,111 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			suppressWarnings(
 				if(type[1] == 'h')
 				{
-					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
+					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
 				}
 				else
 				{
 					# is is a density plot
-					ylims <- data[gated==T & is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
+					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
 				}
 			)
 			# Function needs to return a single value so we arbitraritly use 'max' of the 'y'
-			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		else
 		{
-			data[gated==T, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 
-		if(!((!is.null(list(...)$xaxt) && list(...)$xaxt=='n') | (!is.null(list(...)$axes) && list(...)$axes==F)))
+		if(!(!is.null(list(...)$axes) && list(...)$axes==F))
 		{
-			if(log==T)
+			# Handle x axis
+			if(!(!is.null(list(...)$xaxt) && list(...)$xaxt=='n'))
 			{
-				if(is.null(logicle.params))
+				if(log==T)
 				{
-					drawLogicleAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					if(is.null(logicle.params))
+					{
+						# This way we can provide defaults but override some things like 'lwd'
+						axes.args <- list(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- merge.lists(list(...), axes.args)
+						do.call(drawLogicleAxis, axes.args)
+						# drawLogicleAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					}
+					else
+					{
+						# This way we can provide defaults but override some things like 'lwd'
+						axes.args <- list(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- merge.lists(list(...), axes.args)
+						do.call(drawLogicleAxis, axes.args)
+						# drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					}
 				}
 				else
 				{
-					drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
+					if(trans.logit[1])
+					{
+						# This way we can provide defaults but override some things like 'lwd'
+						axes.args <- list(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- merge.lists(list(...), axes.args)
+						do.call(drawLogitAxis, axes.args)
+						# drawLogitAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					}
+					else
+					{
+						# This way we can provide defaults but override some things like 'lwd'
+						axes.args <- list(side=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- merge.lists(list(...), axes.args)
+						do.call(axis, axes.args)
+						# axis(side=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					}
+				}	
 			}
-			else
+			
+			# Handle y-axis
+			if(!(!is.null(list(...)$xaxt) && list(...)$yaxt=='n'))
 			{
-				if(trans.logit[1])
-				{
-					drawLogitAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
-				else
-				{
-					axis(1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-				}
+				# This way we can provide defaults but override some things like 'lwd'
+				axes.args <- list(side=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+				axes.args <- merge.lists(list(...), axes.args)
+				do.call(axis, axes.args)
+				# axis(side=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 			}
 		}
-
-		if(!((!is.null(list(...)$xaxt) && list(...)$yaxt=='n') | (!is.null(list(...)$axes) && list(...)$axes==F)))
+	}
+	
+	# Make the legend
+	if(legend.plot & !is.null(by))
+	{
+		final.legend.colors <- getUniqueCombos(legend.colors, idCols=c(line.color.by, 'my.color', 'names'))
+		if(type[1] == 'p' || type[1] == 'c')
 		{
-			axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-			# if(log==T)
-			# {
-			# 	if(is.null(logicle.params))
-			# 	{
-			# 		drawLogicleAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-			# 	}
-			# 	else
-			# 	{
-			# 		drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-			# 	}
-			# }
-			# else
-			# {
-			# 	if(trans.logit[2])
-			# 	{
-			# 		drawLogitAxis(axisNum=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-			# 	}
-			# 	else
-			# 	{
-			# 		axis(2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
-			# 	}
-			# }
-		}
-
-		if(!is.null(by) && legend.plot)
-		{
-			# Then do as normal (lines and colors determined by 'by')
-			# figure out the .GRP numbers for each by combo
-			legend.colors[, GRP:=.GRP, by=by]
-
-			# Find the index of the .GRP in the randomly selected list of groups to plot (unmatched .GRPs get NA values)
-			legend.colors[, GRPI:=match(GRP, grps)]
-
-			# Get unique rows (can't remember right now why this is here)
-			legend.colors <- unique(legend.colors, by=c('grp',by))
-
-			# Then, for only GRPs in the randomly selected list of .GRPs, make the legend from 'legend.colors'
-			legend.args$legend <- legend.colors$names
-			legend.args$col <- pch.outline
-			legend.args$pt.bg <- legend.colors$my.color
-			legend.args$pch=21
+			legend.args$legend <- final.legend.colors$names
+			legend.args$col <- getDefault(pch.outline, rgb(0,0,0,0))
+			legend.args$pt.bg <- final.legend.colors$my.color
+			legend.args$pch <- getDefault(legend.args$pch, 21)
 			do.call(legend, legend.args)
-			# legend(legend.pos, legend=legend.colors$grp, col=pch.outline, pt.bg=legend.colors$my.color, pch=21, cex=legend.cex, bg=legend.bg, bty=legend.bty, title=legend.title)
+		}
+		else
+		{
+			temp <- list(...)
+			lwd=1
+			lty=1
+			if(!is.null(temp$lwd))
+			{
+				lwd=temp$lwd
+			}
+			if(!is.null(temp$tly))
+			{
+				lty=temp$lty
+			}
+			
+			legend.args$legend <- final.legend.colors$names
+			legend.args$col <- final.legend.colors$my.color
+			legend.args$lwd <- lwd
+			do.call(legend, legend.args)
 		}
 	}
 
