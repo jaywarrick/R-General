@@ -1423,7 +1423,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 						  gates=list(),
 						  colors=NULL, min.h=0.666, max.h=min.h+1, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
 						  env.err=T, env.alpha=0.5,
-						  log='', logicle.params=NULL, trans.logit=c(F,F), xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
+						  log='', logicle.params=NULL, trans.logit=c(F,F), main='', xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
 						  density.args=NULL, breaks=100, percentile.limits=c(0,1,0,1),
 						  h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2,
 						  legend.plot=T, legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0),
@@ -1567,14 +1567,14 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
 		}
 	}
 	else
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main='', by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...)]
 		}
 		else
 		{
