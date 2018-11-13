@@ -1521,11 +1521,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	
 	if(is.null(plot.by))
 	{
-		legend.colors <- data[, list(grp=paste0(.BY, collapse='.'), by.index=.GRP, my.color=my.temp.color[1]), by=by]
+		legend.colors <- data[, list(grp=paste0(lapply(.BY, as.character), collapse='.'), by.index=.GRP, my.color=my.temp.color[1]), by=by]
 	}
 	else
 	{
-		legend.colors <- unique(data[, append(mget(plot.by), list(grp=paste0(.BY, collapse='.'), by.index=.GRP, my.color=my.temp.color[1])), by=by])
+		legend.colors <- unique(data[, append(mget(plot.by), list(grp=paste0(lapply(.BY, as.character), collapse='.'), by.index=.GRP, my.color=my.temp.color[1])), by=by])
 	}
 	legend.colors[, plot.by.index:=.GRP, by=plot.by]
 	paste.cols(legend.colors, cols=by, name='names', sep=':')
@@ -1563,7 +1563,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
 		}
 		else
 		{
@@ -1578,7 +1578,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(as.character(.BY), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, ...), by=plot.by]
 		}
 	}
 	
@@ -5562,6 +5562,13 @@ getSurfaceVolume <- function(xvec, yvec, zmat)
 	sum(mapply(function(triPoints,A) A/3*sum(df[triPoints,'z']),
 			 split.data.frame(res$tri,seq_along(res$areas)),
 			 res$areas))
+}
+
+makeMovie <- function(drive.letter='Y', dir='/Jay/R Projects/20181023 - Pt823/MovieFrames', in.filename='PhaseDist_%d.png', out.filename='test.mp4', frame.rate=2)
+{
+	cmd <- paste0('cd ', paste0(drive.letter, ':'), ' & cd ', shQuote(dir), ' & ls & ffmpeg -r 2 -f image2 -s 1920x1080 -i ', shQuote(in.filename), " -vcodec libx264 -crf 15 -pix_fmt yuv420p ", shQuote(out.filename))
+	print(cmd)
+	shell(cmd, intern=F)
 }
 
 #' How to make inset subplots...
