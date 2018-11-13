@@ -1484,8 +1484,9 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 						  density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1),
 						  h=NULL, h.col='black', h.lty=2, h.lwd=1, v=NULL, v.col='black', v.lty=2, v.lwd=1,
 						  legend.plot=T, legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
-						  save.file=NULL, save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
+						  save.plot=T, save.file=NULL, save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
 						  sample.size=-1, polygons=list(),
+						  spline.smooth=F, spline.spar=0.2, spline.n=100,
 						  cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(na.rm=T), cross.plot=F, ...)
 {
 	# REMEMBER: las works now to rotate the number labels (0-3)
@@ -1612,28 +1613,29 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 
 	my.by <- by # Just in case the naming is wierd when using with data.table
 
-	if(is.null(save.file))
+	if(save.plot && !is.null(save.file))
 	{
-		if(!is.null(plot.by))
+		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...), by=plot.by]
 		}
 	}
 	else
 	{
-		if(is.null(plot.by))
+		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
 		}
 	}
+	
 	
 	print('Finished plotting.')
 
@@ -1647,7 +1649,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	# }
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, randomize=F, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, randomize=F, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
 {
 	if(is.null(data) | nrow(data)==0)
 	{
@@ -1723,10 +1725,11 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 	}
 	tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, col, env.alpha)
 	{
-		data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=col, ...)
+		# Elipses is taken from calling environment (i.e., plot.wrapper)
+		data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=col, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
 		if(!is.null(upper))
 		{
-			data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(col, env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params)
+			data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(col, env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
 		}
 	}
 	# tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, alphas, env.alpha)
@@ -1834,7 +1837,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 				}
 				else
 				{
-					# is is a density plot
+					# it is a density plot
 					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
 				}
 			)
@@ -1989,12 +1992,20 @@ data.table.plotClusters <- function(data, cluster, thresh=NULL, breaks, ...)
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.lines <- function(x, y, log='', logicle.params, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, ...)
+data.table.lines <- function(x, y, log='', logicle.params, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, spline.smooth=F, spline.spar=0.2, spline.n=100, ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
 		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
-		lines(x=x1, y=y1, ...)
+		if(spline.smooth)
+		{
+			sp <- smooth.spline(x=x1, y=y1, spar=spline.spar)
+			lines(predict(sp, seq(min(x1, na.rm=T), max(x1, na.rm=T), length.out=spline.n)), ...)
+		}
+		else
+		{
+			lines(x=x1, y=y1, ...)
+		}
 		print('Made a plot')
 	}
 }
@@ -2042,14 +2053,26 @@ data.table.points <- function(x, y, log='', plot.logicle=F, logicle.params, h=NU
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, ...)
+data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, spline.smooth=F, spline.spar=0.2, spline.n=100, ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
 		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
+		if(spline.smooth)
+		{
+			sp <- smooth.spline(x=x1, y=y1, spar=spline.spar)
+			x1 <- seq(min(x1, na.rm=T), max(x1, na.rm=T), length.out=spline.n)
+			y1 <- predict(sp, x1)$y
+		}
+		
 		if(!is.null(upper))
 		{
 			l(xUpper, yUpper) %=% get.logicle(x=copy(x), y=copy(y+upper), log=log, logicle.params=logicle.params)
+			if(spline.smooth)
+			{
+				sp.upper <- smooth.spline(x=xUpper, y=yUpper, spar=spline.spar)
+				yUpper <- predict(sp, seq(min(xUpper, na.rm=T), max(xUpper, na.rm=T), length.out=spline.n))$y
+			}
 			upper1 <- yUpper-y1
 		}
 		else
@@ -2059,6 +2082,11 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 		if(!is.null(lower))
 		{
 			l(xLower, yLower) %=% get.logicle(x=copy(x), y=copy(y-lower), log=log, logicle.params=logicle.params)
+			if(spline.smooth)
+			{
+				sp.lower <- smooth.spline(x=xLower, y=yLower, spar=spline.spar)
+				yLower <- predict(sp, seq(min(xLower, na.rm=T), max(xLower, na.rm=T), length.out=spline.n))$y
+			}
 			lower1 <- y1-yLower
 		}
 		else
@@ -5850,9 +5878,17 @@ markDuplicates <- function(x, by=key(x))
      x[, dups:=min(.I), by=by]
 }
 
-makeMovie <- function(drive.letter='Y', dir='/Jay/R Projects/20181023 - Pt823/MovieFrames', in.filename='PhaseDist_%d.png', out.filename='test.mp4', frame.rate=2)
+makeMovie <- function(full.dir.path='Y:/Jay/R Projects/20181023 - Pt823', in.filename='PhaseDist_%d.png', out.filename='test.mp4', frame.rate=2, overwrite=T)
 {
-	cmd <- paste0('cd ', paste0(drive.letter, ':'), ' & cd ', shQuote(dir), ' & ls & ffmpeg -r 2 -f image2 -s 1920x1080 -i ', shQuote(in.filename), " -vcodec libx264 -crf 15 -pix_fmt yuv420p ", shQuote(out.filename))
+	if(overwrite)
+	{
+		if(file.exists(file.path(full.dir.path, out.filename)))
+		{
+			file.remove(file.path(full.dir.path, out.filename))
+		}
+	}
+	da.path <- strsplit(full.dir.path, ':', fixed=T)[[1]]
+	cmd <- paste0('cd ', paste0(da.path[1], ':'), ' & cd ', shQuote(da.path[2]), ' & ls & ffmpeg -r 2 -f image2 -s 1920x1080 -i ', shQuote(in.filename), " -vcodec libx264 -crf 15 -pix_fmt yuv420p ", shQuote(out.filename))
 	print(cmd)
 	shell(cmd, intern=F)
 }
