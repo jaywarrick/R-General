@@ -331,6 +331,11 @@ lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric,
 		cols <- names(x)[as.logical(as.vector(lapply(x, col.filter)))]
 	}
 
+	if(is.empty(cols))
+	{
+		print('No changes necessary. No columns fit the filter.')
+		return(x)
+	}
 	if(ret.unique)
 	{
 		if(in.place)
