@@ -38,6 +38,10 @@
 	{
 		.setFamily(list(Open = 'Open Sans Light'))
 	}
+	if(.tableHasFont('Open Sans Regular'))
+	{
+		.setFamily(list(OpenRegular = 'Open Sans Regular'))
+	}
 	if(.tableHasFont('Muli Light'))
 	{
 		.setFamily(list(Muli = 'Muli Light'))
@@ -819,7 +823,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, alpha=0.4, group.names=NULL, color.colors=NULL, rotate.x.labels=F, rotate.y.labels=F, plot.border=T,
 			 args.error.bar=list(length=0.1),
 			 legend=TRUE, legend.border=F, args.legend=list(),
-			 mar=c(4.5,4.5,2,2), use.pastels=T, ...)
+			 par.args=list(mar=c(4.5,4.5,2,2)), use.pastels=T, ...)
 {
 	# Save default margins
 	# default.mar <- par('mar')
@@ -1042,7 +1046,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	}
 
 	# Set the plot margins
-	par(mar=mar)
+	do.call(par, par.args)
 
 	# If we need to, plot error bars
 	if(has.upper || has.lower)
@@ -1219,6 +1223,25 @@ adjustIntensity <- function(x, oldMin, oldMax, newMin, newMax)
 	offset = newMin - ratio*oldMin;
 	x = x * ratio + offset;
 	return(x)
+}
+
+colorize <- function(x, min.h=0.666, max.h=0, s=0.7, l=0.5, a=1)
+{
+	is.mat <- is.matrix(x)
+	if(is.mat)
+	{
+		nc <- ncol(x)
+		nr <- nrow(x)
+		x <- as.vector(x)
+	}
+	lims <- range(x, na.rm=T)
+	x <- adjustIntensity(x, lims[1], lims[2], min.h, max.h)
+	ret <- hsl(h=x, s=s, l=l, a=a)
+	if(is.mat)
+	{
+		ret <- matrix(ret, nrow=nr)
+	}
+	return(ret)
 }
 
 colorizeBlueToRed <- function(x, s=0.7, l=0.5, a=1)
@@ -1476,28 +1499,30 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 #'
 #' @param sample.size -1 = sample all, 0 = equal sample sizes of the same size of the smallest grouping, any number > 0 defines the sampled size, e.g. 100
 #' @param gates list of gate objects returned by gatePointsInPlot function
-data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.5, by=NULL, plot.by=NULL, line.color.by=by, randomize=F,
+data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol.lower=errcol.upper, alphacol=NULL, colorcol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.8, by=NULL, plot.by=NULL, line.color.by=by, randomize=F,
 						  gates=list(),
-						  colors=NULL, min.h=0.666, max.h=min.h+1, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
-						  env.err=T, env.alpha=0.5,
+						  min.h=0.666, max.h=min.h+1, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
+						  env.err=T, env.args=list(),
 						  log='', logicle.params=NULL, trans.logit=c(F,F), main='', xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
 						  density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1),
 						  h=NULL, h.col='black', h.lty=2, h.lwd=1, v=NULL, v.col='black', v.lty=2, v.lwd=1,
 						  legend.plot=T, legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
-						  save.plot=T, save.file=NULL, save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
+						  save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
 						  sample.size=-1, polygons=list(),
-						  spline.smooth=F, spline.spar=0.2, spline.n=100,
+						  spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max,
 						  cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(na.rm=T), cross.plot=F, ...)
 {
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
 
-	if(is.null(data) | nrow(data)==0)
+	if(is.null(data) || nrow(data)==0)
 	{
 		warning('Data is empty. Nothing to plot.')
 		return()
 	}
-	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1), legend.args)
+	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, lwd=2, lty=1, inset=0, ncol=1), legend.args)
+	
+	env.args <- merge.lists(list(env.alpha=0.5, env.smooth=F, env.spar=0.2), env.args)
 	
 	setkeyv(data, cols=c(plot.by, by))
 	
@@ -1539,18 +1564,49 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	legend.colors[, by.index:=.GRP, by=by]
 	legend.colors[, line.color.by.index:=.GRP, by=line.color.by]
 	paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
+	
+	# Set legend colors
 	if(is.null(line.color.by))
 	{
 		legend.colors[, my.color:='black']
 	}
-	else if(is.null(colors))
+	else if(is.null(legend.args$col))
 	{
 		legend.colors[, my.color:=loopingPastels(k=line.color.by.index, min.h=min.h, max.h=max.h, max.k=max(line.color.by.index), l=0.45, a=1)]
 	}
 	else
 	{
-		legend.colors[, my.color:=colors[line.color.by.index]]
+		legend.colors[, my.color:=legend.args$col[line.color.by.index]]
 	}
+	
+	# Set legend lty
+	if(length(legend.args$lty) != 1 && length(legend.args$lty) != length(unique(legend.colors$line.color.by.index)))
+	{
+		stop("The number of lty is either not 1 or does not match the number of color groups in the data.")
+	}
+	if(length(legend.args$lty) == 1)
+	{
+		legend.colors[, lty:=legend.args$lty]
+	}
+	else
+	{
+		legend.colors[, lty:=legend.args$lty[line.color.by.index]]
+	}
+	
+	# Set legend lwd
+	if(length(legend.args$lwd) != 1 && length(legend.args$lwd) != length(unique(legend.colors$line.color.by.index)))
+	{
+		stop("The number of lty is either not 1 or does not match the number of color groups in the data.")
+	}
+	if(length(legend.args$lwd) == 1)
+	{
+		legend.colors[, lwd:=legend.args$lwd]
+	}
+	else
+	{
+		legend.colors[, lwd:=legend.args$lwd[line.color.by.index]]
+	}
+	
 	if(!is.null(legend.args$legend))
 	{
 		if(length(legend.args$legend) != length(unique(legend.colors$line.color.by.index)))
@@ -1562,8 +1618,18 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	setkeyv(legend.colors, c(plot.by, by))
 	# Done creating legend table
 	
+	if(is.null(alphacol))
+	{
+		# Apply alpha
+		legend.colors[, my.color:=adjustColor(my.color, alpha.factor=alpha)]
+	}
+	
 	data <- data[legend.colors, nomatch=0]
 	setnames(data, 'my.color', 'my.temp.color')
+	if(!is.null(colorcol))
+	{
+		data[, my.temp.color:=get(colorcol)]
+	}
 	setkeyv(data, c(plot.by, by))
 
 	# Determine alphas
@@ -1592,9 +1658,6 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		data[, alphas:=alpha]
 	}
-	
-	# # Now apply alpha
-	data[, my.temp.color:=adjustColor(my.temp.color, alpha.factor=alphas)]
 
 	# set xlab and ylab if necessary
 	xlab <- getDefault(xlab, xcol)
@@ -1617,22 +1680,22 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file, '.pdf'), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file,'.', save.type), save.width=save.width, save.height=save.height, sample.size=sample.size, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.pdf'), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.', save.type), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...), by=plot.by]
 		}
 	}
 	else
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol=errcol, env.err=env.err, env.alpha=env.alpha, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
 		}
 	}
 	
@@ -1649,7 +1712,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol=NULL, alphacol=NUL
 	# }
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.alpha=0.5, log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, randomize=F, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errcol.upper, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, randomize=F, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
 {
 	if(is.null(data) | nrow(data)==0)
 	{
@@ -1660,14 +1723,14 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 	{
 		stop("xcol must exist within the data.table and can't be NULL")
 	}
-	if(is.null(ycol))
-	{
-		logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=NULL, logicle.params=logicle.params)
-	}
-	else
-	{
-		logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
-	}
+	# if(is.null(ycol))
+	# {
+	# 	temp.logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=NULL, logicle.params=logicle.params)
+	# }
+	# else
+	# {
+	# 	temp.logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
+	# }
 
 	embedTheFont <- F
 	if(!is.null(save.file))
@@ -1675,18 +1738,34 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		daFamily <- strsplit(family, ' ', fixed=T)[[1]][1]
 		if(getOS()=='osx')
 		{
-			if(any(.pdfHasFont(daFamily)))
+			if(endsWith(save.file, 'png'))
 			{
-				font <- family[which(.pdfHasFont(family))[1]]
-				print(paste0("Setting the font to ", font))
-				pdf(save.file, width=save.width, height=save.height, family=font)
+				png(save.file, width=save.width, height=save.height, units='in', res=res)
+				.use.lightFont()
+			}
+			else if(endsWith(save.file, 'pdf'))
+			{
+				library(Cairo)
+				cairo_pdf(save.file, width=save.width, height=save.height, family=family[1])
 				embedTheFont <- T
 			}
 			else
 			{
-				print("Couldn't find the specified font family. Using default.")
-				pdf(save.file, width=save.width, height=save.height)
+				stop(paste0('The save type ', save.type, ' is not supported. Aborting'))
 			}
+			
+			# if(any(.pdfHasFont(daFamily)))
+			# {
+			# 	font <- family[which(.pdfHasFont(family))[1]]
+			# 	print(paste0("Setting the font to ", font))
+			# 	pdf(save.file, width=save.width, height=save.height, family=font)
+			# 	embedTheFont <- T
+			# }
+			# else
+			# {
+			# 	print("Couldn't find the specified font family. Using default.")
+			# 	pdf(save.file, width=save.width, height=save.height)
+			# }
 		}
 		else if(getOS()!='osx')
 		{
@@ -1696,12 +1775,14 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 				print(paste0("Setting the font to ", font))
 				save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
 				png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
+				.use.lightFont(font=font)
 			}
 			else
 			{
 				print("Couldn't find the specified font family. Using default.")
 				save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
 				png(save.file, width=save.width, height=save.height, res=res, units='in')
+				.use.lightFont(font=font)
 			}
 
 		}
@@ -1723,13 +1804,13 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 	{
 		sample.size <- .Machine$integer.max
 	}
-	tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, col, env.alpha)
+	tempFunc <- function(x, y, upper, lower, log, logicle.params, line.color.by, theColor, lty, env.alpha, ...)
 	{
 		# Elipses is taken from calling environment (i.e., plot.wrapper)
-		data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=col, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
+		data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, lty=lty, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
 		if(!is.null(upper))
 		{
-			data.table.error.bar(x=x, y=y, upper=upper, env.err=env.err, env.color=adjustColor(col, env.alpha), length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
+			data.table.error.bar(x=x, y=y, upper=upper, lower=lower, env.err=env.err, env.color=adjustColor(list(...)$col, env.args$env.alpha), env.args=env.args, length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
 		}
 	}
 	# tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, alphas, env.alpha)
@@ -1742,7 +1823,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 	# }
 
 	# Plot the data
-	las <- getDefault(list(...)$las, c(0,2))
+	las <- getDefault(list(...)$las, 1)
 	if(type[1] == 'l')
 	{
 		temp <- copy(data)
@@ -1756,17 +1837,17 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		}
 		
 		# Plot
-		if(is.null(errcol))
+		if(is.null(errcol.upper) && is.null(errcol.lower))
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, col=my.temp.color[1], env.alpha=env.alpha), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha), by='grp']
 		}
 		else
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol), log=log, logicle.params=logicle.params, col=my.temp.color[1], env.alpha=env.alpha), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=get(errcol.lower), log=log, logicle.params=logicle.params, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha), by='grp']
 		}
 		
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
@@ -1833,20 +1914,20 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 			suppressWarnings(
 				if(type[1] == 'h')
 				{
-					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
+					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
 				}
 				else
 				{
 					# it is a density plot
-					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
+					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
 				}
 			)
 			# Function needs to return a single value so we arbitraritly use 'max' of the 'y'
-			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 		else
 		{
-			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
 		}
 
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params, trans.logit=trans.logit)
@@ -1911,7 +1992,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 	# Make the legend
 	if(legend.plot & !is.null(by))
 	{
-		final.legend.colors <- getUniqueCombos(legend.colors, idCols=c(line.color.by, 'my.color', 'names'))
+		final.legend.colors <- getUniqueCombos(legend.colors, idCols=c(line.color.by, 'my.color', 'names', 'lty', 'lwd'))
 		if(type[1] == 'p' || type[1] == 'c')
 		{
 			legend.args$legend <- final.legend.colors$names
@@ -1922,21 +2003,17 @@ plot.wrapper <- function(data, xcol, ycol, errcol=NULL, by, plot.by=NULL, mar=pa
 		}
 		else
 		{
-			temp <- list(...)
-			lwd=1
-			lty=1
-			if(!is.null(temp$lwd))
-			{
-				lwd=temp$lwd
-			}
-			if(!is.null(temp$tly))
-			{
-				lty=temp$lty
-			}
-			
 			legend.args$legend <- final.legend.colors$names
-			legend.args$col <- final.legend.colors$my.color
-			legend.args$lwd <- lwd
+			if(type[1] == 'd' || type == 'h')
+			{
+				legend.args$col <- removeAlpha(final.legend.colors$my.color)
+			}
+			else
+			{
+				legend.args$col <- final.legend.colors$my.color
+			}
+			legend.args$lwd <- final.legend.colors$lwd
+			legend.args$lty <- final.legend.colors$lty
 			do.call(legend, legend.args)
 		}
 	}
@@ -1992,15 +2069,16 @@ data.table.plotClusters <- function(data, cluster, thresh=NULL, breaks, ...)
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.lines <- function(x, y, log='', logicle.params, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, spline.smooth=F, spline.spar=0.2, spline.n=100, ...)
+data.table.lines <- function(x, y, log='', logicle.params=NULL, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max, ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
 		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
 		if(spline.smooth)
 		{
-			sp <- smooth.spline(x=x1, y=y1, spar=spline.spar)
-			lines(predict(sp, seq(min(x1, na.rm=T), max(x1, na.rm=T), length.out=spline.n)), ...)
+			sp <- smooth.spline(x=x1[is.finite(x1) & is.finite(y1)], y=y1[is.finite(x1) & is.finite(y1)], spar=spline.spar)
+			temp <- predict(sp, seq(min(x1, na.rm=T), max(x1, na.rm=T), length.out=min(c(length(x1), spline.n))))
+			lines(temp$x, temp$y, ...)
 		}
 		else
 		{
@@ -2053,26 +2131,26 @@ data.table.points <- function(x, y, log='', plot.logicle=F, logicle.params, h=NU
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, spline.smooth=F, spline.spar=0.2, spline.n=100, ...)
+data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, spline.smooth=F, spline.spar=0.2, spline.n=length(x), ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
 		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
 		if(spline.smooth)
 		{
-			sp <- smooth.spline(x=x1, y=y1, spar=spline.spar)
-			x1 <- seq(min(x1, na.rm=T), max(x1, na.rm=T), length.out=spline.n)
+			sp <- smooth.spline(x=x1[is.finite(x1) & is.finite(y1)], y=y1[is.finite(x1) & is.finite(y1)], spar=spline.spar)
+			x1 <- seq(min(x1, na.rm=T), max(x1, na.rm=T), length.out=min(c(length(x1), spline.n)))
 			y1 <- predict(sp, x1)$y
 		}
-		
 		if(!is.null(upper))
 		{
 			l(xUpper, yUpper) %=% get.logicle(x=copy(x), y=copy(y+upper), log=log, logicle.params=logicle.params)
-			if(spline.smooth)
-			{
-				sp.upper <- smooth.spline(x=xUpper, y=yUpper, spar=spline.spar)
-				yUpper <- predict(sp, seq(min(xUpper, na.rm=T), max(xUpper, na.rm=T), length.out=spline.n))$y
-			}
+			# This should occur in call to error.bar
+			# if(env.args$env.smooth)
+			# {
+			# 	sp.upper <- smooth.spline(x=xUpper, y=yUpper, spar=env.args$env.spar)
+			# 	yUpper <- predict(sp, seq(min(xUpper, na.rm=T), max(xUpper, na.rm=T), length.out=spline.n))$y
+			# }
 			upper1 <- yUpper-y1
 		}
 		else
@@ -2082,11 +2160,12 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 		if(!is.null(lower))
 		{
 			l(xLower, yLower) %=% get.logicle(x=copy(x), y=copy(y-lower), log=log, logicle.params=logicle.params)
-			if(spline.smooth)
-			{
-				sp.lower <- smooth.spline(x=xLower, y=yLower, spar=spline.spar)
-				yLower <- predict(sp, seq(min(xLower, na.rm=T), max(xLower, na.rm=T), length.out=spline.n))$y
-			}
+			# This should occur in call to error.bar
+			# if(env.args$env.smooth)
+			# {
+			# 	sp.lower <- smooth.spline(x=xLower, y=yLower, spar=spline.spar)
+			# 	yLower <- predict(sp, seq(min(xLower, na.rm=T), max(xLower, na.rm=T), length.out=spline.n))$y
+			# }
 			lower1 <- y1-yLower
 		}
 		else
@@ -2094,7 +2173,7 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 			lower1 <- NULL
 		}
 
-		error.bar(x=x1, y=y1, upper=upper1, lower=lower1, env.err=env.err, env.color=env.color, length=length, draw.lower=draw.lower, ...)
+		error.bar(x=x1, y=y1, upper=upper1, lower=lower1, env.err=env.err, env.color=env.color, length=length, draw.lower=draw.lower, env.args=env.args, ...)
 		print('Added error bars to a plot')
 	}
 }
@@ -2602,20 +2681,20 @@ getEnvelope <- function(x, y, upper, lower=upper, logicle.params=NULL)
 #' @param draw.lower - true or false, whether to draw the lower bar or not
 #'
 #' @export
-error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, logicle.params=NULL, env.err=F, env.color=rgb(0,0,0,0.2), env.smooth=T, ...)
+error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, logicle.params=NULL, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), ...)
 {
 	l(tempX, tempY, tempYUpper, tempYLower) %=% getEnvelope(x=x, y=y, upper=upper, lower=lower, logicle.params=logicle.params)
 
 	if(env.err)
 	{
-		if(env.smooth)
+		if(env.args$env.smooth)
 		{
-			l(sx, sy) %=% spline.envelope(tempX, tempYUpper, tempYLower, ...)
+			l(sx, sy) %=% spline.envelope(tempX, tempYUpper, tempYLower, env.args=env.args, ...)
 			polygon(sx, sy, col = env.color, border = NA)
 		}
 		else
 		{
-			polygon(c(rev(tempX), tempX), c(rev(tempYLower), tempYUpper), col = envelope.color, border = NA)
+			polygon(c(rev(tempX), tempX), c(rev(tempYLower), tempYUpper), col = env.color, border = NA)
 		}
 	}
 	else
@@ -2681,7 +2760,7 @@ spline.poly <- function(x, y, vertices=10*length(x), k=3, ...) {
 #
 #   Returns an list containing the x and y points.
 #
-spline.envelope <- function(x, yupper, ylower, vertices=10*length(x), ...) {
+spline.envelope <- function(x, yupper, ylower, env.args=list(env.smooth=F, env.spar=0.2), ...) {
 
 	if((length(x) != length(yupper)) | (length(x) != length(ylower)))
 	{
@@ -2689,8 +2768,16 @@ spline.envelope <- function(x, yupper, ylower, vertices=10*length(x), ...) {
 	}
 
 	# Spline the x and y coordinates.
-	data.spline.upper <- spline(x, yupper, n=vertices, ...)
-	data.spline.lower <- spline(x, ylower, n=vertices, ...)
+	if(env.args$env.smooth)
+	{
+		data.spline.upper <- smooth.spline(x[is.finite(x) & is.finite(yupper)], yupper[is.finite(x) & is.finite(yupper)], spar=env.args$env.spar, ...)
+		data.spline.lower <- smooth.spline(x[is.finite(x) & is.finite(ylower)], ylower[is.finite(x) & is.finite(ylower)], spar=env.args$env.spar, ...)
+	}
+	else
+	{
+		data.spline.upper <- spline(x[is.finite(x) & is.finite(yupper)], yupper[is.finite(x) & is.finite(yupper)], ...)
+		data.spline.lower <- spline(x[is.finite(x) & is.finite(ylower)], ylower[is.finite(x) & is.finite(ylower)], ...)
+	}
 
 	# Retain only the middle part.
 	return(list(x=c(rev(data.spline.upper$x),data.spline.lower$x), y=c(rev(data.spline.upper$y), data.spline.lower$y)))
@@ -3524,12 +3611,17 @@ getDensityColors <- function(x, y)
 	return(list(colors=theColors, data=xync))
 }
 
+setorderv.alphanum <- function(x, ...)
+{
+	data <- data[with(data, multi.mixedorder(Day, Conc, Sample.ID, relTimeStamp)), ]
+}
+
 multi.mixedorder <- function(..., na.last = TRUE, decreasing = FALSE){
 	# For example...
 	# data <- data[with(data, multi.mixedorder(Day, Conc, Sample.ID, relTimeStamp)), ]
 	library(gtools)
 	do.call(order, c(
-		lapply(list(...), function(l){
+		lapply(rev(list(...)), function(l){
 			if(is.character(l)){
 				factor(l, levels=mixedsort(unique(l)))
 			} else {
@@ -3584,19 +3676,28 @@ jplot <- function(x, y, text=c())
 }
 
 ##### Logicle Plotting #####
-calcTransition <- function(x, minN=20)
+calcTransition <- function(x, base=10, frac=0.15)
 {
-	negNums <- c(x[x<0],-1*x[x<=0])
-	if(length(negNums[is.finite(negNums)]) < minN)
+	if(all(x <= 0))
 	{
-		# Then insufficient n to guess the 'zero' distribution
-		# This will suggest using normal log scaling instead of logicle
-		return(NULL)
+		return(base)
 	}
 	else
 	{
-		return(3*mad(negNums, na.rm=T))
+		temp <- range(log(x[x > 0], base=base))
+		return(base^(frac*(temp[2]-temp[1])+temp[1]))
 	}
+	# negNums <- c(x[x<0],-1*x[x<=0])
+	# if(length(negNums[is.finite(negNums)]) < minN)
+	# {
+	# 	# Then insufficient n to guess the 'zero' distribution
+	# 	# This will suggest using normal log scaling instead of logicle
+	# 	return(NULL)
+	# }
+	# else
+	# {
+	# 	return(3*mad(negNums, na.rm=T))
+	# }
 }
 
 get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T, trans.logit=c(F,F))
@@ -3605,6 +3706,7 @@ get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T, trans.logi
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
 
+	logicle.params
 
 	if(!is.null(logicle.params))
 	{
@@ -3675,8 +3777,10 @@ get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T, trans.logi
 		}
 
 		plottable <- posX & posY
-		x1 <- x[plottable]
-		y1 <- y[plottable]
+		x1 <- x
+		x1[!plottable] <- NA
+		y1 <- y
+		y1[!plottable] <- NA
 		if(sum(posX) < length(x))
 		{
 			warning('Negative values were removed from the X values (along with corresponding Y-values) due to log scaling.')
@@ -3738,7 +3842,7 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 		lims[3:4] <- list(...)$ylim
 		if(logY | trans.logit[2])
 		{
-			lims[3:4] <- logicle(x=lims[3:4], transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit)
+			lims[3:4] <- logicle(x=lims[3:4], transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit)
 		}
 	}
 
@@ -3899,44 +4003,120 @@ fillDefaultLogicleParams <- function(x, y, logicle.params)
 	{
 		return(NULL)
 	}
-
-	# Calculate a transition if necessary
-	if(!is.null(x) && is.null(logicle.params$transition) && is.null(logicle.params$transX))
+	
+	if(is.null(x))
 	{
-		logicle.params$transition <- calcTransition(x)
+		stop('Although y can be NULL, x is not supposed to be NULL here. Aborting')
 	}
-	if(!is.null(y) && is.null(logicle.params$transY))
+	
+	logicle.params$base <- getDefault(logicle.params$base, 10)
+	
+	# First set frac if needed
+	logicle.params$frac <- getDefault(logicle.params[['frac']], 0.15)
+	
+	# Set fracX to frac if needed
+	logicle.params$fracX <- getDefault(logicle.params$fracX, logicle.params$frac)
+	
+	# Set fracX to frac if needed
+	logicle.params$fracY <- getDefault(logicle.params$fracY, logicle.params$frac)
+	
+	# Now fracX defaults to supplied fracX or supplied frac if needed
+	logicle.params$frac <- logicle.params$fracX
+	
+	# Now fracY defaults to supplied fracX or supplied frac if needed
+	logicle.params$fracY <- logicle.params$fracY
+	
+	logicle.params$transition <- getDefault(logicle.params$transition, calcTransition(x, base=logicle.params$base, frac=logicle.params$fracX))
+
+	logicle.params$transX <- getDefault(logicle.params$transX, logicle.params$transition)
+	
+	logicle.params$transition <- logicle.params$transX
+	
+	
+	if(!is.null(y))
 	{
-		logicle.params$transY <- calcTransition(y)
+		logicle.params$transY <- getDefault(logicle.params$transY, calcTransition(y, base=logicle.params$base, frac=logicle.params$fracY))
 	}
 
-	if(is.null(y))
+	# if(is.null(y))
+	# {
+	# 	suppressWarnings(transition <- max(logicle.params$transition, logicle.params$transX))
+	# 	# max will return -Inf when provided all NULL args, so catch and set to NULL to use log scaling instead of logicle.
+	# 	if(!is.finite(transition))
+	# 	{
+	# 		transition <- NULL
+	# 	}
+	# 	logicle.params$transition <- transition
+	# 	logicle.params$transX <- transition
+	# }
+	# else
+	# {
+	# 	# Then get params for x
+	# 	transition <- logicle.params$transX
+	# 	if(is.null(transition))
+	# 	{
+	# 		logicle.params$transX <- calcTransition(x)
+	# 	}
+	# 	# Then get params for x
+	# 	transition <- logicle.params$transY
+	# 	if(is.null(transition))
+	# 	{
+	# 		logicle.params$transY <- calcTransition(y)
+	# 	}
+	# }
+	
+	logicle.params$tickSepX <- getDefault(logicle.params$tickSepX, calcTickSep(x=x, transition=logicle.params$transX, base=logicle.params$base, frac=logicle.params$fracX))
+	
+	logicle.params$tickSep <- logicle.params$tickSepX
+	
+	if(!is.null(y))
 	{
-		suppressWarnings(transition <- max(logicle.params$transition, logicle.params$transX))
-		# max will return -Inf when provided all NULL args, so catch and set to NULL to use log scaling instead of logicle.
-		if(!is.finite(transition))
-		{
-			transition <- NULL
-		}
-		logicle.params$transition <- transition
-		logicle.params$transX <- transition
+		logicle.params$tickSepY <- getDefault(logicle.params$tickSepY, calcTickSep(x=y, transition=logicle.params$transY, base=logicle.params$base, frac=logicle.params$fracY))
+	}
+	
+	return(logicle.params)
+}
+
+calcTickSep <- function(x, transition, base, frac)
+{
+	if(!is.finite(transition))
+	{
+		return(NA)
+	}
+	# Just do it for the right indicies
+	valsAbove <- (x > transition) & is.finite(x)
+	valsBelow <- (x <= transition) & is.finite(x)
+	print(length(valsAbove))
+	print(sum(valsAbove))
+	if(sum(valsAbove) == 0)
+	{
+		upperRange <- c(1,base)
 	}
 	else
 	{
-		# Then get params for x
-		transition <- logicle.params$transX
-		if(is.null(transition))
+		upperRange <- range(x[valsAbove])
+	}
+	
+	if(sum(valsBelow) == 0)
+	{
+		lowerRange <- transition
+	}
+	else
+	{
+		lowerRange <- range(x[valsBelow])
+		lowerRange <- lowerRange[2]-lowerRange[1]
+		if(lowerRange == 0)
 		{
-			logicle.params$transX <- calcTransition(x)
-		}
-		# Then get params for x
-		transition <- logicle.params$transY
-		if(is.null(transition))
-		{
-			logicle.params$transY <- calcTransition(y)
+			lowerRange <- transition
 		}
 	}
-	return(logicle.params)
+	logRangeAbove <- log(upperRange, base=base)
+	ticksAbove <- logRangeAbove[2]-logRangeAbove[1]
+	if(ticksAbove == 0)
+	{
+		ticksAbove <- 1
+	}
+	tickSep <- lowerRange*10^logit.transform(1-frac)/ticksAbove
 }
 
 plot.logicle <- function(x, y, type='p', mar=par('mar'), log='', logicle.params=NULL, trans.logit=c(F,F), percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, add=F, randomize=T, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, ...)
@@ -4163,6 +4343,10 @@ unlogicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, trans.logit=F
 
 logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=NULL, neg.rm=T, trans.logit=F)
 {
+	if(!is.vector(x) || !is.numeric(x))
+	{
+		stop('The logicle function requires a vector of numbers')
+	}
 	if(trans.logit[1])
 	{
 		return(logit.transform(x))
@@ -4182,10 +4366,19 @@ logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=
 		{
 			tickSep <- logicle.params$tickSep
 		}
+		if(!is.null(logicle.params$frac))
+		{
+			frac <- logicle.params$frac
+		}
+	}
+	else
+	{
+		logicle.params <- list()
+		logicle.params <- fillDefaultLogicleParams(x=x, y=NULL, logicle.params=logicle.params)
 	}
 	if(is.null(base))
 	{
-		base <- 10
+		base <- logicle.params$base
 	}
 	if(is.null(transition))
 	{
@@ -4209,13 +4402,16 @@ logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=
 		warning(paste0('Transition that was provided (', transition, '), must be greater than 0. Setting to 1.'))
 		transition <- 1
 	}
-	if(is.null(tickSep))
-	{
-		tickSep <- transition*log(base)
-	}
+	
 	# Just do it for the right indicies
 	valsAbove <- (x > transition) & !is.na(x)
 	valsBelow <- (x <= transition) & !is.na(x)
+	
+	if(is.null(tickSep))
+	{
+		tickSep <- logicle.params$tickSep
+	}
+	
 	x[valsAbove] <- log(x[valsAbove], base=base) + (transition/tickSep - log(transition, base=base))
 	x[valsBelow] <- x[valsBelow]/tickSep
 	return(x)
@@ -4314,11 +4510,8 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 			axis.limits <- par('usr')[3:4]
 		}
 	}
-
-	linLimits <- unlogicle(c(axis.limits[1],transition/tickSep), transition=transition, tickSep=tickSep, base=base)
-	linSidePrettyNums <- pretty(linLimits)
-	linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums > min(linLimits) & linSidePrettyNums <= max(linLimits) ]
-
+	
+	### Calculate log-scale information ###
 	# These are the true values of the log scale ticks proposed above
 	# Thus they exist for x > 0
 	logSideNums <- base^c(-100:100)
@@ -4355,6 +4548,11 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 	else
 	{
 		# Some tick labels should be on linear scale and others on log-scale.
+		
+		linLimits <- unlogicle(c(axis.limits[1],transition/tickSep), transition=transition, tickSep=tickSep, base=base)
+		linSidePrettyNums <- pretty(linLimits, n=ceiling(5*(transition/tickSep-axis.limits[1])/(axis.limits[2]-axis.limits[1])), min.n=1)
+		linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums > min(linLimits) & linSidePrettyNums <= max(linLimits) ]
+		
 		if(base == exp(1))
 		{
 			logSidePrettyLabels <- parse(text=paste("e^", log(logSideNums, base=base), sep=""))
@@ -4634,7 +4832,7 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 		}
 		ret$x <- ret$mids
 		ret$y <- ret$density
-		print(ret$y)
+		# print(ret$y)
 	}
 	else
 	{
@@ -6015,4 +6213,10 @@ fitHill2 <- function(x, y, ...)
 	par0 <- getHillPar(x, y)
 	daFit <- optim(par=par0[3:4], fn=getHillError, x=x, y=y, ...)
 	return(daFit$par)
+}
+
+data.table.expand.grid <- function(..., KEEP.OUT.ATTRS=T, stringsAsFactors = T)
+{
+	ret <- data.table(expand.grid(..., KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors))
+	return(ret)
 }
