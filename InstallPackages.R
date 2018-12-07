@@ -22,6 +22,7 @@ install.packages('rgl')
 install.packages('caret')
 install.packages('plotly')
 install.packages('boot')
+install.packages('peakPick')
 
 install.packages('Matrix')
 install.packages('matrixStats')
