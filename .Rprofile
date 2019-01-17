@@ -182,6 +182,7 @@
 
 dev.off2 <- function(file)
 {
+	library(extrafont)
 	dev.off()
 	embed_fonts(file)
 }
@@ -335,7 +336,7 @@ lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric,
 		cols <- names(x)[as.logical(as.vector(lapply(x, col.filter)))]
 	}
 
-	if(is.empty(cols))
+	if(length(cols) == 0)
 	{
 		print('No changes necessary. No columns fit the filter.')
 		return(x)
@@ -635,6 +636,16 @@ assignToClustersXY <- function(xData, yData, xClusters=2, yClusters=xClusters, r
 	return(list(clusters=newClusters, threshX=clusterX$thresh[[1]], threshY=clusterY$thresh[[1]]))
 }
 
+assignToClustersXYTogether <- function(xData, yData, xClusters=2, yClusters=xClusters, rndSeed=1234)
+{
+	clusterX <- assignToClusters(xData, nClusters=xClusters, rndSeed=rndSeed)
+	clusterY <- assignToClusters(yData, nClusters=yClusters, rndSeed=rndSeed)
+	newClusters <- paste(clusterX$data$Cluster.Clean, '.', clusterY$data$Cluster.Clean)
+	uniqueNewClusters <- sort(unique(newClusters))
+	newClusters <- match(newClusters,uniqueNewClusters)
+	return(list(clusters=newClusters, threshX=clusterX$thresh[[1]], threshY=clusterY$thresh[[1]]))
+}
+
 setClustersXY <- function(x, xcol, ycol, threshX, threshY, clusterCol='cluster')
 {
 	x[, cluster:=1]
@@ -796,6 +807,100 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 	}
 
 	return(list(data=temp2, mu=tempMu2$mu, thresh=thresh, emclusterObj=ret, pi=pi))
+}
+
+assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
+{
+	library(EMCluster)
+	set.seed(rndSeed)
+
+	dt <- data[, cols, with=F]
+	#
+	# if(is.null(data))
+	# {
+	# 	stop('Data is NULL. Aborting assignToClusters.')
+	# }
+	#
+	# if(length(data[is.finite(data)]) < nClusters)
+	# {
+	# 	stop('The number of data points must be >= the number of desired clusters')
+	# }
+	#
+	yo <- rep(T, nrow(dt))
+	for(col in cols)
+	{
+		yo <- yo & is.finite(dt[[col]])
+	}
+	dt <- dt[yo]
+	mat <- as.data.frame.matrix(dt)
+
+	# Get basic cluster results (results are potentially out of order)
+	emobj <- simple.init(mat, nclass = nClusters)
+	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
+					  fixed.iter = 1, n.candidate = 3,
+					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+	ret <- emcluster(mat, emobj, assign.class = TRUE, EMC=control)
+
+	temp <- copy(data)
+	temp[yo, Cluster.Raw:=as.numeric(as.character(ret$class))]
+	temp <- as.data.frame(temp)
+
+	# Create a data.frame to return
+	# temp <- data.frame(mat=mat$x, Cluster.Raw=as.numeric(as.character(ret$class)))
+	tempMu <- data.frame(mu=as.vector(ret$Mu), Cluster.Raw=1:nrow(ret$Mu))
+	tempMu <- as.data.table(tempMu)[, list(mu=sum(mu^2)), by='Cluster.Raw']
+
+	# Order the mu table so we can go through sequentially and rename the clusters in ascending order
+	tempMu <- tempMu[order(tempMu$mu),]
+
+	# Create two copies so that you can use one as an original and another as an edited version
+	# Originals will be without the '2' while news will be with the '2'
+	temp2 <- temp
+	tempMu2 <- tempMu
+	for(i in 1:nrow(tempMu))
+	{
+		# Go through mu's in ascending order and assign the ascending order class
+		temp2[temp$Cluster.Raw==tempMu$Cluster.Raw[i],'Cluster.Raw'] <- i
+		# Also rename the clusters in the duplicate mu table
+		tempMu2$Cluster.Raw[i] <- i
+	}
+
+	duh <- max(temp2$Cluster.Raw)[1]
+	temp2$Cluster.Clean <- duh
+
+	# thresh <- list()
+	# # Go in reverse order from the max cluster number down to 1
+	# for(i in nrow(tempMu2):2)
+	# {
+	# 	# Find the value that discriminates between each pair of clusters
+	# 	itemsBetweenMeans <- temp2$Cluster.Raw == i-1 & temp2$x < tempMu2$mu[i] & temp2$x > tempMu2$mu[i-1]
+	# 	if(!any(itemsBetweenMeans))
+	# 	{
+	# 		warning(paste("Couldn't find a threshold between", tempMu2$mu[i-1], "and", tempMu2$mu[i], ". Setting threshold halfway between means."))
+	# 		tempThresh <- mean(c(tempMu2$mu[i], tempMu2$mu[i-1]))
+	# 	}
+	# 	else
+	# 	{
+	# 		tempThresh <- max(temp2[itemsBetweenMeans,'x'])
+	# 	}
+	# 	if(!length(tempThresh)==0 && !is.infinite(tempThresh[1]))
+	# 	{
+	# 		# Then we found a threshold
+	# 		thresh[[i-1]] <- tempThresh[1]
+	# 		# Assign everything below that threshold to the next lowest cluster
+	# 		temp2$Cluster.Clean[temp2$x <= tempThresh[1]] <- i-1
+	# 	}
+	# }
+	#
+	# pi <- c()
+	# n <- nrow(temp2)
+	# for(i in 1:max(temp2$Cluster.Clean))
+	# {
+	# 	pi <- c(pi, sum(temp2$Cluster.Clean == i)/n)
+	# }
+	#
+	# return(list(data=temp2, mu=tempMu2$mu, thresh=thresh, emclusterObj=ret, pi=pi))
+	return(list(data=temp2, emclusterObje=ret))
 }
 
 #' Grouped Bar Plots
@@ -1305,7 +1410,7 @@ changeLightness <- function(col, change=0)
      		rgbs[, L2 := L+L*change]
      	}
      }
-     
+
      # Handle rounding errors
      rgbs[L2 > 1, L2:=1]
      rgbs[L2 < 0, L2:=0]
@@ -1526,11 +1631,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 		return()
 	}
 	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, lwd=2, lty=1, inset=0, ncol=1), legend.args)
-	
+
 	env.args <- merge.lists(list(env.alpha=0.5, env.smooth=F, env.spar=0.2), env.args)
-	
+
 	setkeyv(data, cols=c(plot.by, by))
-	
+
 	# If we are saving the file, then load fonts if possible
 	# if(is.null(save.file))
 	# {
@@ -1569,7 +1674,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	legend.colors[, by.index:=.GRP, by=by]
 	legend.colors[, line.color.by.index:=.GRP, by=line.color.by]
 	paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
-	
+
 	# Set legend colors
 	if(is.null(line.color.by))
 	{
@@ -1583,9 +1688,9 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	{
 		legend.colors[, my.color:=legend.args$col[line.color.by.index]]
 	}
-	
+
 	# Set legend lty
-	if(length(legend.args$lty) != 1 && length(legend.args$lty) != length(unique(legend.colors$line.color.by.index)))
+	if(is.null(colorcol) && length(legend.args$lty) != 1 && length(legend.args$lty) != length(unique(legend.colors$line.color.by.index)))
 	{
 		stop("The number of lty is either not 1 or does not match the number of color groups in the data.")
 	}
@@ -1597,9 +1702,9 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	{
 		legend.colors[, lty:=legend.args$lty[line.color.by.index]]
 	}
-	
+
 	# Set legend lwd
-	if(length(legend.args$lwd) != 1 && length(legend.args$lwd) != length(unique(legend.colors$line.color.by.index)))
+	if(is.null(colorcol) && length(legend.args$lwd) != 1 && length(legend.args$lwd) != length(unique(legend.colors$line.color.by.index)))
 	{
 		stop("The number of lty is either not 1 or does not match the number of color groups in the data.")
 	}
@@ -1611,10 +1716,10 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	{
 		legend.colors[, lwd:=legend.args$lwd[line.color.by.index]]
 	}
-	
+
 	if(!is.null(legend.args$legend))
 	{
-		if(length(legend.args$legend) != length(unique(legend.colors$line.color.by.index)))
+		if(is.null(colorcol) && length(legend.args$legend) != length(unique(legend.colors$line.color.by.index)))
 		{
 			stop("The number of legend names provided does not match the number of color groups in the data.")
 		}
@@ -1622,13 +1727,13 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	}
 	setkeyv(legend.colors, c(plot.by, by))
 	# Done creating legend table
-	
+
 	if(is.null(alphacol))
 	{
 		# Apply alpha
 		legend.colors[, my.color:=adjustColor(my.color, alpha.factor=alpha)]
 	}
-	
+
 	data <- data[legend.colors, nomatch=0]
 	setnames(data, 'my.color', 'my.temp.color')
 	if(!is.null(colorcol))
@@ -1703,8 +1808,8 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
 		}
 	}
-	
-	
+
+
 	print('Finished plotting.')
 
 	# data[, my.temp.color:=NULL]
@@ -1715,6 +1820,73 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	# {
 	# 	data[, gated:=NULL]
 	# }
+}
+
+start.plot.to.file <- function(save.file, save.width, save.height, family='Open Sans Light', res=300)
+{
+     embedTheFont <- F
+     if(getOS()=='osx')
+     {
+          if(endsWith(save.file, 'png'))
+          {
+               png(save.file, width=save.width, height=save.height, units='in', res=res)
+               if(!is.null(family))
+               {
+                    .use.lightFont(font=family[1])
+               }
+          }
+          else if(endsWith(save.file, 'pdf'))
+          {
+               library(Cairo)
+               if(!is.null(family))
+               {
+                    cairo_pdf(save.file, width=save.width, height=save.height, family=family[1])
+               }
+               else
+               {
+                    cairo_pdf(save.file, width=save.width, height=save.height)
+               }
+               embedTheFont <- T
+          }
+          else
+          {
+               stop(paste0('The save type ', save.type, ' is not supported. Aborting'))
+          }
+
+          # if(any(.pdfHasFont(daFamily)))
+          # {
+          # 	font <- family[which(.pdfHasFont(family))[1]]
+          # 	print(paste0("Setting the font to ", font))
+          # 	pdf(save.file, width=save.width, height=save.height, family=font)
+          # 	embedTheFont <- T
+          # }
+          # else
+          # {
+          # 	print("Couldn't find the specified font family. Using default.")
+          # 	pdf(save.file, width=save.width, height=save.height)
+          # }
+     }
+     else if(getOS()!='osx')
+     {
+          if(any(.hasFont(family)))
+          {
+               font <- family[which(.hasFont(family))[1]]
+               print(paste0("Setting the font to ", font))
+               save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
+               png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
+               .use.lightFont(font=font)
+          }
+          else
+          {
+               print("Couldn't find the specified font family. Using default.")
+               save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
+               png(save.file, width=save.width, height=save.height, res=res, units='in')
+               .use.lightFont(font=font)
+          }
+
+     }
+
+     return(embedTheFont)
 }
 
 plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errcol.upper, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, sample.seed=sample(1:1000), polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, randomize=F, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
@@ -1737,67 +1909,17 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	# 	temp.logicle.params <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
 	# }
 
-	embedTheFont <- F
+     embedTheFont <- F
 	if(!is.null(save.file))
 	{
-		daFamily <- strsplit(family, ' ', fixed=T)[[1]][1]
-		if(getOS()=='osx')
-		{
-			if(endsWith(save.file, 'png'))
-			{
-				png(save.file, width=save.width, height=save.height, units='in', res=res)
-				.use.lightFont()
-			}
-			else if(endsWith(save.file, 'pdf'))
-			{
-				library(Cairo)
-				cairo_pdf(save.file, width=save.width, height=save.height, family=family[1])
-				embedTheFont <- T
-			}
-			else
-			{
-				stop(paste0('The save type ', save.type, ' is not supported. Aborting'))
-			}
-			
-			# if(any(.pdfHasFont(daFamily)))
-			# {
-			# 	font <- family[which(.pdfHasFont(family))[1]]
-			# 	print(paste0("Setting the font to ", font))
-			# 	pdf(save.file, width=save.width, height=save.height, family=font)
-			# 	embedTheFont <- T
-			# }
-			# else
-			# {
-			# 	print("Couldn't find the specified font family. Using default.")
-			# 	pdf(save.file, width=save.width, height=save.height)
-			# }
-		}
-		else if(getOS()!='osx')
-		{
-			if(any(.hasFont(family)))
-			{
-				font <- family[which(.hasFont(family))[1]]
-				print(paste0("Setting the font to ", font))
-				save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
-				png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
-				.use.lightFont(font=font)
-			}
-			else
-			{
-				print("Couldn't find the specified font family. Using default.")
-				save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
-				png(save.file, width=save.width, height=save.height, res=res, units='in')
-				.use.lightFont(font=font)
-			}
-
-		}
+	     embedTheFont <- start.plot.to.file(save.file=save.file, save.width=save.width, save.height=save.height, family=family, res=res)
 	}
 
 	if(type[1] %in% c('p','l','c') && (is.null(list(...)$add) || !list(...)$add))
 	{
 		l(x1, y1, xlim, ylim) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
 	}
-	
+
 	# Set some internal functions and sampling parameters
 	my.sample <- function(x, size, seed)
 	{
@@ -1827,7 +1949,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	# }
 
 	# Plot the data
-	las <- getDefault(list(...)$las, 1)
+	las <- getDefault(list(...)$las, c(1,1))
 	if(type[1] == 'l')
 	{
 		temp <- copy(data)
@@ -1841,7 +1963,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		}
 		# Print this out to make sure the legeng matches when doing sampling.
 		#print(unique(temp$cId))
-		
+
 		# Plot
 		if(is.null(errcol.upper) && is.null(errcol.lower))
 		{
@@ -1855,7 +1977,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
 			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=get(errcol.lower), log=log, logicle.params=logicle.params, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha), by='grp']
 		}
-		
+
 		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
 	}
 	else if(type[1] == 'p' || type[1] == 'c')
@@ -1912,7 +2034,15 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		}
 
 		# Set the histogram binning (may or may not be used)
-		breaks <- c(-Inf, seq(xlim[1], xlim[2], length.out=breaks+1), Inf)
+		if(length(breaks)>1)
+		{
+			breaks <- breaks
+		}
+		else
+		{
+			breaks <- c(-Inf, seq(xlim[1], xlim[2], length.out=breaks+1), Inf)
+		}
+
 
 		# ylim will either be null or defined here. Override if null setting to max of all plots.
 		if(is.null(ylim))
@@ -1920,20 +2050,20 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			suppressWarnings(
 				if(type[1] == 'h')
 				{
-					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
+					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
 				}
 				else
 				{
 					# it is a density plot
-					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
+					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
 				}
 			)
 			# Function needs to return a single value so we arbitraritly use 'max' of the 'y'
-			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=F, ...)$y), by=by]
 		}
 		else
 		{
-			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(.GRP!=1), silent=F, ...)$y), by=by]
+			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=F, ...)$y), by=by]
 		}
 
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params, trans.logit=trans.logit)
@@ -1980,9 +2110,9 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 						do.call(axis, axes.args)
 						# axis(side=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 					}
-				}	
+				}
 			}
-			
+
 			# Handle y-axis
 			if(!(!is.null(list(...)$xaxt) && list(...)$yaxt=='n'))
 			{
@@ -1994,7 +2124,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			}
 		}
 	}
-	
+
 	# Make the legend
 	if(legend.plot & !is.null(by))
 	{
@@ -2081,7 +2211,7 @@ data.table.plotClusters <- function(data, cluster, thresh=NULL, breaks, ...)
 # (e.g., col=variable, the color will be wrong at times)
 data.table.lines <- function(x, y, log='', logicle.params=NULL, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max, ...)
 {
-	if(length(which(is.finite(x))) > 0)
+	if(length(which(is.finite(x))) > 0 && length(which(is.finite(y))) > 0)
 	{
 		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
 		if(spline.smooth)
@@ -2904,7 +3034,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 					next
 				}
 				print(paste('Reading', daFile))
-				
+
 				# Read in data
 				if(endsWith(daFile,'.arff'))
 				{
@@ -3230,7 +3360,7 @@ reorganizeTable <- function (data, baseName = NA, convertToNumeric = TRUE, nameC
 reorganizeFeatureTable <- function (data, baseName = NA, specialNames = c("Channel"), convertToNumeric = TRUE, nameCol='Measurement', valueCol='Value')
 {
 	library(data.table)
-	
+
 	myfunc <- function(keys, values, allKeys, sd)
 	{
 		names(values) <- keys
@@ -3327,7 +3457,7 @@ getDensityPeaks <- function(x, neighlim, n=c(1,-1), min.h=0.1, density.args=list
 		ret[, peak.i:=which.min(abs(x-peak.x)), by=c('i')]
 		ret[, peak.x:=x[peak.i], by=c('i')]
 	}
-	
+
 	return(ret[])
 }
 
@@ -3707,7 +3837,7 @@ source_https <- function(url, ...)
 {
 	# load package
 	library(RCurl)
-	
+
 	# parse and evaluate each .R script
 	sapply(c(url, ...), function(u)
 	{
@@ -3740,7 +3870,7 @@ jplot <- function(x, y, text=c())
 ##### Logicle Plotting #####
 calcTransition <- function(x, base=10, frac=0.15)
 {
-	if(all(x <= 0))
+	if(!any(is.finite(x)) || !any(x > 0))
 	{
 		return(base)
 	}
@@ -4065,36 +4195,36 @@ fillDefaultLogicleParams <- function(x, y, logicle.params)
 	{
 		return(NULL)
 	}
-	
+
 	if(is.null(x))
 	{
 		stop('Although y can be NULL, x is not supposed to be NULL here. Aborting')
 	}
-	
+
 	logicle.params$base <- getDefault(logicle.params$base, 10)
-	
+
 	# First set frac if needed
 	logicle.params$frac <- getDefault(logicle.params[['frac']], 0.15)
-	
+
 	# Set fracX to frac if needed
 	logicle.params$fracX <- getDefault(logicle.params$fracX, logicle.params$frac)
-	
+
 	# Set fracX to frac if needed
 	logicle.params$fracY <- getDefault(logicle.params$fracY, logicle.params$frac)
-	
+
 	# Now fracX defaults to supplied fracX or supplied frac if needed
 	logicle.params$frac <- logicle.params$fracX
-	
+
 	# Now fracY defaults to supplied fracX or supplied frac if needed
 	logicle.params$fracY <- logicle.params$fracY
-	
+
 	logicle.params$transition <- getDefault(logicle.params$transition, calcTransition(x, base=logicle.params$base, frac=logicle.params$fracX))
 
 	logicle.params$transX <- getDefault(logicle.params$transX, logicle.params$transition)
-	
+
 	logicle.params$transition <- logicle.params$transX
-	
-	
+
+
 	if(!is.null(y))
 	{
 		logicle.params$transY <- getDefault(logicle.params$transY, calcTransition(y, base=logicle.params$base, frac=logicle.params$fracY))
@@ -4126,16 +4256,16 @@ fillDefaultLogicleParams <- function(x, y, logicle.params)
 	# 		logicle.params$transY <- calcTransition(y)
 	# 	}
 	# }
-	
+
 	logicle.params$tickSepX <- getDefault(logicle.params$tickSepX, calcTickSep(x=x, transition=logicle.params$transX, base=logicle.params$base, frac=logicle.params$fracX))
-	
+
 	logicle.params$tickSep <- logicle.params$tickSepX
-	
+
 	if(!is.null(y))
 	{
 		logicle.params$tickSepY <- getDefault(logicle.params$tickSepY, calcTickSep(x=y, transition=logicle.params$transY, base=logicle.params$base, frac=logicle.params$fracY))
 	}
-	
+
 	return(logicle.params)
 }
 
@@ -4158,7 +4288,7 @@ calcTickSep <- function(x, transition, base, frac)
 	{
 		upperRange <- range(x[valsAbove])
 	}
-	
+
 	if(sum(valsBelow) == 0)
 	{
 		lowerRange <- transition
@@ -4464,16 +4594,16 @@ logicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, logicle.params=
 		warning(paste0('Transition that was provided (', transition, '), must be greater than 0. Setting to 1.'))
 		transition <- 1
 	}
-	
+
 	# Just do it for the right indicies
 	valsAbove <- (x > transition) & !is.na(x)
 	valsBelow <- (x <= transition) & !is.na(x)
-	
+
 	if(is.null(tickSep))
 	{
 		tickSep <- logicle.params$tickSep
 	}
-	
+
 	x[valsAbove] <- log(x[valsAbove], base=base) + (transition/tickSep - log(transition, base=base))
 	x[valsBelow] <- x[valsBelow]/tickSep
 	return(x)
@@ -4484,7 +4614,7 @@ drawLogitAxis <- function(axisNum=1, base=10, n.minor.ticks=8, las=0, ...)
 	###
 	library(boot)
 	library(zoo)
-	
+
 	## Generate logit ticks
 	duh <- 0.9*10^(0:-10)
 	duh <- cumsum(duh)
@@ -4572,7 +4702,7 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 			axis.limits <- par('usr')[3:4]
 		}
 	}
-	
+
 	### Calculate log-scale information ###
 	# These are the true values of the log scale ticks proposed above
 	# Thus they exist for x > 0
@@ -4610,11 +4740,11 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 	else
 	{
 		# Some tick labels should be on linear scale and others on log-scale.
-		
+
 		linLimits <- unlogicle(c(axis.limits[1],transition/tickSep), transition=transition, tickSep=tickSep, base=base)
 		linSidePrettyNums <- pretty(linLimits, n=ceiling(5*(transition/tickSep-axis.limits[1])/(axis.limits[2]-axis.limits[1])), min.n=1)
 		linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums > min(linLimits) & linSidePrettyNums <= max(linLimits) ]
-		
+
 		if(base == exp(1))
 		{
 			logSidePrettyLabels <- parse(text=paste("e^", log(logSideNums, base=base), sep=""))
@@ -5149,7 +5279,7 @@ autoGate <- function(x, y, border='red', lwd=2, log='', logicle.params=NULL, met
 gatePointsInPlot <- function(x, y, border='red', lwd=2, pch=21, plot.logicle=T, log='', logicle.params=NULL, ...)
 {
 	library(spatstat)
-	
+
 	if(plot.logicle)
 	{
 		plot.logicle(x, y, type='p', pch=pch, log=log, logicle.params=logicle.params, ...)
@@ -5321,9 +5451,19 @@ sim.transform.percentile <- function(x, percentile=0.01)
 	return( log( (-mm[1] + x) / (mm[2] - x) ) )
 }
 
+sim.transform.bounds <- function(x, x.min, x.max)
+{
+	return( log( (-x.min + x) / (x.max - x) ) )
+}
+
 sim.untransform <- function(x)
 {
 	return( (exp(x) - 1) / (exp(x) + 1) )
+}
+
+sim.untransform.bounds <- function(x, x.min, x.max)
+{
+	return((x.max*exp(x)+x.min)/(exp(x)+1))
 }
 
 logit.transform <- function(x, base=10)
@@ -5639,10 +5779,16 @@ getNeighborsInRadius <- function(dt, cIdCol, xcol, ycol, keep=c(), searchRadius,
 	}
 	else
 	{
-		for(daBy in uniqueo(dt[[by]]))
+		thingsToDo <- getUniqueCombos(x, idCols=by, ordered=T)
+		setkeyv(thingsToDo, by)
+		setkeyv(dt, by)
+		for(i in 1:nrow(thingsToDo))
 		{
-			dt2 <- dt[get(by)==daBy]
-			dt[get(by)==daBy, neighbors:=list(list(getNeighborsInRadius_(dt2, cIdCol=cIdCol, theId=.BY[[1]], keep=keep, searchRadius=searchRadius))), by=cIdCol][]
+			print(paste0('Performing ', i, ' of ', nrow(thingsToDo), '.'))
+			temp <- thingsToDo[i]
+			setkeyv(temp, by)
+			dt2 <- dt[temp]
+			dt[temp, neighbors:=list(list(getNeighborsInRadius_(dt2, cIdCol=cIdCol, theId=.BY[[1]], keep=keep, searchRadius=searchRadius))), by=cIdCol][]
 		}
 	}
 }
@@ -5909,7 +6055,7 @@ getSurfaceVolume <- function(xvec, yvec, zmat)
 {
 	df <- data.frame(x=rep(xvec, each=length(yvec)), y=yvec, z=as.vector(zmat))
 	library(geometry)
-	
+
 	#find triangular tesselation of (x,y) grid
 	res=delaunayn(as.matrix(df[,-3]),full=TRUE,options="Qz")
 
@@ -5989,7 +6135,7 @@ getBoxPlotAt <- function(n, w)
      return(at)
 }
 
-data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1), legend.args=list(), p=NULL, p.cex=0.8, p.adj.x=0.75, p.adj.y=0.5, save.it=F, save.dir=if(save.it){NULL}else{''}, save.file=if(save.it){NULL}else{''}, width=6, height=5, ylim=NULL, log='', logicle.params=NULL, col=NULL, mar=par('mar'), xlab=xcol, ylab=ycol, range=0, strip.chart=T, strip.method='jitter', strip.jitter=0.2, strip.col.change=-0.6, strip.cex=0.4, rect.col=setColor('black', alpha=0.1), ...)
+data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1), legend.args=list(), p=NULL, p.cex=0.8, p.adj.x=0.75, p.adj.y=0.5, save.it=F, save.type='png', save.dir=if(save.it){NULL}else{''}, save.file=if(save.it){NULL}else{''}, width=6, height=5, res=300, family='Open Sans Light', ylim=NULL, xlim=NULL, log='', logicle.params=NULL, col=NULL, mar=par('mar'), xlab=xcol, ylab=ycol, range=0, strip.chart=T, strip.method='jitter', strip.jitter=0.2, strip.col.change=-0.6, strip.cex=0.4, rect.col=setColor('black', alpha=0.1), abline.args=NULL, ...)
 {
      daFile <- file.path(save.dir, save.file)
 
@@ -5999,13 +6145,14 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
 
      setorderv(d, c(xcol, by))
 
+     embedTheFont <- F
      if(save.it)
      {
-          print(paste0('Saving to file to: ', daFile))
-          png(daFile, width=width, height=height, res=300, units='in')
+          embedTheFont <- start.plot.to.file(save.file=file.path(save.dir, paste0(save.file, '.', save.type)), save.width=width, save.height=height, family=family, res=res)
+          print(paste0('Saving to file to: ', file.path(save.dir, paste0(save.file, '.', save.type))))
+          # png(daFile, width=width, height=height, res=300, units='in')
      }
 
-     .use.lightFont()
      # Can only transform y axis
      if(grepl('y', log, fixed=T))
      {
@@ -6021,12 +6168,13 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
      w <- length(daLegend)
      at <- getBoxPlotAt(n=length(unique(d[[xcol]])), w=w)
      at2 <- copy(at)
-     at2[x==min(x), x:=x-w/2]
-     at2[x==max(x), x:=x+w/2]
+     xlim <- getDefault(xlim, c(min(at2$x-w), max(at$x+w)))
+     at2[x==min(x), x:=xlim[1]]
+     at2[x==max(x), x:=xlim[2]]
 
      # Start the plot
      trans.logit <- c(F,F)
-     l(x1, y1, xlim, ylim) %=% start.logicle(x=at2[as.numeric(factor(d[[xcol]]))]$x, y=d[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlab=xlab, ylab=ylab, add=F, mar=mar, trans.logit=trans.logit, ylim=ylim, ...)
+     l(x1, y1, xlim, ylim) %=% start.logicle(x=at2[as.numeric(factor(d[[xcol]]))]$x, y=d[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlab=xlab, ylab=ylab, add=F, mar=mar, trans.logit=trans.logit, ylim=ylim, xlim=xlim, xaxs='i', ...)
      d[, c(ycol):=y1]
 
      las <- getDefault(list(...)$las, 1)
@@ -6056,6 +6204,11 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
      }
      daFormula <- as.formula(daFormula)
      drawRects(at=at[is.odd(at$g)]$x, width=w, col=rect.col)
+
+     if(!is.null(abline.args))
+     {
+          do.call(abline, abline.args)
+     }
 
      d <- refactor(d)
      col <- getDefault(col, loopingPastels(1:w, a=0.6))
@@ -6100,7 +6253,14 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
      box()
      if(save.it)
      {
-          dev.off()
+          if(embedTheFont)
+          {
+               dev.off2(file.path(save.dir, paste0(save.file, '.', save.type)))
+          }
+          else
+          {
+               dev.off()
+          }
      }
 }
 
@@ -6280,5 +6440,36 @@ fitHill2 <- function(x, y, ...)
 data.table.expand.grid <- function(..., KEEP.OUT.ATTRS=T, stringsAsFactors = T)
 {
 	ret <- data.table(expand.grid(..., KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors))
+	return(ret)
+}
+
+# Fitting the distribution
+LL <- function(lambda, avg.size, x)
+{
+	R <- dPolyaAeppli(x=x, lambda=lambda, prob=1-1/(avg.size), log=T)
+	return(-sum(R))
+}
+
+fitDist <- function(x)
+{
+	library(stats4)
+	fit <- mle(LL, start = list(lambda = mean(x), avg.size=1.5), fixed = list(x=x), method = "L-BFGS-B", lower = c(0.01,1.01), upper = c(10,4))
+	avg.size <- coef(fit)['avg.size']
+	lambda <- coef(fit)['lambda']
+	duh <- sqrt(diag(vcov(fit)))
+	return(list(lambda=lambda, avg.size=avg.size, lambda.err=duh['lambda'], avg.size.err=duh['avg.size']))
+}
+
+myMAD <- function(x, na.rm=F)
+{
+	ret <- mad(x, na.rm=na.rm, constant=1)
+	if(!any(is.finite(x)))
+	{
+	     stop('No finite values to use for calculation. Aborting')
+	}
+	if(ret == 0)
+	{
+		ret <- sd(x)/1.4826
+	}
 	return(ret)
 }
