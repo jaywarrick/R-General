@@ -931,13 +931,18 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 #' @export
 bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.column=NULL, error.lower.column=error.upper.column,
 			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, alpha=0.4, group.names=NULL, color.colors=NULL, rotate.x.labels=F, rotate.y.labels=F, plot.border=T,
-			 args.error.bar=list(length=0.1),
-			 legend=TRUE, legend.border=F, args.legend=list(),
+			 error.bar.args=list(length=0.1),
+			 legend.plot=TRUE, legend.args=list(),
 			 par.args=list(mar=c(4.5,4.5,2,2)), use.pastels=T, ...)
 {
 	# Save default margins
 	# default.mar <- par('mar')
 
+	if(!is.null(legend.args) && !is.list(legend.args))
+	{
+		stop('legend.args must be a list. Aborting.')
+	}
+	
 	# Detect whether or not upper and lower error bars will be plotted
 	has.upper <- FALSE
 	if(!is.null(error.upper.column) && error.upper.column %in% names(dt))
@@ -1040,22 +1045,13 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 		}
 	}
 
-	if(legend && !is.null(group.column))
+	if(legend.plot && !is.null(group.column))
 	{
-		args.legend.temp <- list(x="topright", bty=if(!legend.border)"n" else "o", inset=c(0,0))
-
-		if(is.list(args.legend))
-		{
-			args.legend <- modifyList(args.legend.temp, args.legend)
-		}
-		else
-		{
-			args.legend <- args.legend.temp
-		}
+		legend.args <- merge.lists(list(x="topright", bty=if(!legend.border)"n" else "o", inset=c(0,0)), legend.args)
 	}
 	else
 	{
-		args.legend <- NULL
+		legend.args <- NULL
 		group.names.display <- NULL
 	}
 
