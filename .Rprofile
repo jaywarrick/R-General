@@ -2011,7 +2011,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	}
 	else if(type == 'h' | type == 'd')
 	{
-		if(is.character(log))
+		if(is.character(log) && type == 'h')
 		{
 			if(log=='')
 			{
@@ -2040,28 +2040,44 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		}
 
 
+		if(!is.null(xlim))
+		{
+			logicle.params2 <- fillDefaultLogicleParams(x=xlim, y=NULL, logicle.params=logicle.params)
+		}
+		else
+		{
+			logicle.params2 <- fillDefaultLogicleParams(x=data[[xcol]], y=NULL, logicle.params=logicle.params)
+		}
+		
+		
+		
 		# ylim will either be null or defined here. Override if null setting to max of all plots.
 		if(is.null(ylim))
 		{
 			suppressWarnings(
 				if(type[1] == 'h')
 				{
-					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
+					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=gsub('y','',log), xlim=xlim, logicle.params=logicle.params2, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=T, ...)$y[2:(length(breaks)-2)]), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y[2:(length(breaks)-2)])), by=by]
 				}
 				else
 				{
 					# it is a density plot
-					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=log, xlim=xlim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
+					ylims <- data[is.finite(get(xcol)), list(grp=.GRP, minY=min(data.table.hist(x=get(xcol), type=type[1], log=gsub('y','',log), xlim=xlim, logicle.params=logicle.params2, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=T, ...)$y), maxY=max(data.table.hist(x=get(xcol), type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], xaxt='n', add=(.GRP!=1), silent=T, ...)$y)), by=by]
 				}
 			)
 			# Function needs to return a single value so we arbitraritly use 'max' of the 'y'
-			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xlim=xlim, ylim=c(min(ylims[['minY']]),max(ylims[['maxY']])), xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=F, ...)$y), by=by]
+			ylim=c(min(ylims[['minY']]),max(ylims[['maxY']]))
+		}
+		if(!is.null(xlim))
+		{
+			logicle.params3 <- fillDefaultLogicleParams(x=xlim, y=ylim, logicle.params=logicle.params)
 		}
 		else
 		{
-			data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=F, ...)$y), by=by]
+			logicle.params3 <- fillDefaultLogicleParams(x=data[[xcol]], y=ylim, logicle.params=logicle.params)
 		}
-
+		data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params3, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=F, ...)$y), by=by]
+		
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 
 		if(!(!is.null(list(...)$axes) && list(...)$axes==F))
@@ -2069,7 +2085,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			# Handle x axis
 			if(!(!is.null(list(...)$xaxt) && list(...)$xaxt=='n'))
 			{
-				if(log==T)
+				if(log==T || grepl('x',log,fixed=T))
 				{
 					if(is.null(logicle.params))
 					{
@@ -2082,7 +2098,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 					else
 					{
 						# This way we can provide defaults but override some things like 'lwd'
-						axes.args <- list(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- list(axisNum=1, transition=logicle.params2$transX, tickSep=logicle.params2$tickSepX, base=logicle.params2$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
 						axes.args <- merge.lists(list(...), axes.args)
 						do.call(drawLogicleAxis, axes.args)
 						# drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
@@ -2110,13 +2126,54 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			}
 
 			# Handle y-axis
-			if(!(!is.null(list(...)$xaxt) && list(...)$yaxt=='n'))
+			# if(!(!is.null(list(...)$xaxt) && list(...)$yaxt=='n'))
+			# {
+			# 	# This way we can provide defaults but override some things like 'lwd'
+			# 	axes.args <- list(side=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+			# 	axes.args <- merge.lists(list(...), axes.args)
+			# 	do.call(axis, axes.args)
+			# 	# axis(side=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			# }
+			if(!(!is.null(list(...)$yaxt) && list(...)$yaxt=='n'))
 			{
-				# This way we can provide defaults but override some things like 'lwd'
-				axes.args <- list(side=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
-				axes.args <- merge.lists(list(...), axes.args)
-				do.call(axis, axes.args)
-				# axis(side=2, las=las[2], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				if(grepl('y',log,fixed=T))
+				{
+					if(is.null(logicle.params))
+					{
+						# This way we can provide defaults but override some things like 'lwd'
+						axes.args <- list(axisNum=2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- merge.lists(list(...), axes.args)
+						do.call(drawLogicleAxis, axes.args)
+						# drawLogicleAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					}
+					else
+					{
+						# This way we can provide defaults but override some things like 'lwd'
+						axes.args <- list(axisNum=2, transition=logicle.params3$transY, tickSep=logicle.params3$tickSepY, base=logicle.params3$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- merge.lists(list(...), axes.args)
+						do.call(drawLogicleAxis, axes.args)
+						# drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					}
+				}
+				else
+				{
+					if(trans.logit[1])
+					{
+						# This way we can provide defaults but override some things like 'lwd'
+						axes.args <- list(axisNum=2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- merge.lists(list(...), axes.args)
+						do.call(drawLogitAxis, axes.args)
+						# drawLogitAxis(axisNum=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					}
+					else
+					{
+						# This way we can provide defaults but override some things like 'lwd'
+						axes.args <- list(side=2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- merge.lists(list(...), axes.args)
+						do.call(axis, axes.args)
+						# axis(side=1, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					}
+				}
 			}
 		}
 	}
@@ -2160,13 +2217,15 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		{
 			if(!is.null(logicle.params))
 			{
+				logicle.params2 <- fillDefaultLogicleParams(x=data[[xcol]], y=data[[ycol]], logicle.params=logicle.params)
+				
 				if(grepl('x',log,fixed=T))
 				{
-					polygon$x <- logicle(polygon$x, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F)
+					polygon$x <- logicle(polygon$x, transition=logicle.params2$transX, tickSep=logicle.params2$tickSepX, base=logicle.params2$base, neg.rm=F)
 				}
 				if(grepl('y',log,fixed=T))
 				{
-					polygon$y <- logicle(polygon$y, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F)
+					polygon$y <- logicle(polygon$y, transition=logicle.params2$transY, tickSep=logicle.params2$tickSepY, base=logicle.params2$base, neg.rm=F)
 				}
 			}
 			plot(polygon, lwd=2, border='red', add=T)
@@ -2401,6 +2460,10 @@ data.table.test <- function(x, val.col, compare.by, pair.by=NULL, for.each=NULL,
 
 	my.test.3 <- function(dt, val.col, compare.by, pair.by=NULL, test, ...)
 	{
+		if(!(val.col %in% names(dt)))
+		{
+			stop('The value column does not exist in the data.table provided. Aborting.')
+		}
 	     dt <- copy(dt)
 	     dt.n <- dt[, list(n=.N), by=compare.by]
 	     dt.n <- dt.n[n > 1]
@@ -3176,6 +3239,8 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		# Then append the read data to the sample data.
 		ret <- rbindlist(list(a=ret, b=samples.to.match.and.append), use.names=T)
 	}
+	
+	makeComplexId(ret, cols=merge.vectors(c('ds','e.x','e.y'),idCols))
 
 	return(ret)
 }
@@ -3829,6 +3894,13 @@ merge.lists <- function(list1, list2)
 	return(list1)
 }
 
+merge.vectors <- function(vector1, vector2)
+{
+	ret <- c(vector1, vector2)
+	ret <- unique(ret)
+	return(ret)
+}
+
 source_https <- function(url, ...)
 {
 	# load package
@@ -4446,29 +4518,29 @@ scatterHist <- function(data, xcol, ycol, colorcol=NULL, by, log='', logicle.par
 	# 	 at=(.8 * (mean(y) - min(y))/(max(y) - min(y))))
 }
 
-unlogicle <- function(x, transition=NULL, tickSep=NULL, base=NULL)
-{
-	if(is.null(base))
-	{
-		base <- 10
-	}
-	valsToAdjust <- (x > transition) & !is.na(x)
-	if(is.null(transition) & is.null(tickSep))
-	{
-		return(base^x)
-	}
-	else
-	{
-		if(transition <= 0)
-		{
-			warning('Transition must be greater than 0. Setting to 1.')
-			transition <- 1
-		}
-		ordersDifferenceOnDisplay = (x[valsToAdjust] - transition) / tickSep
-		x[valsToAdjust] <- transition*base^(ordersDifferenceOnDisplay)
-		return(x)
-	}
-}
+# unlogicle <- function(x, transition=NULL, tickSep=NULL, base=NULL)
+# {
+# 	if(is.null(base))
+# 	{
+# 		base <- 10
+# 	}
+# 	valsToAdjust <- (x > transition) & !is.na(x)
+# 	if(is.null(transition) & is.null(tickSep))
+# 	{
+# 		return(base^x)
+# 	}
+# 	else
+# 	{
+# 		if(transition <= 0)
+# 		{
+# 			warning('Transition must be greater than 0. Setting to 1.')
+# 			transition <- 1
+# 		}
+# 		ordersDifferenceOnDisplay = (x[valsToAdjust] - transition) / tickSep
+# 		x[valsToAdjust] <- transition*base^(ordersDifferenceOnDisplay)
+# 		return(x)
+# 	}
+# }
 
 unlogicle <- function(x, transition=NULL, base=NULL, tickSep=NULL, trans.logit=F)
 {
@@ -4738,7 +4810,7 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 		# Some tick labels should be on linear scale and others on log-scale.
 
 		linLimits <- unlogicle(c(axis.limits[1],transition/tickSep), transition=transition, tickSep=tickSep, base=base)
-		linSidePrettyNums <- pretty(linLimits, n=ceiling(5*(transition/tickSep-axis.limits[1])/(axis.limits[2]-axis.limits[1])), min.n=1)
+		linSidePrettyNums <- pretty(linLimits, n=max(c(ceiling(5*(transition/tickSep-axis.limits[1]))/(axis.limits[2]-axis.limits[1]), 1)), min.n=1)
 		linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums > min(linLimits) & linSidePrettyNums <= max(linLimits) ]
 
 		if(base == exp(1))
@@ -4970,8 +5042,11 @@ getLogParam <- function(logX, logY)
 #' Note that you can add params such as mgp (default c(3,1,0)) to move axis labels out (increase 3)
 #' Note that you can rotate labels 90
 #' Note, you can plot just the center 'x' percentile of data (e.g., the middle 90 percent setting the limits to the top and bottom 5 percent)
-plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=NULL, mgp=NULL, las=NULL, silent=F, cumulative=F, ...)
+plot.hist <- function(x, type=c('d','h'), log='', trans.logit=F, neg.rm=T, logicle.params=NULL, density.args=NULL, breaks=100, add=F, border='black', col='gray', mar=NULL, mgp=NULL, las=NULL, silent=F, cumulative=F, ...)
 {
+	#### CHECK OUT WHY IT IS PLOTTING 0-0.2 instead of 0-2.96
+	logicle.params.original <- copy(logicle.params)
+	x.original <- copy(x)
 	logicle.params <- fillDefaultLogicleParams(x=x, y=NULL, logicle.params=logicle.params)
 	default.mar <- par('mar')
 	default.mgp <- par('mgp')
@@ -4991,19 +5066,24 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 	par(mar=mar, mgp=mgp, las=las[1])
 	plot.params <- list(...)
 	# Adjust the data to log/logicle scale if needed FIRST
-	if(log & !trans.logit[1])
+	if((log==T || grepl('x',log,fixed=T)) & !trans.logit[1])
 	{
 		x <- logicle(x, logicle.params=logicle.params, neg.rm=neg.rm)
 		if(!is.null(logicle.params) && !is.null(plot.params$xlim))
 		{
 			# Then we should also control the limits of the plot since we'll be drawing a logicle axis
+			# print(logicle(plot.params$xlim, logicle.params=logicle.params, neg.rm=F))
 			plot.params$xlim <- logicle(plot.params$xlim, logicle.params=logicle.params, neg.rm=F)
 		}
 	}
 	if(trans.logit[1])
 	{
 		x <- logit.transform(x)
-		plot.params$xlim <- logit.transform(plot.params$xlim)
+		if(!is.null(plot.params$xlim))
+		{
+			plot.params$xlim <- logit.transform(plot.params$xlim)
+		}
+		
 	}
 
 	# Then plot the histogram or densitygram
@@ -5029,135 +5109,153 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 			density.args <- list()
 		}
 		density.args$x <- x
-		ret <- do.call(density, density.args)
-		if(cumulative)
+		if(length(x) > 1)
 		{
-			ret$y <- cumsum(ret$y)
-			ret$y <- ret$y/(max(ret$y))
-			if(max(ret$x) < max(plot.params$xlim))
+			ret <- do.call(density, density.args[names(density.args) != 'draw.area'])
+			if(cumulative)
 			{
-				ret$x <- c(ret$x, max(plot.params$xlim))
-				ret$y <- c(ret$y, 1)
+				ret$y <- cumsum(ret$y)
+				ret$y <- ret$y/(max(ret$y))
+				if(max(ret$x) < max(plot.params$xlim))
+				{
+					ret$x <- c(ret$x, max(plot.params$xlim))
+					ret$y <- c(ret$y, 1)
+				}
+			}
+			if(grepl('y', log, fixed=T))
+			{
+				logicle.params.y <- fillDefaultLogicleParams(x=x.original, y=ret$y, logicle.params=logicle.params.original)
+				ret$y <- logicle(ret$y, transition=logicle.params.y$transY, tickSep=logicle.params.y$tickSepY, neg.rm=neg.rm)
+				if(!is.null(plot.params$ylim))
+				{
+					# Then we should also control the limits of the plot since we'll be drawing a logicle axis
+					# print(logicle(plot.params$xlim, logicle.params=logicle.params, neg.rm=F))
+					plot.params$ylim <- logicle(plot.params$ylim, transition=logicle.params.y$transY, tickSep=logicle.params.y$tickSepY, neg.rm=F)
+				}
+			}
+			if(!silent)
+			{
+				# Determine whether to draw the area or border or both
+				draw.border <- T
+				draw.area <- T
+				if(!is.null(density.args$draw.border))
+				{
+					draw.border <- density.args$draw.border
+				}
+				if(!is.null(density.args$draw.area))
+				{
+					draw.area <- density.args$draw.area
+				}
+				
+				# If adding to an existing plot...
+				if(add)
+				{
+					if(!draw.area)
+					{
+						if(is.null(plot.params))
+						{
+							lines(ret$x, ret$y, col=border, ...)
+							# plotPolygon(ret$x, ret$y, col=col, border=border)
+						}
+						else
+						{
+							# Draw lines and no polygon or border
+							plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
+							# clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
+							do.call(lines, plot.params)
+							# # Add zero levels before and after sequence of numbers
+							# plotPolygon(ret$x, ret$y, col=col, border=border)
+						}
+						# # Draw lines and no polygon or border
+						# plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
+						# # clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
+						# do.call(lines, plot.params)
+					}
+					else
+					{
+						if(!draw.border)
+						{
+							border <- rgb(0,0,0,0)
+						}
+						if(is.null(plot.params))
+						{
+							# Add zero levels before and after sequence of numbers
+							plotPolygon(ret$x, ret$y, col=col, border=border)
+						}
+						else
+						{
+							# Add zero levels before and after sequence of numbers
+							plotPolygon(ret$x, ret$y, col=col, border=border)
+						}
+					}
+					# if(col==rgb(0,0,0,0))
+					# {
+					# 	# Draw lines and no polygon or border
+					# 	plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
+					# 	# clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
+					# 	do.call(lines, plot.params)
+					# }
+					# else
+					# {
+					# 	# Draw polygon border
+					# 	# Add zero levels before and after sequence of numbers
+					# 	plotPolygon(ret$x, ret$y, col=col, border=border)
+					# }
+				}
+				else
+				{ # If creating a new plot
+					
+					if(!draw.area)
+					{
+						if(is.null(plot.params))
+						{
+							plot(ret$x, ret$y, col=rgb(0,0,0,0), xaxt='n', ...)
+							# Add zero levels before and after sequence of numbers
+							lines(ret$x, ret$y, col=border, ...)
+							# plotPolygon(ret$x, ret$y, col=col, border=border)
+						}
+						else
+						{
+							plot.params <- merge.lists(plot.params, list(x=ret$x, y=ret$y, col=rgb(0,0,0,0), xaxt='n'))
+							do.call(plot, plot.params)
+							plot.params <- merge.lists(plot.params, list(col=border))
+							do.call(lines, plot.params)
+							# lines(ret$x, ret$y, col=border, ...)
+							# # Add zero levels before and after sequence of numbers
+							# plotPolygon(ret$x, ret$y, col=col, border=border)
+						}
+						# # Draw lines and no polygon or border
+						# plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
+						# # clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
+						# do.call(lines, plot.params)
+					}
+					else
+					{
+						if(!draw.border)
+						{
+							border=rgb(0,0,0,0)
+						}
+						if(is.null(plot.params))
+						{
+							plot(ret$x, ret$y, col=rgb(0,0,0,0), xaxt='n', ...)
+							# Add zero levels before and after sequence of numbers
+							plotPolygon(ret$x, ret$y, col=col, border=border)
+						}
+						else
+						{
+							plot.params <- merge.lists(plot.params, list(x=ret$x, y=ret$y, col=rgb(0,0,0,0), xaxt='n'))
+							do.call(plot, plot.params)
+							# Add zero levels before and after sequence of numbers
+							plotPolygon(ret$x, ret$y, col=col, border=border)
+						}
+					}
+					
+				}
 			}
 		}
-		if(!silent)
+		else
 		{
-			# Determine whether to draw the area or border or both
-			draw.border <- T
-			draw.area <- T
-			if(!is.null(density.args$draw.border))
-			{
-				draw.border <- density.args$draw.border
-			}
-			if(!is.null(density.args$draw.area))
-			{
-				draw.area <- density.args$draw.area
-			}
-
-			# If adding to an existing plot...
-			if(add)
-			{
-				if(!draw.area)
-				{
-					if(is.null(plot.params))
-					{
-						lines(ret$x, ret$y, col=border, ...)
-						# plotPolygon(ret$x, ret$y, col=col, border=border)
-					}
-					else
-					{
-						# Draw lines and no polygon or border
-						plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
-						# clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
-						do.call(lines, plot.params)
-						# # Add zero levels before and after sequence of numbers
-						# plotPolygon(ret$x, ret$y, col=col, border=border)
-					}
-					# # Draw lines and no polygon or border
-					# plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
-					# # clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
-					# do.call(lines, plot.params)
-				}
-				else
-				{
-					if(!draw.border)
-					{
-						border <- rgb(0,0,0,0)
-					}
-					if(is.null(plot.params))
-					{
-						# Add zero levels before and after sequence of numbers
-						plotPolygon(ret$x, ret$y, col=col, border=border)
-					}
-					else
-					{
-						# Add zero levels before and after sequence of numbers
-						plotPolygon(ret$x, ret$y, col=col, border=border)
-					}
-				}
-				# if(col==rgb(0,0,0,0))
-				# {
-				# 	# Draw lines and no polygon or border
-				# 	plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
-				# 	# clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
-				# 	do.call(lines, plot.params)
-				# }
-				# else
-				# {
-				# 	# Draw polygon border
-				# 	# Add zero levels before and after sequence of numbers
-				# 	plotPolygon(ret$x, ret$y, col=col, border=border)
-				# }
-			}
-			else
-			{ # If creating a new plot
-
-				if(!draw.area)
-				{
-					if(is.null(plot.params))
-					{
-						plot(ret$x, ret$y, col=rgb(0,0,0,0), xaxt='n', ...)
-						# Add zero levels before and after sequence of numbers
-						lines(ret$x, ret$y, col=border, ...)
-						# plotPolygon(ret$x, ret$y, col=col, border=border)
-					}
-					else
-					{
-						plot.params <- merge.lists(plot.params, list(x=ret$x, y=ret$y, col=rgb(0,0,0,0), xaxt='n'))
-						do.call(plot, plot.params)
-						plot.params <- merge.lists(plot.params, list(col=border))
-						do.call(lines, plot.params)
-						# lines(ret$x, ret$y, col=border, ...)
-						# # Add zero levels before and after sequence of numbers
-						# plotPolygon(ret$x, ret$y, col=col, border=border)
-					}
-					# # Draw lines and no polygon or border
-					# plot.params <- merge.lists(list(x=ret$x, y=ret$y, col=border, mar=mar, mgp=mgp), plot.params)
-					# # clip(x1=par('usr')[1], x2=par('usr')[2], y1=par('usr')[3], y2=par('usr')[4])
-					# do.call(lines, plot.params)
-				}
-				else
-				{
-					if(!draw.border)
-					{
-						border=rgb(0,0,0,0)
-					}
-					if(is.null(plot.params))
-					{
-						plot(ret$x, ret$y, col=rgb(0,0,0,0), xaxt='n', ...)
-						# Add zero levels before and after sequence of numbers
-						plotPolygon(ret$x, ret$y, col=col, border=border)
-					}
-					else
-					{
-						plot.params <- merge.lists(plot.params, list(x=ret$x, y=ret$y, col=rgb(0,0,0,0), xaxt='n'))
-						do.call(plot, plot.params)
-						# Add zero levels before and after sequence of numbers
-						plotPolygon(ret$x, ret$y, col=col, border=border)
-					}
-				}
-
-			}
+			ret <- list(x=0, y=0)
 		}
 	}
 
@@ -5165,6 +5263,7 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 	{
 		# First check to see if plot.params has axes=F
 		drawTheXAxis <- T
+		drawTheYAxis <- T
 		if(!is.null(plot.params))
 		{
 			if(!is.null(plot.params$axes))
@@ -5172,6 +5271,7 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 				if(!plot.params$axes)
 				{
 					drawTheXAxis <- F
+					drawTheYAxis <- F
 				}
 			}
 			if(!is.null(plot.params$xaxt))
@@ -5181,10 +5281,17 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 					drawTheXAxis <- F
 				}
 			}
+			if(!is.null(plot.params$yaxt))
+			{
+				if(plot.params$yaxt=='n')
+				{
+					drawTheYAxis <- F
+				}
+			}
 		}
 		if(drawTheXAxis)
 		{
-			if(log)
+			if(grepl('x', log, fixed=T))
 			{
 				if(is.null(logicle.params))
 				{
@@ -5204,6 +5311,31 @@ plot.hist <- function(x, type=c('d','h'), log=F, trans.logit=F, neg.rm=T, logicl
 				else
 				{
 					axis(1, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				}
+			}
+		}
+		if(drawTheYAxis)
+		{
+			if(grepl('y', log, fixed=T))
+			{
+				if(is.null(logicle.params))
+				{
+					drawLogicleAxis(axisNum=2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				}
+				else
+				{
+					drawLogicleAxis(axisNum=2, transition=logicle.params.y$transition, tickSep=logicle.params.y$tickSep, base=logicle.params.y$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				}
+			}
+			else
+			{
+				if(trans.logit[2])
+				{
+					drawLogitAxis(axisNum=2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+				}
+				else
+				{
+					axis(2, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 			}
 		}
