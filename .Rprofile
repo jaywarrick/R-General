@@ -2464,6 +2464,10 @@ data.table.test <- function(x, val.col, compare.by, pair.by=NULL, for.each=NULL,
 
 	my.test.3 <- function(dt, val.col, compare.by, pair.by=NULL, test, ...)
 	{
+		if(!(val.col %in% names(dt)))
+		{
+			stop('The value column does not exist in the data.table provided. Aborting.')
+		}
 	     dt <- copy(dt)
 	     dt.n <- dt[, list(n=.N), by=compare.by]
 	     dt.n <- dt.n[n > 1]
@@ -3239,6 +3243,8 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		# Then append the read data to the sample data.
 		ret <- rbindlist(list(a=ret, b=samples.to.match.and.append), use.names=T)
 	}
+	
+	makeComplexId(ret, cols=merge.vectors(c('ds','e.x','e.y'),idCols))
 
 	return(ret)
 }
@@ -3890,6 +3896,13 @@ merge.lists <- function(list1, list2)
 		list1[[name]] <- list2[[name]]
 	}
 	return(list1)
+}
+
+merge.vectors <- function(vector1, vector2)
+{
+	ret <- c(vector1, vector2)
+	ret <- unique(ret)
+	return(ret)
 }
 
 source_https <- function(url, ...)
