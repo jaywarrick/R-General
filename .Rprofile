@@ -922,7 +922,7 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 #' @param color.color - vector of color values (e.g., c('black', rgb(...), gray(...))) to override the automatically produced colors
 #' @param rotate.x.labels - TRUE or FALSE whether to rotate the x labels 90 degrees or not so they fit (default FALSE)
 #' @param plot.border - TRUE or FALSE whether to plot a black line around the plot (default TRUE)
-#' @param args.error.bar - list with arguments for the error.bar function (default list(length=0.1)) (See error.bar specified in this file)
+#' @param error.bar.args - list with arguments for the error.bar function (default list(length=0.1)) (See error.bar specified in this file)
 #' @param legend.plot - TRUE or FALSE, whether to include a legend or not in the graph (only when a group.column is specified and present)
 #' @param args.legend - list of parameters to pass to the 'legend' function (overrides automatically determined parameters) (see ?legend)
 #' @param mar - numeric vector indicating the margins our the plot border. Units are lines (default c(4.5,4.5,2,2) = c(lower, left, upper, right))
@@ -1184,7 +1184,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 
 		# Compile the error bar arguments
 		args.error.final <- list(x=errloc, y=subDT[[y.column]], upper=subDT[[error.upper.column]], lower=lower, draw.lower=has.lower)
-		args.error.final <- modifyList(args.error.final, args.error.bar)
+		args.error.final <- modifyList(args.error.final, error.bar.args)
 
 		# Draw the error bars
 		do.call(error.bar, args.error.final)
@@ -1192,12 +1192,14 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	else
 	{
 		# Just plot the bars
-		do.call(barplot, args.barplot)
+		errloc <- do.call(barplot, args.barplot)
 	}
 
 	# If a plot border is desired, draw it
 	if(plot.border) box()
 	# par(mar=default.mar)
+	
+	return(list(x=errloc, y=args.barplot$height, args=args.barplot))
 }
 
 plotPolygon <- function(x, y, ...)
@@ -2880,8 +2882,12 @@ getEnvelope <- function(x, y, upper, lower=upper, logicle.params=NULL)
 #' @param draw.lower - true or false, whether to draw the lower bar or not
 #'
 #' @export
-error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, logicle.params=NULL, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), ...)
+error.bar <- function(x, y, upper=NULL, lower=upper, length=0.1, draw.upper=TRUE, draw.lower=TRUE, logicle.params=NULL, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), ...)
 {
+	if(is.null(upper))
+	{
+		upper <- lower
+	}
 	l(tempX, tempY, tempYUpper, tempYLower) %=% getEnvelope(x=x, y=y, upper=upper, lower=lower, logicle.params=logicle.params)
 
 	if(env.err)
@@ -2900,9 +2906,9 @@ error.bar <- function(x, y, upper, lower=upper, length=0.1, draw.lower=TRUE, log
 	{
 		if(draw.lower)
 		{
-			suppressWarnings(arrows(tempX, tempYUpper, tempX, tempYLower, angle=90, code=3, length=length, ...))
+			suppressWarnings(arrows(tempX, tempYLower, tempX, tempY, angle=90, code=1, length=length, ...))
 		}
-		else
+		if(draw.upper)
 		{
 			suppressWarnings(arrows(tempX, tempYUpper, tempX, tempY, angle=90, code=1, length=length, ...))
 		}
@@ -4724,7 +4730,7 @@ drawLogitAxis <- function(axisNum=1, base=10, n.minor.ticks=8, las=0, ...)
 	axis(axisNum, at=logit.transform(seq(0.2,0.8,0.1), base=base), tcl=par("tcl")*0.5, labels=FALSE)
 }
 
-drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, ...)
+drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, overwrite.log.base=NULL, ...)
 {
 	if(is.null(base))
 	{
@@ -4882,10 +4888,20 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 	}
 	else
 	{
-		otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=ticks, labels=prettyLabels, las=las))
-		do.call(axis, otherParams2)
-		otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE))
-		do.call(axis, otherParams2)
+		if(is.null(overwrite.log.base))
+		{
+			otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=ticks, labels=prettyLabels, las=las))
+			do.call(axis, otherParams2)
+			otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE))
+			do.call(axis, otherParams2)
+		}
+		else
+		{
+			otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=overwrite.log.base^ticks, labels=prettyLabels, las=las))
+			do.call(axis, otherParams2)
+			otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=overwrite.log.base^minor.ticks, tcl=par("tcl")*0.5, labels=FALSE))
+			do.call(axis, otherParams2)
+		}
 
 		# if(axisNum == 2)
 		# {
@@ -6263,7 +6279,7 @@ getBoxPlotAt <- function(n, w)
      return(at)
 }
 
-data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1), legend.args=list(), p=NULL, p.cex=0.8, p.adj.x=0.75, p.adj.y=0.5, save.it=F, save.type='png', save.dir=if(save.it){NULL}else{''}, save.file=if(save.it){NULL}else{''}, width=6, height=5, res=300, family='Open Sans Light', ylim=NULL, xlim=NULL, log='', logicle.params=NULL, col=NULL, mar=par('mar'), xlab=xcol, ylab=ycol, range=0, strip.chart=T, strip.method='jitter', strip.jitter=0.2, strip.col.change=-0.6, strip.cex=0.4, rect.col=setColor('black', alpha=0.1), abline.args=NULL, ...)
+data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1), legend.plot=T, legend.args=list(), p=NULL, p.cex=0.8, p.adj.x=0.75, p.adj.y=0.5, save.it=F, save.type='png', save.dir=if(save.it){NULL}else{''}, save.file=if(save.it){NULL}else{''}, width=6, height=5, res=300, family='Open Sans Light', ylim=NULL, xlim=NULL, log='', logicle.params=NULL, col=NULL, mar=par('mar'), xlab=xcol, ylab=ycol, range=0, strip.chart=T, strip.method='jitter', strip.jitter=0.2, strip.col.change=-0.6, strip.cex=0.4, rect.col=setColor('black', alpha=0.1), abline.args=NULL, ...)
 {
      daFile <- file.path(save.dir, save.file)
 
@@ -6357,7 +6373,10 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
      # legend.col <- getDefault(legend.args$col, 'black')
      # legend.pt.bg <- col
      # legend.pch <- getDefault(legend.args$pch, 22)
-     do.call(legend, legend.args)
+     if(legend.plot)
+     {
+     	do.call(legend, legend.args)
+     }
      # legend(x=legend.x, y=legend.y, pt.cex=legend.pt.cex, bty=legend.bty, legend=legend.legend, col=legend.col, pt.bg=legend.pt.bg, pch=legend.pch)
 
      if(log=='y')
