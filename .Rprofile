@@ -548,9 +548,12 @@ fillMissingRows <- function(x, cols, fill=NULL, tempIdColName='tempId')
 {
 	Names = lapply(l, as.character)
 	Envir = as.environment(-1)
-
 	for (II in 1:length(Names)) {
 		Name = Names[[II]]
+		if(II > length(r))
+		{
+			stop('The number of names exceed the number of return items.')
+		}
 		assign(Name, r[[II]], pos=Envir)
 	}
 }
@@ -1887,6 +1890,16 @@ start.plot.to.file <- function(save.file, save.width, save.height, family='Open 
      return(embedTheFont)
 }
 
+tempFunc <- function(x, y, upper, lower, log, logicle.params, line.color.by, theColor, lty, env.alpha, spline.smooth, spline.spar, spline.n, env.err=env.err, env.args=env.args, ...)
+{
+	# Elipses is taken from calling environment (i.e., plot.wrapper)
+	data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, lty=lty, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
+	if(!is.null(upper))
+	{
+		data.table.error.bar(x=x, y=y, upper=upper, lower=lower, env.err=env.err, env.color=adjustColor(list(...)$col, env.args$env.alpha), env.args=env.args, length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
+	}
+}
+
 plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errcol.upper, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, sample.seed=sample(1:1000), polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, randomize=F, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
 {
 	if(is.null(data) | nrow(data)==0)
@@ -1915,7 +1928,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 
 	if(type[1] %in% c('p','l','c') && (is.null(list(...)$add) || !list(...)$add))
 	{
-		l(x1, y1, xlim, ylim) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
+		l(x1, y1, xlim, ylim, logicle.params.plc) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
 	}
 
 	# Set some internal functions and sampling parameters
@@ -1928,15 +1941,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	{
 		sample.size <- .Machine$integer.max
 	}
-	tempFunc <- function(x, y, upper, lower, log, logicle.params, line.color.by, theColor, lty, env.alpha, ...)
-	{
-		# Elipses is taken from calling environment (i.e., plot.wrapper)
-		data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, lty=lty, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
-		if(!is.null(upper))
-		{
-			data.table.error.bar(x=x, y=y, upper=upper, lower=lower, env.err=env.err, env.color=adjustColor(list(...)$col, env.args$env.alpha), env.args=env.args, length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
-		}
-	}
+	
 	# tempFunc <- function(x, y, upper, log, logicle.params, line.color.by, alphas, env.alpha)
 	# {
 	# 	data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, col=legend.colors[names==paste.mget(line.color.by,sep=':')]$my.color[1], ...)
@@ -1967,16 +1972,16 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params.plc, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
 		}
 		else
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=get(errcol.lower), log=log, logicle.params=logicle.params, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=get(errcol.lower), log=log, logicle.params=logicle.params.plc, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
 		}
 
-		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
+		finish.logicle(log=log, logicle.params=logicle.params.plc, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
 	}
 	else if(type[1] == 'p' || type[1] == 'c')
 	{
@@ -2271,9 +2276,11 @@ data.table.lines <- function(x, y, log='', logicle.params=NULL, h=NULL, h.col='r
 	if(length(which(is.finite(x))) > 0 && length(which(is.finite(y))) > 0)
 	{
 		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
+		x1 <- x1[is.finite(x1) & is.finite(y1)]
+		y1 <- y1[is.finite(x1) & is.finite(y1)]
 		if(spline.smooth)
 		{
-			sp <- smooth.spline(x=x1[is.finite(x1) & is.finite(y1)], y=y1[is.finite(x1) & is.finite(y1)], spar=spline.spar)
+			sp <- smooth.spline(x=x1, y=y1, spar=spline.spar)
 			temp <- predict(sp, seq(min(x1, na.rm=T), max(x1, na.rm=T), length.out=min(c(length(x1), spline.n))))
 			lines(temp$x, temp$y, ...)
 		}
@@ -2333,9 +2340,11 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 	if(length(which(is.finite(x))) > 0)
 	{
 		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
+		x1 <- x1[is.finite(x1) & is.finite(y1)]
+		y1 <- y1[is.finite(x1) & is.finite(y1)]
 		if(spline.smooth)
 		{
-			sp <- smooth.spline(x=x1[is.finite(x1) & is.finite(y1)], y=y1[is.finite(x1) & is.finite(y1)], spar=spline.spar)
+			sp <- smooth.spline(x=x1, y=y1, spar=spline.spar)
 			x1 <- seq(min(x1, na.rm=T), max(x1, na.rm=T), length.out=min(c(length(x1), spline.n)))
 			y1 <- predict(sp, x1)$y
 		}
@@ -4085,7 +4094,24 @@ get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T, trans.logi
 
 start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, add=F, mar=par('mar'), percentile.limits=c(0,1,0,1), ...)
 {
-	logicle.params <- fillDefaultLogicleParams(x=x, y=y, logicle.params=logicle.params)
+	# Use the xlim and ylim to determine the logicle params if necessary
+	if(!is.null(list(...)$xlim))
+	{
+		tempX <- list(...)$xlim
+	}
+	else
+	{
+		tempX <- x
+	}
+	if(!is.null(list(...)$ylim))
+	{
+		tempY <- list(...)$ylim
+	}
+	else
+	{
+		tempY <- y
+	}
+	logicle.params <- fillDefaultLogicleParams(x=tempX, y=tempY, logicle.params=logicle.params)
 
 	logX <- grepl('x',x=log,fixed=T)
 	logY <- grepl('y',x=log,fixed=T)
@@ -4134,7 +4160,7 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 
 	if(add)
 	{
-		return(list(x=x1, y=y1, xlim=lims[1:2], ylim=lims[3:4]))
+		return(list(x=x1, y=y1, xlim=lims[1:2], ylim=lims[3:4], logicle.params=logicle.params))
 	}
 
 	pars.plot <- list(...)
@@ -4146,7 +4172,7 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 	do.call(plot, pars.plot)
 	box(col='black',lwd=1)
 
-	return(list(x=x1, y=y1, xlim=xlim, ylim=ylim))
+	return(list(x=x1, y=y1, xlim=xlim, ylim=ylim, logicle.params=logicle.params))
 }
 
 finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col, v.lty, v.lwd, add=F, trans.logit=c(F,F), las=c(0,0), ...)
@@ -5648,6 +5674,21 @@ roll.mean <- function(x, win.width=2, na.rm=T, ...)
 	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
 	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align='center'))
+}
+
+roll.median <- function(x, win.width=2, na.rm=T, ...)
+{
+	library(zoo)
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=median, na.rm=na.rm, ..., partial=T, align='center'))
+}
+
+#''
+#'One sd is equal to the win.width/2 and extends +/- 5 sigma
+roll.gaussian <- function(x, win.width=2, ...)
+{
+	library(smoother)
+	return(smth(x, method='gaussian', window=win.width, ...))
 }
 
 #' Get the adjustable running window average of the data
