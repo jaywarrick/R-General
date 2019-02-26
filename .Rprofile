@@ -3503,7 +3503,7 @@ getDensityPeaks <- function(x, neighlim, n=c(1,-1), min.h=0.1, density.args=list
 	# If in.data==T, then the closest x-location to the peak is returned
 	# instead of the x location in the density distribution
 	library(peakPick)
-	density.args <- merge.lists(list(x=x), density.args)
+	density.args <- merge.lists(list(x=x[is.finite(x)]), density.args)
 	blah <- do.call(density, density.args)
 	peaks <- peakpick(matrix(blah$y, ncol=1), neighlim=neighlim)
 	p.max <- max(blah$y)
