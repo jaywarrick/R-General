@@ -3548,6 +3548,62 @@ getDensityPeaks <- function(x, neighlim, n=c(1,-1), min.h=0.1, density.args=list
 	return(ret[])
 }
 
+getDensityValleys <- function(x, neighlim, n=c(1,-1), nearestTo=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+{
+	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
+	# Use n=-1 to get last peak
+	# If in.data==T, then the closest x-location to the peak is returned
+	# instead of the x location in the density distribution
+	library(peakPick)
+	density.args <- merge.lists(list(x=x), density.args)
+	blah <- do.call(density, density.args)
+	peaks <- peakpick(matrix(1-blah$y, ncol=1), neighlim=neighlim)
+	p.max <- max(blah$y)
+	peaks <- peaks & (blah$y >= min.h*p.max)
+	peaksi <- which(peaks)
+	m <- n
+	m[length(m)] <- length(peaksi)
+	invalid <- m > length(peaksi)
+	if(any(invalid))
+	{
+		warning(paste('Some peaks were not found...', m[invalid]))
+	}
+	peaksi <- peaksi[m[!invalid]]
+	ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi])
+	if(make.plot)
+	{
+		if(is.null(plot.args$type))
+		{
+			plot.args$type <- 'l'
+		}
+		if(is.null(plot.args$xlab))
+		{
+			plot.args$xlab <- 'x'
+		}
+		if(is.null(plot.args$ylab))
+		{
+			plot.args$ylab <- 'Prob. Density'
+		}
+		plot.args <- merge.lists(plot.args, list(x=blah$x, y=blah$y))
+		do.call(plot, plot.args)
+		plot.args$x <- ret$peak.x
+		plot.args$y <- blah$y[ret$peak.i]
+		plot.args <- merge.lists(plot.args, list(type='p'))
+		do.call(points, plot.args)
+	}
+	if(in.data)
+	{
+		ret[, peak.i:=which.min(abs(x-peak.x)), by=c('i')]
+		ret[, peak.x:=x[peak.i], by=c('i')]
+	}
+	if(!is.null(nearestTo))
+	{
+		ret <- ret[which.min(abs(peak.x-nearestTo))]
+	}
+	
+	return(ret[])
+}
+
 getWeightedR2 <- function(y, model)
 {
 	r <- residuals(model)
