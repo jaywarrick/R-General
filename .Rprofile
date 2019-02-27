@@ -1612,7 +1612,7 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 #' @param gates list of gate objects returned by gatePointsInPlot function
 data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol.lower=errcol.upper, alphacol=NULL, colorcol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.8, by=NULL, plot.by=NULL, line.color.by=by, randomize=F,
 						  gates=list(),
-						  min.h=0.666, max.h=min.h+1, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
+						  min.h=0.666, max.h=min.h+0.8, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
 						  env.err=T, env.args=list(),
 						  log='', logicle.params=NULL, trans.logit=c(F,F), main='', xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
 						  density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1),
@@ -6553,7 +6553,7 @@ markDuplicates <- function(x, by=key(x))
 	x[, dups:=min(.I), by=by]
 }
 
-makeMovie <- function(full.dir.path='Y:/Jay/R Projects/20181023 - Pt823', in.filename='PhaseDist_%d.png', out.filename='test.mp4', frame.rate=2, overwrite=T)
+makeMovie <- function(full.dir.path='Y:/Jay/R Projects/20181023 - Pt823', in.filename='PhaseDist_%d.png', out.filename='test.mp4', frame.rate=2, overwrite=T, type=c('sh','cmd'))
 {
 	if(overwrite)
 	{
@@ -6563,7 +6563,7 @@ makeMovie <- function(full.dir.path='Y:/Jay/R Projects/20181023 - Pt823', in.fil
 		}
 	}
 	da.path <- strsplit(full.dir.path, ':', fixed=T)[[1]]
-	cmd <- paste0('cd ', paste0(da.path[1], ':'), ' & cd ', shQuote(da.path[2]), ' & ls & ffmpeg -r 2 -f image2 -s 1920x1080 -i ', shQuote(in.filename), " -vcodec libx264 -crf 15 -pix_fmt yuv420p ", shQuote(out.filename))
+	cmd <- paste0('cd ', paste0(da.path[1], ':'), ' & cd ', shQuote(full.dir.path, type=type[1]), ' & ls & ffmpeg -r 2 -f image2 -s 1920x1080 -i ', shQuote(in.filename, type=type[1]), " -vcodec libx264 -crf 15 -pix_fmt yuv420p ", shQuote(out.filename, type=type[1]))
 	print(cmd)
 	shell(cmd, intern=F)
 }
