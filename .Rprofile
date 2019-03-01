@@ -3084,6 +3084,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 {
 	xList <- list()
 	count <- 1;
+	time.col.orig <- time.col
 	time.col <- time.col[time.col %in% names(jData)][1]
 	if(is.na(time.col))
 	{
@@ -3140,6 +3141,10 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 				next
 			}
 			
+			if(is.null(time.col))
+			{
+				time.col <- time.col.orig[time.col.orig %in% names(temp)][1]
+			}
 			imageDims <- getAllColNamesExcept(temp, c(time.col, 'Id','Label','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
 			imageDimsRet <- merge.vectors(imageDimsRet, imageDims)
 			labelDims <- names(jData)[!(names(jData) %in% names(temp)) & !(names(jData) %in% c('ds','e.x','e.y','cId','type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
