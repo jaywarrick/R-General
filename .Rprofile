@@ -3080,7 +3080,7 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 }
 
 #' sample.size is how many will try to be samples PER FILE.
-readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=c('T','Time','t','time','Frame','frame'), times=NULL, time.completeness=0.1, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
+readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=c('T','Time','t','time','Frame','frame'), times=NULL, time.completeness=0, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
 	xList <- list()
 	count <- 1;
@@ -3186,7 +3186,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 					if(time.col %in% names(temp))
 					{
 						nMin <- time.completeness*length(unique(temp[[time.col]]))
-						if(time.completeness <=0 | time.completeness > 1)
+						if(time.completeness < 0 | time.completeness > 1)
 						{
 							stop("time.completeness parameter must be > 0 and <= 1 as it represents the minimum fraction of the timelapse for which as cell must have data in order to be kept.")
 						}
@@ -4995,10 +4995,21 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 		}
 		else
 		{
-			otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=overwrite.log.base^ticks, labels=prettyLabels, las=las))
-			do.call(axis, otherParams2)
-			otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=overwrite.log.base^minor.ticks, tcl=par("tcl")*0.5, labels=FALSE))
-			do.call(axis, otherParams2)
+			if(is.null(transition))
+			{
+				otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=overwrite.log.base^ticks, labels=prettyLabels, las=las))
+				do.call(axis, otherParams2)
+				otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=overwrite.log.base^minor.ticks, tcl=par("tcl")*0.5, labels=FALSE))
+				do.call(axis, otherParams2)
+			}
+			else
+			{
+				otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=ticks, labels=prettyLabels, las=las))
+				do.call(axis, otherParams2)
+				otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE))
+				do.call(axis, otherParams2)
+			}
+			
 		}
 		
 		# if(axisNum == 2)
@@ -6743,4 +6754,23 @@ cutForMids <- function(x, n)
 	mids <- (breaks[1:(length(breaks)-1)]+breaks[2:(length(breaks))])/2
 	breaks0 <- as.numeric(as.character(factor(breaks0, levels=levels(breaks0), labels=mids)))
 	return(list(x=breaks0, breaks=breaks, mids=mids))
+}
+
+plotVelocityVsTime <- function(x, ycol='Vel', col='red', log='y', logicle.params=NULL, name)
+{
+	
+	setorder(x, Mutant, e.x, e.y, Time2)
+	x2.s <- x[, list(Vel=mean(get(ycol))), by=c('Mutant','e.x','e.y','all','Time2')]
+	setorder(x2.s, Mutant, e.x, e.y, Time2)
+	# x2.s[, mVel:=roll.gaussian(Vel, win.width = 7), by=c('Mutant','e.x','e.y','all')]
+	x2.s[, mVel:=roll.median(Vel, win.width = 5), by=c('Mutant','e.x','e.y','all')]
+	# x2.s[, mVel:=Vel, by=c('Mutant','e.x','e.y','all')]
+	#ylim=c(0,0.035),
+	data.table.plot.all(x2.s[Mutant==name & !is.na(mVel)], xlab='Time (hours)', ylab='Velocity (µm/s)', las=1, mar=c(4,4,1,1), mgp=c(2.7,1,0), log=log, logicle.params=logicle.params, ycol='mVel', xcol='Time2', alpha=0.4, xlim=c(5,22), legend.plot=T, legend.args=list(cex=0.8, bty='n', col=rev(changeLightness(rep(col,4), seq(0.5, -0.5, l=4)))), spline.smooth=F, spline.spar=0.4, type='l', by=c('Mutant','e.x','e.y','all'))
+	x2.s.s <- x2.s[is.finite(mVel), list(Vel=mean(mVel), Vel.sd=sd(mVel, na.rm=T)/sqrt(.N)), by=c('Time2','Mutant','all')]
+	setorder(x2.s.s, Mutant, Time2)
+	# png(file.path('~/Documents/Miyamoto/R Projects/Migration Analysis/Plots', paste('Velocity vs Time - ', name, '.png')), res=600, width=4, height=4, units='in')
+	#ylim=c(0,0.03), 
+	# data.table.plot.all(x2.s.s[Mutant==name & is.finite(Vel.sd)], log=log, logicle.params=logicle.params, ycol='Vel', xcol='Time2', xlab='Time (hours)', ylab='Velocity (µm/s)', las=1, mar=c(4,4,1,1), mgp=c(2.7,1,0), errcol.upper = 'Vel.sd', errcol.lower = 'Vel.sd', env.err = T, env.args = list(env.smooth=F), alpha=1, xlim=c(5,22), legend.args=list(cex=0.8, bty='n', legend=name, col=col), spline.smooth=F, spline.spar=0.4, type='l', by=c('Mutant'), add=F)
+	# dev.off()
 }
