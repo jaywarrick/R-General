@@ -3347,16 +3347,28 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 		data <- data.table(data)
 	}
 	
-	# Parse commas to indicate that the string should be split into multiple items.
-	measurementCols <- strsplit(measurementCols, ',', fixed=T)
-	
-	# Leading and trailing spaces are not good so remove them in case (makes it easier for JEX)
-	measurementCols <- mapply(gsub, '^\\s+|\\s+$', '', measurementCols)
+	if(!is.null(measurementCols))
+	{
+		# Parse commas to indicate that the string should be split into multiple items.
+		measurementCols <- strsplit(measurementCols, ',', fixed=T)
+		
+		# Leading and trailing spaces are not good so remove them in case (makes it easier for JEX)
+		measurementCols <- mapply(gsub, '^\\s+|\\s+$', '', measurementCols)
+	}
+	else
+	{
+		measurementCols <- names(data)[!(names(data) %in% c(idCols, valueCols))]
+	}
 	
 	# If idCols = NULL, then use all remaining cols except measurementCols and valueCols
 	if(is.null(idCols))
 	{
 		idCols <- names(data)[!(names(data) %in% c(measurementCols, valueCols))]
+	}
+	
+	if(is.null(valueCols))
+	{
+		valueCols <- names(data)[!(names(data) %in% c(idCols, measurementCols))]
 	}
 	
 	formula <- as.formula(paste(paste(idCols, collapse='+'), " ~ ", paste(measurementCols, collapse='+')))
@@ -6756,21 +6768,172 @@ cutForMids <- function(x, n)
 	return(list(x=breaks0, breaks=breaks, mids=mids))
 }
 
-plotVelocityVsTime <- function(x, ycol='Vel', col='red', log='y', logicle.params=NULL, name)
+Cox.SampleSize <- function(formula, data, alpha, beta, HR, frac0=0.5, test=c('all','2-tail','1-tail','equivalence'))
 {
+	res<-get.PE.PC(formula=formula, data=data, RR=HR)
+	pE<-res$pE
+	pC<-res$pC
 	
-	setorder(x, Mutant, e.x, e.y, Time2)
-	x2.s <- x[, list(Vel=mean(get(ycol))), by=c('Mutant','e.x','e.y','all','Time2')]
-	setorder(x2.s, Mutant, e.x, e.y, Time2)
-	# x2.s[, mVel:=roll.gaussian(Vel, win.width = 7), by=c('Mutant','e.x','e.y','all')]
-	x2.s[, mVel:=roll.median(Vel, win.width = 5), by=c('Mutant','e.x','e.y','all')]
-	# x2.s[, mVel:=Vel, by=c('Mutant','e.x','e.y','all')]
-	#ylim=c(0,0.035),
-	data.table.plot.all(x2.s[Mutant==name & !is.na(mVel)], xlab='Time (hours)', ylab='Velocity (µm/s)', las=1, mar=c(4,4,1,1), mgp=c(2.7,1,0), log=log, logicle.params=logicle.params, ycol='mVel', xcol='Time2', alpha=0.4, xlim=c(5,22), legend.plot=T, legend.args=list(cex=0.8, bty='n', col=rev(changeLightness(rep(col,4), seq(0.5, -0.5, l=4)))), spline.smooth=F, spline.spar=0.4, type='l', by=c('Mutant','e.x','e.y','all'))
-	x2.s.s <- x2.s[is.finite(mVel), list(Vel=mean(mVel), Vel.sd=sd(mVel, na.rm=T)/sqrt(.N)), by=c('Time2','Mutant','all')]
-	setorder(x2.s.s, Mutant, Time2)
-	# png(file.path('~/Documents/Miyamoto/R Projects/Migration Analysis/Plots', paste('Velocity vs Time - ', name, '.png')), res=600, width=4, height=4, units='in')
-	#ylim=c(0,0.03), 
-	# data.table.plot.all(x2.s.s[Mutant==name & is.finite(Vel.sd)], log=log, logicle.params=logicle.params, ycol='Vel', xcol='Time2', xlab='Time (hours)', ylab='Velocity (µm/s)', las=1, mar=c(4,4,1,1), mgp=c(2.7,1,0), errcol.upper = 'Vel.sd', errcol.lower = 'Vel.sd', env.err = T, env.args = list(env.smooth=F), alpha=1, xlim=c(5,22), legend.args=list(cex=0.8, bty='n', legend=name, col=col), spline.smooth=F, spline.spar=0.4, type='l', by=c('Mutant'), add=F)
-	# dev.off()
+	ret <- Cox.SampleSize.default(alpha=alpha, beta=beta, HR=HR, p0=pC, p1=pE, frac0=frac0, test=test)
+	for(daName in names(ret))
+	{
+		ret[[daName]] <- merge.lists(ret[[daName]], list(p0=pC, p1=pE))
+	}
+	return(ret)
+}
+
+Cox.SampleSize.default <- function(alpha, beta, HR, p0, p1, frac0=0.5, test=c('all','2-tail','1-tail','equivalence')) 
+{
+	# alpha = 0.05
+	# beta = 1-power
+	# HR0 HR of control (i.e., what is being discriminated against)
+	# HR1 HR of non-inferior group (typically slightly lower than HR0, assuming higher HR is worse)
+	# p0 probability of observing event in control grp
+	# p1 probability of observing event in non-inferior grp
+	# frac0 the fraction of samples in the control grp (default is 0.5, i.e. 50%)
+	
+	d <- p0*frac0 + p1*(1-frac0)
+	n2a <- (qnorm(alpha/2) + qnorm(beta))^2/((log(HR))^2 * frac0 * (1-frac0) * d)
+	n2b <- (qnorm(alpha) + qnorm(beta))^2/((log(HR))^2 * frac0 * (1-frac0) * d)
+	n2c <- (qnorm(alpha) + qnorm(beta/2))^2/((log(HR))^2 * frac0 * (1-frac0) * d)
+	ret <- list(two.tailed=list(n=n2a, n0=frac0*n2a, n1=(1-frac0)*n2a), one.tailed=list(n=n2b, n0=frac0*n2b, n1=(1-frac0)*n2b), equivalence=list(n=n2c, n0=frac0*n2c, n1=(1-frac0)*n2c))
+	if(test[1]=='two.tail')
+	{
+		return(ret$two.tailed)
+	}
+	else if(test[1]=='one.tailed')
+	{
+		return(ret$one.tailed)
+	}
+	else if(test[1]=='equivalence')
+	{
+		return(ret$equivalence)
+	}
+	else if(test[1]=='all')
+	{
+		return(ret)
+	}
+	else
+	{
+		stop('The name of the test is not recognized. Aborting.')
+	}
+}
+
+# dat - a data frame with at least three columns: time, status, and x
+# formula - e.g. Surv(time, status) ~ x, where x indicates which group a subject is in
+# x can take only two possible values: "C" (control group) and "E" (Treatment group)
+# and x should be a factor object of R
+get.PE.PC<-function(formula, data, RR=1.5)
+{
+	fit<-survfit(formula=formula, data=data)
+	
+	# Pr (survive to time t_i | survived up to time t_{i-1})
+	surv<-fit$surv
+	strata<-fit$strata
+	
+	str<-names(strata)
+	str1<-unlist(strsplit(str[1], split="="))[2]
+	str2<-unlist(strsplit(str[2], split="="))[2]
+	if(str1 != "C" || str2 != "E")
+	{
+		stop("group variable should take only two possible values: C and E")
+	}
+	
+	if(str1 == "E")
+	{ nE<-strata[1]
+	nC<-strata[2]
+	nTotal<-nE+nC
+	set<-1:nTotal
+	pos.E<-1:nE
+	pos.C<-set[-pos.E]
+	#surv.E<-surv[1:nE]
+	#surv.C<-surv[-(1:nE)]
+	} else if (str1 == "C") {
+		nE<-strata[2]
+		nC<-strata[1]
+		nTotal<-nE+nC
+		set<-1:nTotal
+		pos.C<-1:nC
+		pos.E<-set[-pos.C]
+		
+		#surv.E<-surv[1:nE]
+		#surv.C<-surv[-(1:nE)]
+	}
+	
+	surv.E<-surv[pos.E]
+	surv.C<-surv[pos.C]
+	
+	# number of failed at time t
+	#n.event.C<-fit$n.event[-c(1:nE)]
+	n.event.C<-fit$n.event[pos.C]
+	# number of at risk at time t 
+	#  = number of failed  at time t  
+	#    + number of alived at time t 
+	#    + number of censored at time t
+	#n.risk.C<-fit$n.risk[-c(1:nE)]
+	n.risk.C<-fit$n.risk[pos.C]
+	
+	nTimes<-length(surv.C)
+	nTimes1<-nTimes-1
+	n.censored.C<-rep(0, nTimes)
+	
+	for(i in  1:nTimes1)
+	{ 
+		# number of censored + number of  alived
+		tmp <-n.risk.C[i]-n.event.C[i] 
+		n.censored.C[i] <-tmp-n.risk.C[i+1]
+	}
+	n.censored.C[nTimes]<-n.risk.C[nTimes]-n.event.C[nTimes]
+	n.survive.C<-n.risk.C-n.event.C-n.censored.C
+	
+	lambda.C<-rep(0, nTimes)
+	lambda.C[1]<- n.survive.C[1]/n.risk.C[1]
+	for(i in 2:nTimes)
+	{
+		lambda.C[i]<-(n.survive.C[i-1]-n.event.C[i])/n.survive.C[i-1]
+	}
+	lambda.C<-1-lambda.C
+	
+	RRlambda.C<-RR*lambda.C
+	
+	#times<-fit$time[1:nC]
+	times<-fit$time[pos.C]
+	mat.event<-cbind(times, n.event.C, n.censored.C, n.survive.C, n.risk.C)
+	mat.event<-rbind(c(0, 0, 0, 0, n.risk.C[1]), mat.event)
+	colnames(mat.event)<-c("time", "nEvent.C", "nCensored.C", "nSurvive.C", "nRisk.C")
+	
+	
+	delta.C<-n.censored.C/(n.censored.C+n.survive.C)
+	
+	
+	lambda.C1<-lambda.C[1]
+	A<-rep(0, nTimes)
+	B<-rep(0, nTimes)
+	C<-rep(0, nTimes)
+	
+	A[1]<-1
+	B[1]<-1
+	C[1]<-1
+	for(i in 2:nTimes) 
+	{
+		i1<-i-1 
+		A[i]<-prod(1-lambda.C[1:i1])
+		B[i]<-prod(1-RRlambda.C[1:i1])
+		C[i]<-prod(1-delta.C[1:i1])
+	}
+	
+	D<-lambda.C*A*C
+	E<-RRlambda.C*B*C
+	
+	pC<-sum(D)
+	pE<-sum(E)
+	
+	
+	mat<-cbind(times, lambda.C, RRlambda.C, delta.C, A, B, C, D, E)
+	mat2<-rbind(c(0, 0, 0, 0, NA, NA, 1.0, NA, NA), mat)
+	colnames(mat2)<-c("time", "lambda", "RRlambda", "delta", "A", "B", "C", "D", "E")
+	
+	res<-list(mat.lambda=mat2, mat.event=mat.event, pC=pC, pE=pE)
+	
+	return(res)
 }
