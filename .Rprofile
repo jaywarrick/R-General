@@ -187,15 +187,17 @@ dev.off2 <- function(file)
 	embed_fonts(file)
 }
 
-View2 <- function(x)
+View2 <- function(x, show.n=1000)
 {
 	if('data.table' %in% class(x))
 	{
-		View(x[1:(min(1000, nrow(x)))])
+		View(x[1:(min(show.n, nrow(x)))])
+		print(paste('Showing', min(nrow(x), show.n), 'of', nrow(x), 'rows.'))
 	}
 	else if('data.frame' %in% class(x))
 	{
-		View(x[1:(min(1000, nrow(x))),])
+		View(x[1:(min(show.n, nrow(x))),])
+		print(paste('Showing', min(nrow(x), show.n), 'of', nrow(x), 'rows.'))
 	}
 	else
 	{
@@ -6556,6 +6558,16 @@ weighted.gm <- function(x, w, ...)
 markDuplicates <- function(x, by=key(x))
 {
 	x[, dups:=min(.I), by=by]
+}
+
+showDuplicates <- function(x, by=key(x), others=character(0))
+{
+	ret <- x[, merge.lists(list(n=.N, index=.I, subIndex=1:.N), mget(others)), by=by]
+	ret <- ret[n > 1]
+	setorderv(ret, by)
+	ret[, index:=.I, by=by]
+	View2(ret)
+	return(ret)
 }
 
 makeMovie <- function(full.dir.path='Y:/Jay/R Projects/20181023 - Pt823', in.filename='PhaseDist_%d.png', out.filename='test.mp4', frame.rate=2, overwrite=T, type=c('sh','cmd'))
