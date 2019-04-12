@@ -2395,6 +2395,11 @@ pairwise.cor.test.internal <- function(x, id.cols=c(), ...)
 	return(corr.test(temp))
 }
 
+getAllColNamesExcept <- function(x, names)
+{
+  return(names(x)[!(names(x) %in% names)])
+}
+
 getSortedCorrelations <- function(cor.result)
 {
 	cor.result[upper.tri(cor.result)] <- NA
@@ -3082,13 +3087,13 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 }
 
 #' sample.size is how many will try to be samples PER FILE.
-readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=c('T','Time','t','time','Frame','frame'), times=NULL, time.completeness=0, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
+readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, times=NULL, time.completeness=0, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
 	xList <- list()
 	count <- 1;
 	time.col.orig <- time.col
-	time.col <- time.col[time.col %in% names(jData)][1]
-	if(is.na(time.col))
+	time.col <- time.col[c('T','Time','t','time','Frame','frame') %in% names(jData)][1]
+	if(length(time.col)==0 || is.na(time.col))
 	{
 		time.col <- NULL
 	}
