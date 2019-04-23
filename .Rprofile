@@ -1612,7 +1612,7 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 #'
 #' @param sample.size -1 = sample all, 0 = equal sample sizes of the same size of the smallest grouping, any number > 0 defines the sampled size, e.g. 100
 #' @param gates list of gate objects returned by gatePointsInPlot function
-data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol.lower=errcol.upper, alphacol=NULL, colorcol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.8, by=NULL, plot.by=NULL, line.color.by=by, randomize=F,
+data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol.lower=errcol.upper, alphacol=NULL, colorcol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.8, by=NULL, plot.by=NULL, save.by.index=F, line.color.by=by, randomize=F,
 						  gates=list(),
 						  min.h=0.666, max.h=min.h+0.8, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
 						  env.err=T, env.args=list(),
@@ -1623,10 +1623,17 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 						  save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
 						  sample.size=-1, sample.seed=sample(1:1000, 1), polygons=list(),
 						  spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max,
-						  cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(na.rm=T), cross.plot=F, ...)
+						  cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(na.rm=T), cross.plot=F, 
+						  mtext.args=NULL, time.stamp.plot=F, time.stamp.conversion=function(x){as.numeric(x)}, time.stamp.prefix='Time = ', time.stamp.suffix=' [h]',
+						  ...)
 {
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
+	
+	if('type' %in% names(data))
+	{
+		stop("The name 'type' is used internally and can't be a column name. Change the name of that column. Sorry.")
+	}
 	
 	if(is.null(data) || nrow(data)==0)
 	{
@@ -1789,26 +1796,44 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	
 	my.by <- by # Just in case the naming is wierd when using with data.table
 	
+	if(time.stamp.plot)
+	{
+		mtext.args <- merge.lists(list(adj=0, side=1, line=par('mgp')[1], cex=par('cex.lab')), getDefault(mtext.args, list()))
+	}
+	else
+	{
+		time.stamp.prefix <- ''
+		time.stamp.suffix <- ''
+		time.stamp.conversion <- function(x){return('')}
+	}
+	
 	if(save.plot && !is.null(save.file))
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file,'.', save.type), save.width=save.width, save.height=save.height, sample.size=sample.size, sample.seed=sample.seed, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file,'.', save.type), save.width=save.width, save.height=save.height, sample.size=sample.size, sample.seed=sample.seed, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, plot.by.index=plot.by.index, mtext.args=mtext.args, ...)]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.', save.type), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...), by=plot.by]
+			if(save.by.index)
+			{
+				data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, .GRP, '.', save.type), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, mtext.args=mtext.args, mtext.text=getDefault(mtext.args$text, paste0(time.stamp.prefix, time.stamp.conversion(.BY[[1]]), time.stamp.suffix)), ...), by=plot.by]
+			}
+			else
+			{
+				data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=paste0(save.file, paste0(.BY, collapse='.'), '.', save.type), save.width=save.width, save.height=save.height, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n,  mtext.args=mtext.args, mtext.text=getDefault(mtext.args$text, paste0(time.stamp.prefix, time.stamp.conversion(.BY[[1]]), time.stamp.suffix)), ...), by=plot.by]
+			}
 		}
 	}
 	else
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n,  mtext.args=mtext.args, mtext.text=getDefault(mtext.args$text, paste0(time.stamp.prefix, time.stamp.conversion(.BY[[1]]), time.stamp.suffix)), ...), by=plot.by]
 		}
 		else
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors, save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n,  mtext.args=mtext.args, ...)]
 		}
 	}
 	
@@ -1902,7 +1927,7 @@ tempFunc <- function(x, y, upper, lower, log, logicle.params, line.color.by, the
 	}
 }
 
-plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errcol.upper, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, sample.seed=sample(1:1000), polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, randomize=F, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
+plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errcol.upper, by, plot.by=NULL, mar=par('mar'), line.color.by=NULL, pch.outline=rgb(0,0,0,0), alpha.backgated=1, env.err=T, env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), log='', logicle.params=NULL, trans.logit=c(F,F), type=c('l','p','c','h','d'), density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, legend.plot=T, legend.args=NULL, legend.colors=NULL, save.file=NULL, save.width=5, save.height=4, family, res=300, sample.size=-1, sample.seed=sample(1:1000), polygons=polygons, xlim=NULL, ylim=NULL, add=F, cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(), cross.plot=F, contour.levels=5, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1), contour.alphas=NULL, randomize=F, spline.smooth=F, spline.spar=0.1, spline.n=100, mtext.args=NULL, mtext.text='', ...)
 {
 	if(is.null(data) | nrow(data)==0)
 	{
@@ -1930,6 +1955,14 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	
 	if(type[1] %in% c('p','l','c') && (is.null(list(...)$add) || !list(...)$add))
 	{
+		if(!is.numeric(data[[xcol]]))
+		{
+			stop('The xcol should be numeric')
+		}
+		if(!is.numeric(data[[ycol]]))
+		{
+			stop('The ycol should be numeric')
+		}
 		l(x1, y1, xlim, ylim, logicle.params.plc) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
 	}
 	
@@ -1993,7 +2026,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			temp <- temp[sample(.N,.N)]
 		}
 		
-		plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=21, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+		plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
 		
 		# # data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
 		# if(!is.null(errcol))
@@ -2239,6 +2272,15 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			}
 			plot(polygon, lwd=2, border='red', add=T)
 		}
+	}
+	
+	if(!is.null(mtext.args))
+	{
+		if(!is.null(mtext.text))
+		{
+			mtext.args$text <- mtext.text
+		}
+		do.call(mtext, mtext.args)
 	}
 	
 	if(!is.null(save.file))
@@ -3082,15 +3124,18 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 }
 
 #' sample.size is how many will try to be samples PER FILE.
-readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=c('T','Time','t','time','Frame','frame'), times=NULL, time.completeness=0, idCols=c('Id','ImRow','ImCol'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
+readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=c('T','Time','t','time','Frame','frame'), times=NULL, time.completeness=0, cellIdString=c('Id'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
 	xList <- list()
 	count <- 1;
 	time.col.orig <- time.col
-	time.col <- time.col[time.col %in% names(jData)][1]
-	if(is.na(time.col))
+	if(!is.null(time.col))
 	{
-		time.col <- NULL
+		time.col <- time.col[time.col %in% names(jData)][1]
+		if(is.na(time.col))
+		{
+			time.col <- NULL
+		}
 	}
 	
 	makeComplexId(jData, c('ds','e.x','e.y'))
@@ -3145,15 +3190,20 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 			
 			if(is.null(time.col))
 			{
-				time.col <- time.col.orig[time.col.orig %in% names(temp)][1]
+				# Then the time column might be contained within the object (or not)
+				if(!is.null(time.col.orig))
+				{
+					# Try to get from within the object
+					time.col <- time.col.orig[time.col.orig %in% names(temp)][1]
+				}
 			}
-			imageDims <- getAllColNamesExcept(temp, c(time.col, 'Id','Label','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
+			imageDims <- getAllColNamesExcept(temp, c(time.col, cellIdString,'Label','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
 			imageDimsRet <- merge.vectors(imageDimsRet, imageDims)
 			labelDims <- names(jData)[!(names(jData) %in% names(temp)) & !(names(jData) %in% c('ds','e.x','e.y','cId','type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
 			labelDimsRet <- merge.vectors(labelDimsRet, labelDims)
 			
 			temp[, c(labelDims, 'ds', 'e.x', 'e.y'):=jData[fileList==daFile, c(labelDims, 'ds', 'e.x', 'e.y'), with=F]]
-			colsToOrder <- c('ds','e.x','e.y', labelDims, imageDims, time.col, 'Id', 'Label', 'cId', 'MaskChannel', 'ImageChannel', 'Measurement', 'Value')
+			colsToOrder <- c('ds','e.x','e.y', labelDims, imageDims, time.col, cellIdString, 'Label', 'cId', 'MaskChannel', 'ImageChannel', 'Measurement', 'Value')
 			setcolorder(temp, colsToOrder[colsToOrder %in% names(temp)])
 			
 			# If we have an existing table that we are supposed to find matching data for
@@ -3161,10 +3211,10 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 			if(!is.null(samples.to.match.and.append))
 			{
 				# Get the uniqueIds of samples.to.match.and.append to match against, setting the keys for matching
-				uniques.to.match <- c('ds','e.x','e.y',names(samples.to.match.and.append)[(names(samples.to.match.and.append) %in% c('Id',imageDims))])
+				uniques.to.match <- c('ds','e.x','e.y',names(samples.to.match.and.append)[(names(samples.to.match.and.append) %in% c(cellIdString,imageDims))])
 				setkeyv(samples.to.match.and.append, uniques.to.match)
 				
-				uniques <- c('ds','e.x','e.y',names(temp)[(names(temp) %in% c('Id',imageDims))])
+				uniques <- c('ds','e.x','e.y',names(temp)[(names(temp) %in% c(cellIdString,imageDims))])
 				if(!all(uniques %in% uniques.to.match) || !all(uniques.to.match %in% uniques))
 				{
 					print(paste0('Uniques to match: ', uniques.to.match))
@@ -3178,7 +3228,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 			else
 			{
 				# We should sample according to other arguments.
-				uniques <- names(temp)[(names(temp) %in% c('Id',imageDims))]
+				uniques <- names(temp)[(names(temp) %in% c(cellIdString,imageDims))]
 				if(length(uniques) > 0)
 				{
 					setkeyv(temp, uniques)
@@ -3229,8 +3279,8 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 						# Then sample.size == actual.sample.size
 						if(!is.null(sampling.order.fun))
 						{
-							# Order the list and sample the top of the list
-							orderedUniqueIds <- sampling.order.fun(temp, idCols=c('Id',imageDims), sample.size=actual.sample.size, ...)
+							# Order the list and sample from the top of the list
+							orderedUniqueIds <- sampling.order.fun(temp, idCols=c(cellIdString,imageDims), sample.size=actual.sample.size, ...)
 							sampledIds <- orderedUniqueIds
 						}
 						else
@@ -3264,15 +3314,15 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		ret <- rbindlist(list(a=ret, b=samples.to.match.and.append), use.names=T)
 	}
 	
-	if(any(!(c('Id',imageDims) %in% names(ret))))
+	if(any(!(c(cellIdString, imageDimsRet) %in% names(ret))))
 	{
-		warning(paste0("The ID columns provided or used by default do not match column names. Particularly '", paste(idCols[!(c('Id',imageDims) %in% names(ret))], collapse=','), "'. The complex ID could not be made."))
+		warning(paste0("The ID columns provided or used by default do not match column names. Particularly '", paste(idCols[!(c(cellIdString,imageDims) %in% names(ret))], collapse=','), "'. The complex ID could not be made."))
 		return(ret)
 	}
-	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c('Id',imageDims))
+	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c(cellIdString, imageDimsRet))
 	makeComplexId(ret, cols=idColsRet)
 	
-	colsToOrder <- c('ds','e.x','e.y', labelDims, imageDims, time.col, 'Id', 'Label', 'cId', 'MaskChannel', 'ImageChannel', 'Measurement', 'Value')
+	colsToOrder <- c('ds','e.x','e.y', labelDimsRet, imageDimsRet, time.col, cellIdString, 'Label', 'cId', 'MaskChannel', 'ImageChannel', 'Measurement', 'Value')
 	setcolorder(ret, colsToOrder[colsToOrder %in% names(ret)])
 	
 	return(list(x=ret, time.col=time.col, idCols=idColsRet, imageDims=imageDimsRet, labelDims=labelDimsRet))
@@ -3515,7 +3565,7 @@ last <- function(x)
 	return(x[numel(x)])
 }
 
-getDensityPeaks <- function(x, neighlim, n=c(1,-1), min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=c(1,-1), min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
 {
 	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
 	# Use n=-1 to get last peak
@@ -3524,12 +3574,13 @@ getDensityPeaks <- function(x, neighlim, n=c(1,-1), min.h=0.1, density.args=list
 	library(peakPick)
 	density.args <- merge.lists(list(x=x[is.finite(x)]), density.args)
 	blah <- do.call(density, density.args)
-	peaks <- peakpick(matrix(blah$y, ncol=1), neighlim=neighlim)
+	peaks <- peakpick(matrix(blah$y, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
+	peaks[85]
 	p.max <- max(blah$y)
 	peaks <- peaks & (blah$y >= min.h*p.max)
 	peaksi <- which(peaks)
 	m <- n
-	m[length(m)] <- length(peaksi)
+	m[m < 1] <- length(peaksi)
 	invalid <- m > length(peaksi)
 	if(any(invalid))
 	{
@@ -6603,7 +6654,7 @@ makeMovie <- function(full.dir.path='Y:/Jay/R Projects/20181023 - Pt823', in.fil
 		}
 	}
 	da.path <- strsplit(full.dir.path, ':', fixed=T)[[1]]
-	cmd <- paste0('cd ', paste0(da.path[1], ':'), ' & cd ', shQuote(full.dir.path, type=type[1]), ' & ls & ffmpeg -r 2 -f image2 -s 1920x1080 -i ', shQuote(in.filename, type=type[1]), " -vcodec libx264 -crf 15 -pix_fmt yuv420p ", shQuote(out.filename, type=type[1]))
+	cmd <- paste0(paste0(da.path[1], ':'), ' & cd ', shQuote(full.dir.path, type=type[1]), ' & ls & ffmpeg -r 2 -f image2 -s 1920x1080 -i ', shQuote(in.filename, type=type[1]), " -vcodec libx264 -crf 15 -pix_fmt yuv420p ", shQuote(out.filename, type=type[1]))
 	print(cmd)
 	shell(cmd, intern=F)
 }
