@@ -3135,10 +3135,9 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	xList <- list()
 	count <- 1;
 	time.col.orig <- time.col
-	time.col <- time.col[c('T','Time','t','time','Frame','frame') %in% names(jData)][1]
-	if(!is.null(time.col) && !is.na(time.col) && length(time.col) >= 0)
+	if(is.null(time.col))
 	{
-		time.col <- time.col[time.col %in% names(jData)][1]
+		time.col <- c('T','Time','t','time','Frame','frame')[c('T','Time','t','time','Frame','frame') %in% names(jData)][1]
 		if(is.na(time.col))
 		{
 			time.col <- NULL
