@@ -3323,8 +3323,8 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	
 	if(any(!(c(cellIdString, imageDimsRet) %in% names(ret))))
 	{
-		warning(paste0("The ID columns provided or used by default do not match column names. Particularly '", paste(idCols[!(c(cellIdString,imageDims) %in% names(ret))], collapse=','), "'. The complex ID could not be made."))
-		return(ret)
+		warning(paste0("The ID columns provided or used by default do not match column names. Particularly '", paste(c(cellIdString,imageDims)[!(c(cellIdString,imageDims) %in% names(ret))], collapse=','), "'. The complex ID could not be made."))
+		return(list(x=ret, time.col=time.col, idCols=c('ds','e.x','e.y'), imageDims=imageDimsRet, labelDims=labelDimsRet))
 	}
 	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c(cellIdString, imageDimsRet))
 	makeComplexId(ret, cols=idColsRet)
@@ -7006,4 +7006,91 @@ get.PE.PC<-function(formula, data, RR=1.5)
 	res<-list(mat.lambda=mat2, mat.event=mat.event, pC=pC, pE=pE)
 	
 	return(res)
+}
+
+expFunc <- function(x, tau, initial, alpha, offset, increasing)
+{
+	if(increasing)
+	{
+		return(initial*(1-exp(-x/tau)) + offset + alpha*x)
+	}
+	else
+	{
+		return(offset + initial*exp(-x/tau) + alpha*x)
+	}
+	
+}
+
+expFunc.par <- function(x, par, increasing)
+{
+	if(length(par)==1)
+	{
+		return(as.vector(expFunc(x=x, tau=par[1], initial=1, alpha=0, offset=0, dincreasing=increasing)))
+	}
+	if(length(par)==2)
+	{
+		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=0, offset=0, increasing=increasing)))
+	}
+	if(length(par)==3)
+	{
+		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=0, increasing=increasing)))
+	}
+	else if(length(par)==4)
+	{
+		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=par[4], increasing=increasing)))
+	}
+}
+
+getExpFuncPar <- function(x, y)
+{
+	duh <- data.table(x=x, y=y)
+	setorder(duh, y)
+	ylim <- range(y)
+	increasing <- mean(y[1:(round(length(y)/2))]) < mean(y[(round(length(y)/2)):length(y)])
+	initial <- max(y)
+	if(increasing)
+	{
+		tau <- x[which(y > 0.63*max(y))[1]]
+	}
+	else
+	{
+		tau <- x[which(y < 0.37*max(y))[1]]
+	}
+	alpha <- 0
+	offset <- 0
+	return(c(tau=tau, initial=initial, alpha=alpha, offset=offset, increasing=increasing))
+}
+
+getExpFuncError <- function(par, x, y, increasing)
+{
+	ypred <- expFunc.par(x, par, increasing=increasing)
+	return(sum((ypred-y)^2))
+}
+
+fitExpFunc4 <- function(x, y, ...)
+{
+	par0 <- getExpFuncPar(x, y)
+	daFit <- optim(par=par0[1:4], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	return(daFit$par)
+}
+
+fitExpFunc3 <- function(x, y, ...)
+{
+	par0 <- getExpFuncPar(x, y)
+	daFit <- optim(par=par0[1:3], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	return(daFit$par)
+}
+
+fitExpFunc2 <- function(x, y, ...)
+{
+	par0 <- getExpFuncPar(x, y)
+	daFit <- optim(par=par0[1:2], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	return(daFit$par)
+}
+
+fitExpFunc1 <- function(x, y, ...)
+{
+	par0 <- getExpFuncPar(x, y)
+	daFit <- optim(par=par0[1], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	return(daFit$par)
 }
