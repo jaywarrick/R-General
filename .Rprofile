@@ -3571,10 +3571,13 @@ last <- function(x)
 	return(x[numel(x)])
 }
 
-getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=c(1,-1), min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
 {
 	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
 	# Use n=-1 to get last peak
+	# Use n=c(1,-1) to get first and last peak
+	# Use n=NULL to get all peaks
+	# Use n=NA to get the location of the mode of the density histogram
 	# If in.data==T, then the closest x-location to the peak is returned
 	# instead of the x location in the density distribution
 	library(peakPick)
@@ -3585,15 +3588,9 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=c(1,-1), min.h=0.1, dens
 	p.max <- max(blah$y)
 	peaks <- peaks & (blah$y >= min.h*p.max)
 	peaksi <- which(peaks)
-	m <- n
-	m[m < 1] <- length(peaksi)
-	invalid <- m > length(peaksi)
-	if(any(invalid))
-	{
-		warning(paste('Some peaks were not found...', m[invalid]))
-	}
-	peaksi <- peaksi[m[!invalid]]
-	ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi])
+	ret <- data.table(i=1:length(peaksi), peak.i=peaksi, peak.x=blah$x[peaksi], peak.y=blah$y[peaksi])
+	
+	# Plot all the peaks
 	if(make.plot)
 	{
 		if(is.null(plot.args$type))
@@ -3615,6 +3612,40 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=c(1,-1), min.h=0.1, dens
 		plot.args <- merge.lists(plot.args, list(type='p'))
 		do.call(points, plot.args)
 	}
+	if(all(is.null(n)))
+	{
+		# Do nothing, return all
+	}
+	else if(all(is.na(n)))
+	{
+		# Just return the max peak
+		ret <- ret[peak.y == max(peak.y)]
+	}
+	else
+	{
+		# Return the specified maxima
+		m <- n
+		m[m < 1] <- nrow(ret)
+		invalid <- m > nrow(ret)
+		if(any(invalid))
+		{
+			warning(paste('Some peaks were not found...', m[invalid]))
+		}
+		peaksi <- peaksi[m[!invalid]]
+		ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi], peak.y=blah$y[peaksi])
+	}
+	
+	# Plot chosen peaks
+	if(make.plot)
+	{
+		plot.args$x <- ret$peak.x
+		plot.args$y <- blah$y[ret$peak.i]
+		plot.args$type <- 'p'
+		plot.args$col <- 'red'
+		plot.args$pch <- 4
+		do.call(points, plot.args)
+	}
+
 	if(in.data)
 	{
 		ret[, peak.i:=which.min(abs(x-peak.x)), by=c('i')]
