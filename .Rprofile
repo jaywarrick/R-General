@@ -3584,24 +3584,25 @@ last <- function(x)
 	return(x[numel(x)])
 }
 
-getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
 {
-	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
-	# Use n=-1 to get last peak
-	# Use n=c(1,-1) to get first and last peak
-	# Use n=NULL to get all peaks
-	# Use n=NA to get the location of the mode of the density histogram
-	# If in.data==T, then the closest x-location to the peak is returned
-	# instead of the x location in the density distribution
-	library(peakPick)
-	density.args <- merge.lists(list(x=x[is.finite(x)]), density.args)
-	blah <- do.call(density, density.args)
-	peaks <- peakpick(matrix(blah$y, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
-	peaks[85]
-	p.max <- max(blah$y)
-	peaks <- peaks & (blah$y >= min.h*p.max)
+	y.i <- max(y)-y
+	p.max <- max(y)
+	if(valleys)
+	{
+		peaks <- peakpick(matrix(y.i, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
+	}
+	else
+	{
+		peaks <- peakpick(matrix(y, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
+	}
+	peaks <- peaks & (y >= min.h*p.max)
+	if(sum(peaks)==0)
+	{
+		stop("Couldn't find any peaks. Aborting.")
+	}
 	peaksi <- which(peaks)
-	ret <- data.table(i=1:length(peaksi), peak.i=peaksi, peak.x=blah$x[peaksi], peak.y=blah$y[peaksi])
+	ret <- data.table(i=1:length(peaksi), peak.i=peaksi, peak.x=x[peaksi], peak.y=y[peaksi])
 	
 	# Plot all the peaks
 	if(make.plot)
@@ -3618,10 +3619,10 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density
 		{
 			plot.args$ylab <- 'Prob. Density'
 		}
-		plot.args <- merge.lists(plot.args, list(x=blah$x, y=blah$y))
+		plot.args <- merge.lists(plot.args, list(x=x, y=y))
 		do.call(plot, plot.args)
 		plot.args$x <- ret$peak.x
-		plot.args$y <- blah$y[ret$peak.i]
+		plot.args$y <- y[ret$peak.i]
 		plot.args <- merge.lists(plot.args, list(type='p'))
 		do.call(points, plot.args)
 	}
@@ -3645,20 +3646,25 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density
 			warning(paste('Some peaks were not found...', m[invalid]))
 		}
 		peaksi <- peaksi[m[!invalid]]
-		ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi], peak.y=blah$y[peaksi])
+		ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=x[peaksi], peak.y=y[peaksi])
+	}
+	
+	if(!is.null(nearestTo))
+	{
+		ret <- ret[which.min(abs(peak.x-nearestTo))]
 	}
 	
 	# Plot chosen peaks
 	if(make.plot)
 	{
 		plot.args$x <- ret$peak.x
-		plot.args$y <- blah$y[ret$peak.i]
+		plot.args$y <- y[ret$peak.i]
 		plot.args$type <- 'p'
 		plot.args$col <- 'red'
 		plot.args$pch <- 4
 		do.call(points, plot.args)
 	}
-
+	
 	if(in.data)
 	{
 		ret[, peak.i:=which.min(abs(x-peak.x)), by=c('i')]
@@ -3668,60 +3674,20 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density
 	return(ret[])
 }
 
-getDensityValleys <- function(x, neighlim, n=c(1,-1), nearestTo=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getDensityPeaks <- function(x, neighlim, valleys=F, nearestTo=NULL, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
 {
 	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
 	# Use n=-1 to get last peak
+	# Use n=c(1,-1) to get first and last peak
+	# Use n=NULL to get all peaks
+	# Use n=NA to get the location of the mode of the density histogram
 	# If in.data==T, then the closest x-location to the peak is returned
 	# instead of the x location in the density distribution
 	library(peakPick)
-	density.args <- merge.lists(list(x=x), density.args)
+	density.args <- merge.lists(list(x=x[is.finite(x)]), density.args)
 	blah <- do.call(density, density.args)
-	peaks <- peakpick(matrix(1-blah$y, ncol=1), neighlim=neighlim)
-	p.max <- max(blah$y)
-	peaks <- peaks & (blah$y >= min.h*p.max)
-	peaksi <- which(peaks)
-	m <- n
-	m[length(m)] <- length(peaksi)
-	invalid <- m > length(peaksi)
-	if(any(invalid))
-	{
-		warning(paste('Some peaks were not found...', m[invalid]))
-	}
-	peaksi <- peaksi[m[!invalid]]
-	ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi])
-	if(make.plot)
-	{
-		if(is.null(plot.args$type))
-		{
-			plot.args$type <- 'l'
-		}
-		if(is.null(plot.args$xlab))
-		{
-			plot.args$xlab <- 'x'
-		}
-		if(is.null(plot.args$ylab))
-		{
-			plot.args$ylab <- 'Prob. Density'
-		}
-		plot.args <- merge.lists(plot.args, list(x=blah$x, y=blah$y))
-		do.call(plot, plot.args)
-		plot.args$x <- ret$peak.x
-		plot.args$y <- blah$y[ret$peak.i]
-		plot.args <- merge.lists(plot.args, list(type='p'))
-		do.call(points, plot.args)
-	}
-	if(in.data)
-	{
-		ret[, peak.i:=which.min(abs(x-peak.x)), by=c('i')]
-		ret[, peak.x:=x[peak.i], by=c('i')]
-	}
-	if(!is.null(nearestTo))
-	{
-		ret <- ret[which.min(abs(peak.x-nearestTo))]
-	}
-	
-	return(ret[])
+	return(getPeaks(x=blah$x, y=blah$y, valleys=valleys, nearestTo=nearestTo, neighlim=neighlim, deriv.lim=deriv.lim, n=n, min.h=min.h, density.args=density.args, make.plot=make.plot, in.data=in.data, plot.args=plot.args, ...))
+
 }
 
 getWeightedR2 <- function(y, model)
@@ -4140,7 +4106,7 @@ jplot <- function(x, y, text=c())
 ##### Logicle Plotting #####
 calcTransition <- function(x, base=10, frac=0.15)
 {
-	if(!any(is.finite(x)) || !any(x > 0))
+	if(!any(is.finite(x) & x > 0))
 	{
 		return(base)
 	}
@@ -6916,10 +6882,7 @@ myMAD <- function(x, na.rm=F)
 	{
 		stop('No finite values to use for calculation. Aborting')
 	}
-	if(ret == 0)
-	{
-		ret <- sd(x)/1.4826
-	}
+	ret[ret==0] <- sd(x)/1.4826
 	return(ret)
 }
 
@@ -7189,4 +7152,111 @@ fitExpFunc1 <- function(x, y, ...)
 	par0 <- getExpFuncPar(x, y)
 	daFit <- optim(par=par0[1], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
 	return(daFit$par)
+}
+
+getDistShifts <- function(x, xcol, newcol='shift', by, span=0.5, adj=c(1,1), ...)
+{
+	x.d <- getDistributions(x, xcol=xcol, ycol='density', by=by, ...)
+	shifts <- calculateShifts(x.d, xcol=xcol, ycol='density', by=by, adj=adj, span=span)
+	x.d[, c(paste0(xcol, '.adj')):=get(xcol)+shifts[.BY]$adj, by=by][]
+	x[, c(newcol):=shifts[.BY]$adj, by=by][]
+	return(list(x.d=x.d, shifts=shifts))
+}
+
+getDistributions <- function(x, xcol, ycol='density', by, ...)
+{
+	getDensityXY <- function(x, xcol, ycol, ...)
+	{
+		ret <- density(x[[xcol]], ...)
+		ret2 <- list()
+		ret2[[xcol]] <- ret$x
+		ret2[[ycol]] <- ret$y
+		return(ret2)
+	}
+	r <- range(x[[xcol]], finite=T)
+	temp <- copy(x)
+	temp.s <- temp[, list(sd=myMAD(get(xcol)), iqr=IQR(get(xcol), na.rm=T), N=.N), by=by]
+	temp.s[, bw:=getDefault(list(...)$adjust, 1)*min(c(sd, iqr), na.rm=T)/(1.34*(N^(-0.2)))]
+	bw <- temp.s[, list(bw=median(bw, na.rm=T))]$bw
+	from <- r[1]-getDefault(list(...)$cut, 3)*bw
+	to <- r[2]+getDefault(list(...)$cut, 3)*bw
+	ret <- x[is.finite(get(xcol)), getDensityXY(.SD, xcol=xcol, ycol=ycol, from=from, to=to), by=by]
+	return(ret)
+}
+
+calculateShifts <- function(x, xcol, ycol, by, adj=c(1,1), span=0.5)
+{
+	library(NMOF)
+	setorderv(x, c(xcol, by))
+	grps <- getUniqueCombos(x, idCols=by)
+	setkeyv(x, by)
+	setkeyv(grps, by)
+	
+	refDist <- x[grps[1]]
+	dx <- median(getDeltas(refDist[[xcol]]))
+	y.max <- max(x[[ycol]], na.rm=T)
+	l <- nrow(refDist)
+	r.x <- range(x[[xcol]], finite=T)
+	r.x <- (r.x[2]-r.x[1])*(span/2)
+	
+	ret <- copy(grps)
+	ret$shift <- 0
+	for(row in 1:(nrow(grps)-1))
+	{
+		test <- x[grps[row]]
+		ref <- x[grps[row+1]]
+		ret[row, shift:=gridSearch(fun=getDistErr, levels=list(shift=c(seq(-r.x, 0, dx/5), 0, seq(dx/5, r.x, dx/5))), test.x=test[[xcol]], test.y=test[[ycol]], ref.x=ref[[xcol]], ref.y=ref[[ycol]], adj=adj)$minlevels[1]]	
+	}
+	ret[, adj:=rev(cumsum(rev(shift)))]
+	return(ret[])
+}
+
+getDistErr <- function(shift, test.x, test.y, ref.x, ref.y, adj=c(1,1))
+{
+	dx <- median(getDeltas(ref.x))
+	y.max <- max(test.y, na.rm=T)
+	l <- length(test.x)
+	shift.i <- round(shift[1]/dx)
+	rel.y <- test.y[max(c(1,-(shift.i-1))):min(l,l-shift.i)]-ref.y[max(c(1,shift.i+1)):min(l,l+shift.i)]
+	err <- adj[1]*(shift[1]/dx/l)^2 + adj[2]*sum((rel.y/y.max)^2)/l
+	return(err)
+}
+
+#' Standardize a column of data by aligning (brute force gridSearch of offset) and scaling (subtract median, divide by mad) distributions.
+normalizeDistributions <- function(x,
+							col,
+							by,
+							plot.by,
+							plot.filter.fun=NULL,
+							adj=c(1,1),
+							two.pass=T,
+							xlim.pre=c(-5,20),
+							xlim.post=c(-5,5))
+{
+	# Params:
+	# col = col to normalize
+	# by = do normalization for each group specified in 'by'
+	# plot.by = plot pre- and post-normalization distributions using 'by' and 'plot.by' groupings
+	# plot.filter.fun = function that will be passed 'x' and returns which rows should be plotted (e.g., x$Time < 5)
+	# adj = the amount of weight to be given to horizontal shifts and vertical errors when computing error betweeen distributions
+	plot.filter.fun <- getDefault(plot.filter.fun, function(x){return(T)})
+	x.d <- getDistributions(x, xcol=col, by=c(by,plot.by))
+	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.pre)
+	l(x.d, shifts) %=% getDistShifts(x, xcol=col, newcol='adj1', by=by, span=0.5, adj=adj) # Adds the 'adj' column of shift amounts needed to align distributions
+	x[, c(paste0(col, '.adj1')):=get(col) + adj1]
+	if(two.pass)
+	{
+		l(x.d, shifts) %=% getDistShifts(x, xcol=paste0(col, '.adj1'), newcol='adj2', by=by, span=0.5, adj=adj) # Adds the 'adj' column of shift amounts needed to align distributions
+		x[, c(paste0(col, '.adj1.adj2')):=get(paste0(col, '.adj1')) + adj2]
+		x[is.finite(get(paste0(col, '.adj1.adj2'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1.adj2')) - median(get(paste0(col, '.adj1.adj2'))))/myMAD(get(paste0(col, '.adj1.adj2')))]
+		x[, c('Nuc.adj1','Nuc.adj1.adj2','adj1','adj2'):=NULL]
+	}
+	else
+	{
+		x[is.finite(get(paste0(col, '.adj1'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1')) - median(get(paste0(col, '.adj1'))))/myMAD(get(paste0(col, '.adj1')))]
+		x[, c('Nuc.adj1','adj1'):=NULL]
+	}
+	
+	x.d <- getDistributions(x, xcol=paste0(col, '.norm'), by=c(by, plot.by))
+	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.post)
 }
