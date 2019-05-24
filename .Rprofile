@@ -3170,7 +3170,15 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 				}
 				else
 				{
-					words <- paste(lines.with, collapse="|")
+				  if(!is.null(cellIdString))
+				  {
+				    words <- paste(c(lines.with, cellIdString), collapse="|")
+				  }
+				  else
+				  {
+				    words <- paste(c(lines.with), collapse="|")
+				  }
+					
 					words <- gsub('$', "\\$", words, fixed=T)
 					if(!is.null(lines.with))
 					{
