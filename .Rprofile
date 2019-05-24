@@ -3203,7 +3203,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 					time.col <- time.col.orig[time.col.orig %in% names(temp)][1]
 				}
 			}
-			imageDims <- getAllColNamesExcept(temp, c(time.col, cellIdString,'Label','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
+			imageDims <- getAllColNamesExcept(temp, c(time.col, cellIdString,'Label','Channel','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
 			imageDimsRet <- merge.vectors(imageDimsRet, imageDims)
 			labelDims <- names(jData)[!(names(jData) %in% names(temp)) & !(names(jData) %in% c('ds','e.x','e.y','cId','type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
 			labelDimsRet <- merge.vectors(labelDimsRet, labelDims)
@@ -3325,7 +3325,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		warning(paste0("The ID columns provided or used by default do not match column names. Particularly '", paste(c(cellIdString,imageDims)[!(c(cellIdString,imageDims) %in% names(ret))], collapse=','), "'. The complex ID could not be made."))
 		return(list(x=ret, time.col=time.col, idCols=c('ds','e.x','e.y'), imageDims=imageDimsRet, labelDims=labelDimsRet))
 	}
-	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c(cellIdString, imageDimsRet))
+	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c(imageDimsRet, cellIdString))
 	makeComplexId(ret, cols=idColsRet)
 	
 	colsToOrder <- c('ds','e.x','e.y', labelDimsRet, imageDimsRet, time.col, cellIdString, 'Label', 'cId', 'MaskChannel', 'ImageChannel', 'Measurement', 'Value')
