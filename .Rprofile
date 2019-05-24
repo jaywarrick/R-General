@@ -6664,6 +6664,8 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
 			dev.off()
 		}
 	}
+	
+	return(at)
 }
 
 makeGaussKernel <- function(r)
