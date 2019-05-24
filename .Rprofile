@@ -5878,6 +5878,7 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 	}
 	yret <- numeric(length(xret))
 	y.sdret <- numeric(length(xret))
+	weighted.n <- numeric(length(xret))
 	n1 <- 1
 	if(fun[1]=='median')
 	{
@@ -5886,10 +5887,11 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 		{
 			x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
 			yret[n1] <- weighted.median(y, x.w, na.rm=F)
-			y.sdret <- weighted.median(abs(y-yret[n1]), x.w)*1.4826
+			y.sdret[n1] <- weighted.median(abs(y-yret[n1]), x.w)*1.4826
+			weighted.n[n1] <- sum(x.w)/dnorm(0, sd=win.dist/2)
 			n1 <- n1 + 1
 		}
-		return(list(x=xret, y=yret, y.sd=y.sdret))
+		return(list(x=xret, y=yret, y.sd=sqrt(y.sdret), N=weighted.n))
 	}
 	else
 	{
@@ -5898,9 +5900,10 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 			x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
 			yret[n1] <- sum(y*x.w)/sum(x.w)
 			y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+			weighted.n[n1] <- sum(x.w)/dnorm(0, sd=win.dist/2)
 			n1 <- n1 + 1
 		}
-		return(list(x=xret, y=yret, y.sd=y.sdret))
+		return(list(x=xret, y=yret, y.sd=sqrt(y.sdret), N=weighted.n))
 	}
 	
 }
