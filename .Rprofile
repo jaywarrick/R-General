@@ -1630,6 +1630,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
 	
+	if('grp' %in% names(data))
+	{
+		stop("'grp' is used internally to help plot. Please change the name of this variable.")
+	}
+	
 	if('type' %in% names(data))
 	{
 		stop("The name 'type' is used internally and can't be a column name. Change the name of that column. Sorry.")
@@ -5843,6 +5848,56 @@ roll.gaussian <- function(x, win.width=2, ...)
 {
 	library(smoother)
 	return(smth(x, method='gaussian', window=win.width, ...))
+}
+
+#'One sd is equal to the win.dist/2 and extends +/- 5 sigma
+roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fun=c('mean','median'), finite=T)
+{
+	if(finite)
+	{
+		valid <- is.finite(x) & is.finite(y)
+		x <- x[valid]
+		y <- y[valid]
+	}
+	if(is.null(breaks))
+	{
+		xret <- sort(x)
+	}
+	else
+	{
+		if(length(breaks)==1 && breaks < 3)
+		{
+			breaks <- 3
+		}
+		xret <- cutForMids(x, n=breaks)$breaks
+	}
+	yret <- numeric(length(xret))
+	y.sdret <- numeric(length(xret))
+	n1 <- 1
+	if(fun[1]=='median')
+	{
+		library(spatstat)
+		for(n in seq_along(xret))
+		{
+			x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+			yret[n1] <- weighted.median(y, x.w, na.rm=F)
+			y.sdret <- weighted.median(abs(y-yret[n1]), x.w)*1.4826
+			n1 <- n1 + 1
+		}
+		return(list(x=xret, y=yret, y.sd=y.sdret))
+	}
+	else
+	{
+		for(n in seq_along(xret))
+		{
+			x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+			yret[n1] <- sum(y*x.w)/sum(x.w)
+			y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+			n1 <- n1 + 1
+		}
+		return(list(x=xret, y=yret, y.sd=y.sdret))
+	}
+	
 }
 
 #' Get the adjustable running window average of the data
