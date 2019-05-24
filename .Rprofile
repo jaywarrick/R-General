@@ -3208,7 +3208,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 					time.col <- time.col.orig[time.col.orig %in% names(temp)][1]
 				}
 			}
-			imageDims <- getAllColNamesExcept(temp, c(time.col, cellIdString,'Label','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
+			imageDims <- getAllColNamesExcept(temp, c(time.col, cellIdString,'Label','Channel','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
 			imageDimsRet <- merge.vectors(imageDimsRet, imageDims)
 			labelDims <- names(jData)[!(names(jData) %in% names(temp)) & !(names(jData) %in% c('ds','e.x','e.y','cId','type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
 			labelDimsRet <- merge.vectors(labelDimsRet, labelDims)
@@ -3327,10 +3327,10 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	
 	if(any(!(c(cellIdString, imageDimsRet) %in% names(ret))))
 	{
-		warning(paste0("The ID columns provided or used by default do not match column names. Particularly '", paste(idCols[!(c(cellIdString,imageDims) %in% names(ret))], collapse=','), "'. The complex ID could not be made."))
-		return(ret)
+		warning(paste0("The ID columns provided or used by default do not match column names. Particularly '", paste(c(cellIdString,imageDims)[!(c(cellIdString,imageDims) %in% names(ret))], collapse=','), "'. The complex ID could not be made."))
+		return(list(x=ret, time.col=time.col, idCols=c('ds','e.x','e.y'), imageDims=imageDimsRet, labelDims=labelDimsRet))
 	}
-	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c(cellIdString, imageDimsRet))
+	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c(imageDimsRet, cellIdString))
 	makeComplexId(ret, cols=idColsRet)
 	
 	colsToOrder <- c('ds','e.x','e.y', labelDimsRet, imageDimsRet, time.col, cellIdString, 'Label', 'cId', 'MaskChannel', 'ImageChannel', 'Measurement', 'Value')
@@ -3576,10 +3576,13 @@ last <- function(x)
 	return(x[numel(x)])
 }
 
-getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=c(1,-1), min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
 {
 	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
 	# Use n=-1 to get last peak
+	# Use n=c(1,-1) to get first and last peak
+	# Use n=NULL to get all peaks
+	# Use n=NA to get the location of the mode of the density histogram
 	# If in.data==T, then the closest x-location to the peak is returned
 	# instead of the x location in the density distribution
 	library(peakPick)
@@ -3590,15 +3593,9 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=c(1,-1), min.h=0.1, dens
 	p.max <- max(blah$y)
 	peaks <- peaks & (blah$y >= min.h*p.max)
 	peaksi <- which(peaks)
-	m <- n
-	m[m < 1] <- length(peaksi)
-	invalid <- m > length(peaksi)
-	if(any(invalid))
-	{
-		warning(paste('Some peaks were not found...', m[invalid]))
-	}
-	peaksi <- peaksi[m[!invalid]]
-	ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi])
+	ret <- data.table(i=1:length(peaksi), peak.i=peaksi, peak.x=blah$x[peaksi], peak.y=blah$y[peaksi])
+	
+	# Plot all the peaks
 	if(make.plot)
 	{
 		if(is.null(plot.args$type))
@@ -3620,6 +3617,40 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=c(1,-1), min.h=0.1, dens
 		plot.args <- merge.lists(plot.args, list(type='p'))
 		do.call(points, plot.args)
 	}
+	if(all(is.null(n)))
+	{
+		# Do nothing, return all
+	}
+	else if(all(is.na(n)))
+	{
+		# Just return the max peak
+		ret <- ret[peak.y == max(peak.y)]
+	}
+	else
+	{
+		# Return the specified maxima
+		m <- n
+		m[m < 1] <- nrow(ret)
+		invalid <- m > nrow(ret)
+		if(any(invalid))
+		{
+			warning(paste('Some peaks were not found...', m[invalid]))
+		}
+		peaksi <- peaksi[m[!invalid]]
+		ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi], peak.y=blah$y[peaksi])
+	}
+	
+	# Plot chosen peaks
+	if(make.plot)
+	{
+		plot.args$x <- ret$peak.x
+		plot.args$y <- blah$y[ret$peak.i]
+		plot.args$type <- 'p'
+		plot.args$col <- 'red'
+		plot.args$pch <- 4
+		do.call(points, plot.args)
+	}
+
 	if(in.data)
 	{
 		ret[, peak.i:=which.min(abs(x-peak.x)), by=c('i')]
@@ -7060,4 +7091,91 @@ get.PE.PC<-function(formula, data, RR=1.5)
 	res<-list(mat.lambda=mat2, mat.event=mat.event, pC=pC, pE=pE)
 	
 	return(res)
+}
+
+expFunc <- function(x, tau, initial, alpha, offset, increasing)
+{
+	if(increasing)
+	{
+		return(initial*(1-exp(-x/tau)) + offset + alpha*x)
+	}
+	else
+	{
+		return(offset + initial*exp(-x/tau) + alpha*x)
+	}
+	
+}
+
+expFunc.par <- function(x, par, increasing)
+{
+	if(length(par)==1)
+	{
+		return(as.vector(expFunc(x=x, tau=par[1], initial=1, alpha=0, offset=0, dincreasing=increasing)))
+	}
+	if(length(par)==2)
+	{
+		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=0, offset=0, increasing=increasing)))
+	}
+	if(length(par)==3)
+	{
+		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=0, increasing=increasing)))
+	}
+	else if(length(par)==4)
+	{
+		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=par[4], increasing=increasing)))
+	}
+}
+
+getExpFuncPar <- function(x, y)
+{
+	duh <- data.table(x=x, y=y)
+	setorder(duh, y)
+	ylim <- range(y)
+	increasing <- mean(y[1:(round(length(y)/2))]) < mean(y[(round(length(y)/2)):length(y)])
+	initial <- max(y)
+	if(increasing)
+	{
+		tau <- x[which(y > 0.63*max(y))[1]]
+	}
+	else
+	{
+		tau <- x[which(y < 0.37*max(y))[1]]
+	}
+	alpha <- 0
+	offset <- 0
+	return(c(tau=tau, initial=initial, alpha=alpha, offset=offset, increasing=increasing))
+}
+
+getExpFuncError <- function(par, x, y, increasing)
+{
+	ypred <- expFunc.par(x, par, increasing=increasing)
+	return(sum((ypred-y)^2))
+}
+
+fitExpFunc4 <- function(x, y, ...)
+{
+	par0 <- getExpFuncPar(x, y)
+	daFit <- optim(par=par0[1:4], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	return(daFit$par)
+}
+
+fitExpFunc3 <- function(x, y, ...)
+{
+	par0 <- getExpFuncPar(x, y)
+	daFit <- optim(par=par0[1:3], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	return(daFit$par)
+}
+
+fitExpFunc2 <- function(x, y, ...)
+{
+	par0 <- getExpFuncPar(x, y)
+	daFit <- optim(par=par0[1:2], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	return(daFit$par)
+}
+
+fitExpFunc1 <- function(x, y, ...)
+{
+	par0 <- getExpFuncPar(x, y)
+	daFit <- optim(par=par0[1], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	return(daFit$par)
 }
