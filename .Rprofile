@@ -1620,7 +1620,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 						  density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1),
 						  h=NULL, h.col='black', h.lty=2, h.lwd=1, v=NULL, v.col='black', v.lty=2, v.lwd=1,
 						  legend.plot=T, legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
-						  save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
+						  save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light','TT Arial'), res=300,
 						  sample.size=-1, sample.seed=sample(1:1000, 1), polygons=list(),
 						  spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max,
 						  cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(na.rm=T), cross.plot=F, 
@@ -1922,13 +1922,13 @@ start.plot.to.file <- function(save.file, save.width, save.height, family='Open 
 	return(embedTheFont)
 }
 
-tempFunc <- function(x, y, upper, lower, log, logicle.params, line.color.by, theColor, lty, env.alpha, spline.smooth, spline.spar, spline.n, env.err=env.err, env.args=env.args, ...)
+tempFunc <- function(x, y, upper, lower, log, logicle.params, trans.logit, line.color.by, theColor, lty, env.alpha, spline.smooth, spline.spar, spline.n, env.err=env.err, env.args=env.args, ...)
 {
 	# Elipses is taken from calling environment (i.e., plot.wrapper)
-	data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, lty=lty, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
+	data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, trans.logit=trans.logit, lty=lty, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
 	if(!is.null(upper))
 	{
-		data.table.error.bar(x=x, y=y, upper=upper, lower=lower, env.err=env.err, env.color=adjustColor(list(...)$col, env.args$env.alpha), env.args=env.args, length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
+		data.table.error.bar(x=x, y=y, upper=upper, lower=lower, env.err=env.err, env.color=adjustColor(list(...)$col, env.args$env.alpha), env.args=env.args, length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, trans.logit=trans.logit, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
 	}
 }
 
@@ -1970,7 +1970,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		}
 		l(x1, y1, xlim, ylim, logicle.params.plc) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
 	}
-	
+
 	# Set some internal functions and sampling parameters
 	my.sample <- function(x, size, seed)
 	{
@@ -2012,16 +2012,16 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params.plc, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params.plc, trans.logit=trans.logit, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
 		}
 		else
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=get(errcol.lower), log=log, logicle.params=logicle.params.plc, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=get(errcol.lower), log=log, logicle.params=logicle.params.plc, trans.logit, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
 		}
 		
-		finish.logicle(log=log, logicle.params=logicle.params.plc, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
+		finish.logicle(log=log, logicle.params=logicle.params.plc, trans.logit=trans.logit, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
 	}
 	else if(type[1] == 'p' || type[1] == 'c')
 	{
@@ -2124,9 +2124,9 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			logicle.params3 <- fillDefaultLogicleParams(x=data[[xcol]], y=ylim, logicle.params=logicle.params)
 		}
 		data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params3, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=F, ...)$y), by=by]
-		
+
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params, trans.logit=trans.logit)
-		
+
 		if(!(!is.null(list(...)$axes) && list(...)$axes==F))
 		{
 			# Handle x axis
@@ -2204,7 +2204,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 				}
 				else
 				{
-					if(trans.logit[1])
+					if(trans.logit[2])
 					{
 						# This way we can provide defaults but override some things like 'lwd'
 						axes.args <- list(axisNum=2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
@@ -2320,11 +2320,11 @@ data.table.plotClusters <- function(data, cluster, thresh=NULL, breaks, ...)
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.lines <- function(x, y, log='', logicle.params=NULL, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max, ...)
+data.table.lines <- function(x, y, log='', logicle.params=NULL, trans.logit=c(F,F), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max, ...)
 {
 	if(length(which(is.finite(x))) > 0 && length(which(is.finite(y))) > 0)
 	{
-		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
+		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 		x1 <- x1[is.finite(x1) & is.finite(y1)]
 		y1 <- y1[is.finite(x1) & is.finite(y1)]
 		if(spline.smooth)
@@ -2384,11 +2384,11 @@ data.table.points <- function(x, y, log='', plot.logicle=F, logicle.params, h=NU
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, spline.smooth=F, spline.spar=0.2, spline.n=length(x), ...)
+data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, trans.logit=c(F,F), spline.smooth=F, spline.spar=0.2, spline.n=length(x), ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
-		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
+		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 		x1 <- x1[is.finite(x1) & is.finite(y1)]
 		y1 <- y1[is.finite(x1) & is.finite(y1)]
 		if(spline.smooth)
@@ -2399,7 +2399,7 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 		}
 		if(!is.null(upper))
 		{
-			l(xUpper, yUpper) %=% get.logicle(x=copy(x), y=copy(y+upper), log=log, logicle.params=logicle.params)
+			l(xUpper, yUpper) %=% get.logicle(x=copy(x), y=copy(y+upper), log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 			# This should occur in call to error.bar
 			# if(env.args$env.smooth)
 			# {
@@ -2414,7 +2414,7 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 		}
 		if(!is.null(lower))
 		{
-			l(xLower, yLower) %=% get.logicle(x=copy(x), y=copy(y-lower), log=log, logicle.params=logicle.params)
+			l(xLower, yLower) %=% get.logicle(x=copy(x), y=copy(y-lower), log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 			# This should occur in call to error.bar
 			# if(env.args$env.smooth)
 			# {
@@ -4279,15 +4279,15 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 		lims[1:2] <- list(...)$xlim
 		if(logX | trans.logit[1])
 		{
-			lims[1:2] <- logicle(x=lims[1:2], transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit)
+			lims[1:2] <- logicle(x=lims[1:2], transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[1])
 		}
 	}
 	if(!is.null(list(...)$ylim))
 	{
 		lims[3:4] <- list(...)$ylim
-		if(logY | trans.logit[2])
+		if(logY || trans.logit[2])
 		{
-			lims[3:4] <- logicle(x=lims[3:4], transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit)
+			lims[3:4] <- logicle(x=lims[3:4], transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[2])
 		}
 	}
 	
@@ -6888,9 +6888,9 @@ myMAD <- function(x, na.rm=F)
 	return(ret)
 }
 
-cutForMids <- function(x, n)
+cutForMids <- function(x, n, include.lowest=F, ...)
 {
-	breaks0 <- cut(x, breaks=n)
+	breaks0 <- cut(x, breaks=n, include.lowest=F, ...)
 	breaks <- unlist(strsplit(unlist(strsplit(levels(breaks0), split='(', fixed=T)), split=']', fixed=T))
 	breaks <- breaks[breaks != '']
 	breaks <- uniqueo(as.numeric(unlist(strsplit(breaks, split=','))))
