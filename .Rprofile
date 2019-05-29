@@ -1620,7 +1620,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 						  density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1),
 						  h=NULL, h.col='black', h.lty=2, h.lwd=1, v=NULL, v.col='black', v.lty=2, v.lwd=1,
 						  legend.plot=T, legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
-						  save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light'), res=300,
+						  save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light','TT Arial'), res=300,
 						  sample.size=-1, sample.seed=sample(1:1000, 1), polygons=list(),
 						  spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max,
 						  cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(na.rm=T), cross.plot=F, 
@@ -1629,6 +1629,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 {
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
+	
+	if('grp' %in% names(data))
+	{
+		stop("'grp' is used internally to help plot. Please change the name of this variable.")
+	}
 	
 	if('type' %in% names(data))
 	{
@@ -1917,13 +1922,13 @@ start.plot.to.file <- function(save.file, save.width, save.height, family='Open 
 	return(embedTheFont)
 }
 
-tempFunc <- function(x, y, upper, lower, log, logicle.params, line.color.by, theColor, lty, env.alpha, spline.smooth, spline.spar, spline.n, env.err=env.err, env.args=env.args, ...)
+tempFunc <- function(x, y, upper, lower, log, logicle.params, trans.logit, line.color.by, theColor, lty, env.alpha, spline.smooth, spline.spar, spline.n, env.err=env.err, env.args=env.args, ...)
 {
 	# Elipses is taken from calling environment (i.e., plot.wrapper)
-	data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, lty=lty, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
+	data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, trans.logit=trans.logit, lty=lty, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
 	if(!is.null(upper))
 	{
-		data.table.error.bar(x=x, y=y, upper=upper, lower=lower, env.err=env.err, env.color=adjustColor(list(...)$col, env.args$env.alpha), env.args=env.args, length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
+		data.table.error.bar(x=x, y=y, upper=upper, lower=lower, env.err=env.err, env.color=adjustColor(list(...)$col, env.args$env.alpha), env.args=env.args, length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, trans.logit=trans.logit, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
 	}
 }
 
@@ -1965,7 +1970,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		}
 		l(x1, y1, xlim, ylim, logicle.params.plc) %=% start.logicle(x=data[[xcol]], y=data[[ycol]], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=add, mar=mar, trans.logit=trans.logit, ...)
 	}
-	
+
 	# Set some internal functions and sampling parameters
 	my.sample <- function(x, size, seed)
 	{
@@ -2007,16 +2012,16 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params.plc, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params.plc, trans.logit=trans.logit, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
 		}
 		else
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=get(errcol.lower), log=log, logicle.params=logicle.params.plc, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=get(errcol.lower), log=log, logicle.params=logicle.params.plc, trans.logit, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
 		}
 		
-		finish.logicle(log=log, logicle.params=logicle.params.plc, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
+		finish.logicle(log=log, logicle.params=logicle.params.plc, trans.logit=trans.logit, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, ...)
 	}
 	else if(type[1] == 'p' || type[1] == 'c')
 	{
@@ -2119,9 +2124,9 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			logicle.params3 <- fillDefaultLogicleParams(x=data[[xcol]], y=ylim, logicle.params=logicle.params)
 		}
 		data[, max(data.table.hist(x=get(xcol)[is.finite(get(xcol))], type=type[1], log=log, xlim=xlim, ylim=ylim, logicle.params=logicle.params3, mar=mar, trans.logit=trans.logit, density.args=density.args, cumulative=cumulative, breaks=breaks, border=removeAlpha(my.temp.color[1]), col=my.temp.color[1], lwd=lwd[1], lty=lty[1], xaxt='n', yaxt='n', add=(add || (.GRP!=1)), silent=F, ...)$y), by=by]
-		
+
 		finishABLine(h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, log=log, logicle.params=logicle.params, trans.logit=trans.logit)
-		
+
 		if(!(!is.null(list(...)$axes) && list(...)$axes==F))
 		{
 			# Handle x axis
@@ -2199,7 +2204,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 				}
 				else
 				{
-					if(trans.logit[1])
+					if(trans.logit[2])
 					{
 						# This way we can provide defaults but override some things like 'lwd'
 						axes.args <- list(axisNum=2, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
@@ -2315,11 +2320,11 @@ data.table.plotClusters <- function(data, cluster, thresh=NULL, breaks, ...)
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.lines <- function(x, y, log='', logicle.params=NULL, h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max, ...)
+data.table.lines <- function(x, y, log='', logicle.params=NULL, trans.logit=c(F,F), h=NULL, h.col='red', h.lty=1, h.lwd=2, v=NULL, v.col='red', v.lty=1, v.lwd=2, spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max, ...)
 {
 	if(length(which(is.finite(x))) > 0 && length(which(is.finite(y))) > 0)
 	{
-		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
+		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 		x1 <- x1[is.finite(x1) & is.finite(y1)]
 		y1 <- y1[is.finite(x1) & is.finite(y1)]
 		if(spline.smooth)
@@ -2379,11 +2384,11 @@ data.table.points <- function(x, y, log='', plot.logicle=F, logicle.params, h=NU
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, spline.smooth=F, spline.spar=0.2, spline.n=length(x), ...)
+data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, trans.logit=c(F,F), spline.smooth=F, spline.spar=0.2, spline.n=length(x), ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
-		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params)
+		l(x1, y1) %=% get.logicle(x=copy(x), y=copy(y), log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 		x1 <- x1[is.finite(x1) & is.finite(y1)]
 		y1 <- y1[is.finite(x1) & is.finite(y1)]
 		if(spline.smooth)
@@ -2394,7 +2399,7 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 		}
 		if(!is.null(upper))
 		{
-			l(xUpper, yUpper) %=% get.logicle(x=copy(x), y=copy(y+upper), log=log, logicle.params=logicle.params)
+			l(xUpper, yUpper) %=% get.logicle(x=copy(x), y=copy(y+upper), log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 			# This should occur in call to error.bar
 			# if(env.args$env.smooth)
 			# {
@@ -2409,7 +2414,7 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 		}
 		if(!is.null(lower))
 		{
-			l(xLower, yLower) %=% get.logicle(x=copy(x), y=copy(y-lower), log=log, logicle.params=logicle.params)
+			l(xLower, yLower) %=% get.logicle(x=copy(x), y=copy(y-lower), log=log, logicle.params=logicle.params, trans.logit=trans.logit)
 			# This should occur in call to error.bar
 			# if(env.args$env.smooth)
 			# {
@@ -3170,7 +3175,15 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 				}
 				else
 				{
-					words <- paste(lines.with, collapse="|")
+				  if(!is.null(cellIdString))
+				  {
+				    words <- paste(c(lines.with, cellIdString), collapse="|")
+				  }
+				  else
+				  {
+				    words <- paste(c(lines.with), collapse="|")
+				  }
+					
 					words <- gsub('$', "\\$", words, fixed=T)
 					if(!is.null(lines.with))
 					{
@@ -3203,7 +3216,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 					time.col <- time.col.orig[time.col.orig %in% names(temp)][1]
 				}
 			}
-			imageDims <- getAllColNamesExcept(temp, c(time.col, cellIdString,'Label','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
+			imageDims <- getAllColNamesExcept(temp, c(time.col, cellIdString,'Label','Channel','MaskChannel', 'ImageChannel', 'Measurement', 'Value'))
 			imageDimsRet <- merge.vectors(imageDimsRet, imageDims)
 			labelDims <- names(jData)[!(names(jData) %in% names(temp)) & !(names(jData) %in% c('ds','e.x','e.y','cId','type','name','dbPath','tmpPath','jxdDir','jxdFilePath','Metadata','Value','fileList'))]
 			labelDimsRet <- merge.vectors(labelDimsRet, labelDims)
@@ -3325,7 +3338,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 		warning(paste0("The ID columns provided or used by default do not match column names. Particularly '", paste(c(cellIdString,imageDims)[!(c(cellIdString,imageDims) %in% names(ret))], collapse=','), "'. The complex ID could not be made."))
 		return(list(x=ret, time.col=time.col, idCols=c('ds','e.x','e.y'), imageDims=imageDimsRet, labelDims=labelDimsRet))
 	}
-	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c(cellIdString, imageDimsRet))
+	idColsRet <- merge.vectors(c('ds','e.x','e.y'),c(imageDimsRet, cellIdString))
 	makeComplexId(ret, cols=idColsRet)
 	
 	colsToOrder <- c('ds','e.x','e.y', labelDimsRet, imageDimsRet, time.col, cellIdString, 'Label', 'cId', 'MaskChannel', 'ImageChannel', 'Measurement', 'Value')
@@ -3571,24 +3584,25 @@ last <- function(x)
 	return(x[numel(x)])
 }
 
-getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
 {
-	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
-	# Use n=-1 to get last peak
-	# Use n=c(1,-1) to get first and last peak
-	# Use n=NULL to get all peaks
-	# Use n=NA to get the location of the mode of the density histogram
-	# If in.data==T, then the closest x-location to the peak is returned
-	# instead of the x location in the density distribution
-	library(peakPick)
-	density.args <- merge.lists(list(x=x[is.finite(x)]), density.args)
-	blah <- do.call(density, density.args)
-	peaks <- peakpick(matrix(blah$y, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
-	peaks[85]
-	p.max <- max(blah$y)
-	peaks <- peaks & (blah$y >= min.h*p.max)
+	y.i <- max(y)-y
+	p.max <- max(y)
+	if(valleys)
+	{
+		peaks <- peakpick(matrix(y.i, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
+	}
+	else
+	{
+		peaks <- peakpick(matrix(y, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
+	}
+	peaks <- peaks & (y >= min.h*p.max)
+	if(sum(peaks)==0)
+	{
+		stop("Couldn't find any peaks. Aborting.")
+	}
 	peaksi <- which(peaks)
-	ret <- data.table(i=1:length(peaksi), peak.i=peaksi, peak.x=blah$x[peaksi], peak.y=blah$y[peaksi])
+	ret <- data.table(i=1:length(peaksi), peak.i=peaksi, peak.x=x[peaksi], peak.y=y[peaksi])
 	
 	# Plot all the peaks
 	if(make.plot)
@@ -3605,10 +3619,10 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density
 		{
 			plot.args$ylab <- 'Prob. Density'
 		}
-		plot.args <- merge.lists(plot.args, list(x=blah$x, y=blah$y))
+		plot.args <- merge.lists(plot.args, list(x=x, y=y))
 		do.call(plot, plot.args)
 		plot.args$x <- ret$peak.x
-		plot.args$y <- blah$y[ret$peak.i]
+		plot.args$y <- y[ret$peak.i]
 		plot.args <- merge.lists(plot.args, list(type='p'))
 		do.call(points, plot.args)
 	}
@@ -3632,20 +3646,25 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density
 			warning(paste('Some peaks were not found...', m[invalid]))
 		}
 		peaksi <- peaksi[m[!invalid]]
-		ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi], peak.y=blah$y[peaksi])
+		ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=x[peaksi], peak.y=y[peaksi])
+	}
+	
+	if(!is.null(nearestTo))
+	{
+		ret <- ret[which.min(abs(peak.x-nearestTo))]
 	}
 	
 	# Plot chosen peaks
 	if(make.plot)
 	{
 		plot.args$x <- ret$peak.x
-		plot.args$y <- blah$y[ret$peak.i]
+		plot.args$y <- y[ret$peak.i]
 		plot.args$type <- 'p'
 		plot.args$col <- 'red'
 		plot.args$pch <- 4
 		do.call(points, plot.args)
 	}
-
+	
 	if(in.data)
 	{
 		ret[, peak.i:=which.min(abs(x-peak.x)), by=c('i')]
@@ -3655,60 +3674,20 @@ getDensityPeaks <- function(x, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density
 	return(ret[])
 }
 
-getDensityValleys <- function(x, neighlim, n=c(1,-1), nearestTo=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getDensityPeaks <- function(x, neighlim, valleys=F, nearestTo=NULL, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
 {
 	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
 	# Use n=-1 to get last peak
+	# Use n=c(1,-1) to get first and last peak
+	# Use n=NULL to get all peaks
+	# Use n=NA to get the location of the mode of the density histogram
 	# If in.data==T, then the closest x-location to the peak is returned
 	# instead of the x location in the density distribution
 	library(peakPick)
-	density.args <- merge.lists(list(x=x), density.args)
+	density.args <- merge.lists(list(x=x[is.finite(x)]), density.args)
 	blah <- do.call(density, density.args)
-	peaks <- peakpick(matrix(1-blah$y, ncol=1), neighlim=neighlim)
-	p.max <- max(blah$y)
-	peaks <- peaks & (blah$y >= min.h*p.max)
-	peaksi <- which(peaks)
-	m <- n
-	m[length(m)] <- length(peaksi)
-	invalid <- m > length(peaksi)
-	if(any(invalid))
-	{
-		warning(paste('Some peaks were not found...', m[invalid]))
-	}
-	peaksi <- peaksi[m[!invalid]]
-	ret <- data.table(i=1:length(peaksi), peak.n=n[!invalid], peak.m=m[!invalid], peak.i=peaksi, peak.x=blah$x[peaksi])
-	if(make.plot)
-	{
-		if(is.null(plot.args$type))
-		{
-			plot.args$type <- 'l'
-		}
-		if(is.null(plot.args$xlab))
-		{
-			plot.args$xlab <- 'x'
-		}
-		if(is.null(plot.args$ylab))
-		{
-			plot.args$ylab <- 'Prob. Density'
-		}
-		plot.args <- merge.lists(plot.args, list(x=blah$x, y=blah$y))
-		do.call(plot, plot.args)
-		plot.args$x <- ret$peak.x
-		plot.args$y <- blah$y[ret$peak.i]
-		plot.args <- merge.lists(plot.args, list(type='p'))
-		do.call(points, plot.args)
-	}
-	if(in.data)
-	{
-		ret[, peak.i:=which.min(abs(x-peak.x)), by=c('i')]
-		ret[, peak.x:=x[peak.i], by=c('i')]
-	}
-	if(!is.null(nearestTo))
-	{
-		ret <- ret[which.min(abs(peak.x-nearestTo))]
-	}
-	
-	return(ret[])
+	return(getPeaks(x=blah$x, y=blah$y, valleys=valleys, nearestTo=nearestTo, neighlim=neighlim, deriv.lim=deriv.lim, n=n, min.h=min.h, density.args=density.args, make.plot=make.plot, in.data=in.data, plot.args=plot.args, ...))
+
 }
 
 getWeightedR2 <- function(y, model)
@@ -4127,7 +4106,7 @@ jplot <- function(x, y, text=c())
 ##### Logicle Plotting #####
 calcTransition <- function(x, base=10, frac=0.15)
 {
-	if(!any(is.finite(x)) || !any(x > 0))
+	if(!any(is.finite(x) & x > 0))
 	{
 		return(base)
 	}
@@ -4300,15 +4279,15 @@ start.logicle <- function(x, y, log='xy', trans.logit=c(F,F), logicle.params, ad
 		lims[1:2] <- list(...)$xlim
 		if(logX | trans.logit[1])
 		{
-			lims[1:2] <- logicle(x=lims[1:2], transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit)
+			lims[1:2] <- logicle(x=lims[1:2], transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[1])
 		}
 	}
 	if(!is.null(list(...)$ylim))
 	{
 		lims[3:4] <- list(...)$ylim
-		if(logY | trans.logit[2])
+		if(logY || trans.logit[2])
 		{
-			lims[3:4] <- logicle(x=lims[3:4], transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit)
+			lims[3:4] <- logicle(x=lims[3:4], transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[2])
 		}
 	}
 	
@@ -5877,6 +5856,59 @@ roll.gaussian <- function(x, win.width=2, ...)
 	return(smth(x, method='gaussian', window=win.width, ...))
 }
 
+#'One sd is equal to the win.dist/2 and extends +/- 5 sigma
+roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fun=c('mean','median'), finite=T)
+{
+	if(finite)
+	{
+		valid <- is.finite(x) & is.finite(y)
+		x <- x[valid]
+		y <- y[valid]
+	}
+	if(is.null(breaks))
+	{
+		xret <- sort(x)
+	}
+	else
+	{
+		if(length(breaks)==1 && breaks < 3)
+		{
+			breaks <- 3
+		}
+		xret <- cutForMids(x, n=breaks)$breaks
+	}
+	yret <- numeric(length(xret))
+	y.sdret <- numeric(length(xret))
+	weighted.n <- numeric(length(xret))
+	n1 <- 1
+	if(fun[1]=='median')
+	{
+		library(spatstat)
+		for(n in seq_along(xret))
+		{
+			x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+			yret[n1] <- weighted.median(y, x.w, na.rm=F)
+			y.sdret[n1] <- weighted.median(abs(y-yret[n1]), x.w)*1.4826
+			weighted.n[n1] <- sum(x.w)/dnorm(0, sd=win.dist/2)
+			n1 <- n1 + 1
+		}
+		return(list(x=xret, y=yret, y.sd=sqrt(y.sdret), N=weighted.n))
+	}
+	else
+	{
+		for(n in seq_along(xret))
+		{
+			x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+			yret[n1] <- sum(y*x.w)/sum(x.w)
+			y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+			weighted.n[n1] <- sum(x.w)/dnorm(0, sd=win.dist/2)
+			n1 <- n1 + 1
+		}
+		return(list(x=xret, y=yret, y.sd=sqrt(y.sdret), N=weighted.n))
+	}
+	
+}
+
 #' Get the adjustable running window average of the data
 #' @param i The index within 'frames' at which to calculate an average over a window centered at this location
 #' @param frames The frames in this track
@@ -6856,16 +6888,13 @@ myMAD <- function(x, na.rm=F)
 	{
 		stop('No finite values to use for calculation. Aborting')
 	}
-	if(ret == 0)
-	{
-		ret <- sd(x)/1.4826
-	}
+	ret[ret==0] <- sd(x)/1.4826
 	return(ret)
 }
 
-cutForMids <- function(x, n)
+cutForMids <- function(x, n, include.lowest=F, ...)
 {
-	breaks0 <- cut(x, breaks=n)
+	breaks0 <- cut(x, breaks=n, include.lowest=F, ...)
 	breaks <- unlist(strsplit(unlist(strsplit(levels(breaks0), split='(', fixed=T)), split=']', fixed=T))
 	breaks <- breaks[breaks != '']
 	breaks <- uniqueo(as.numeric(unlist(strsplit(breaks, split=','))))
@@ -7129,4 +7158,111 @@ fitExpFunc1 <- function(x, y, ...)
 	par0 <- getExpFuncPar(x, y)
 	daFit <- optim(par=par0[1], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
 	return(daFit$par)
+}
+
+getDistShifts <- function(x, xcol, newcol='shift', by, span=0.5, adj=c(1,1), ...)
+{
+	x.d <- getDistributions(x, xcol=xcol, ycol='density', by=by, ...)
+	shifts <- calculateShifts(x.d, xcol=xcol, ycol='density', by=by, adj=adj, span=span)
+	x.d[, c(paste0(xcol, '.adj')):=get(xcol)+shifts[.BY]$adj, by=by][]
+	x[, c(newcol):=shifts[.BY]$adj, by=by][]
+	return(list(x.d=x.d, shifts=shifts))
+}
+
+getDistributions <- function(x, xcol, ycol='density', by, ...)
+{
+	getDensityXY <- function(x, xcol, ycol, ...)
+	{
+		ret <- density(x[[xcol]], ...)
+		ret2 <- list()
+		ret2[[xcol]] <- ret$x
+		ret2[[ycol]] <- ret$y
+		return(ret2)
+	}
+	r <- range(x[[xcol]], finite=T)
+	temp <- copy(x)
+	temp.s <- temp[, list(sd=myMAD(get(xcol)), iqr=IQR(get(xcol), na.rm=T), N=.N), by=by]
+	temp.s[, bw:=getDefault(list(...)$adjust, 1)*min(c(sd, iqr), na.rm=T)/(1.34*(N^(-0.2)))]
+	bw <- temp.s[, list(bw=median(bw, na.rm=T))]$bw
+	from <- r[1]-getDefault(list(...)$cut, 3)*bw
+	to <- r[2]+getDefault(list(...)$cut, 3)*bw
+	ret <- x[is.finite(get(xcol)), getDensityXY(.SD, xcol=xcol, ycol=ycol, from=from, to=to), by=by]
+	return(ret)
+}
+
+calculateShifts <- function(x, xcol, ycol, by, adj=c(1,1), span=0.5)
+{
+	library(NMOF)
+	setorderv(x, c(xcol, by))
+	grps <- getUniqueCombos(x, idCols=by)
+	setkeyv(x, by)
+	setkeyv(grps, by)
+	
+	refDist <- x[grps[1]]
+	dx <- median(getDeltas(refDist[[xcol]]))
+	y.max <- max(x[[ycol]], na.rm=T)
+	l <- nrow(refDist)
+	r.x <- range(x[[xcol]], finite=T)
+	r.x <- (r.x[2]-r.x[1])*(span/2)
+	
+	ret <- copy(grps)
+	ret$shift <- 0
+	for(row in 1:(nrow(grps)-1))
+	{
+		test <- x[grps[row]]
+		ref <- x[grps[row+1]]
+		ret[row, shift:=gridSearch(fun=getDistErr, levels=list(shift=c(seq(-r.x, 0, dx/5), 0, seq(dx/5, r.x, dx/5))), test.x=test[[xcol]], test.y=test[[ycol]], ref.x=ref[[xcol]], ref.y=ref[[ycol]], adj=adj)$minlevels[1]]	
+	}
+	ret[, adj:=rev(cumsum(rev(shift)))]
+	return(ret[])
+}
+
+getDistErr <- function(shift, test.x, test.y, ref.x, ref.y, adj=c(1,1))
+{
+	dx <- median(getDeltas(ref.x))
+	y.max <- max(test.y, na.rm=T)
+	l <- length(test.x)
+	shift.i <- round(shift[1]/dx)
+	rel.y <- test.y[max(c(1,-(shift.i-1))):min(l,l-shift.i)]-ref.y[max(c(1,shift.i+1)):min(l,l+shift.i)]
+	err <- adj[1]*(shift[1]/dx/l)^2 + adj[2]*sum((rel.y/y.max)^2)/l
+	return(err)
+}
+
+#' Standardize a column of data by aligning (brute force gridSearch of offset) and scaling (subtract median, divide by mad) distributions.
+normalizeDistributions <- function(x,
+							col,
+							by,
+							plot.by,
+							plot.filter.fun=NULL,
+							adj=c(1,1),
+							two.pass=T,
+							xlim.pre=c(-5,20),
+							xlim.post=c(-5,5))
+{
+	# Params:
+	# col = col to normalize
+	# by = do normalization for each group specified in 'by'
+	# plot.by = plot pre- and post-normalization distributions using 'by' and 'plot.by' groupings
+	# plot.filter.fun = function that will be passed 'x' and returns which rows should be plotted (e.g., x$Time < 5)
+	# adj = the amount of weight to be given to horizontal shifts and vertical errors when computing error betweeen distributions
+	plot.filter.fun <- getDefault(plot.filter.fun, function(x){return(T)})
+	x.d <- getDistributions(x, xcol=col, by=c(by,plot.by))
+	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.pre)
+	l(x.d, shifts) %=% getDistShifts(x, xcol=col, newcol='adj1', by=by, span=0.5, adj=adj) # Adds the 'adj' column of shift amounts needed to align distributions
+	x[, c(paste0(col, '.adj1')):=get(col) + adj1]
+	if(two.pass)
+	{
+		l(x.d, shifts) %=% getDistShifts(x, xcol=paste0(col, '.adj1'), newcol='adj2', by=by, span=0.5, adj=adj) # Adds the 'adj' column of shift amounts needed to align distributions
+		x[, c(paste0(col, '.adj1.adj2')):=get(paste0(col, '.adj1')) + adj2]
+		x[is.finite(get(paste0(col, '.adj1.adj2'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1.adj2')) - median(get(paste0(col, '.adj1.adj2'))))/myMAD(get(paste0(col, '.adj1.adj2')))]
+		x[, c('Nuc.adj1','Nuc.adj1.adj2','adj1','adj2'):=NULL]
+	}
+	else
+	{
+		x[is.finite(get(paste0(col, '.adj1'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1')) - median(get(paste0(col, '.adj1'))))/myMAD(get(paste0(col, '.adj1')))]
+		x[, c('Nuc.adj1','adj1'):=NULL]
+	}
+	
+	x.d <- getDistributions(x, xcol=paste0(col, '.norm'), by=c(by, plot.by))
+	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.post)
 }
