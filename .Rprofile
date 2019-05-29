@@ -4635,7 +4635,8 @@ plot.logicle <- function(x, y, type='p', mar=par('mar'), log='', logicle.params=
 		tempdt <- data.table(x=x1[is.finite(x1) & is.finite(y1)], y=y1[is.finite(x1) & is.finite(y1)], col=list(...)$bg[is.finite(x1) & is.finite(y1)])
 		# tempdt[, col2:=factor(col, levels=unique(col))]
 		# setorder(tempdt, -col2)
-		tempdt2 <- tempdt[, list(list(z=kde2d(x, y, h=c(contour.adj[1]*bandwidth.nrd(x), contour.adj[2]*bandwidth.nrd(y)), lims=par('usr'), n=contour.ngrid))), by='col']
+		bws <- c(contour.adj[1]*bandwidth.nrd(tempdt$x), contour.adj[2]*bandwidth.nrd(tempdt$y))
+		tempdt2 <- tempdt[, list(list(z=kde2d(x, y, h=bws, lims=par('usr'), n=contour.ngrid))), by='col']
 		ranges <- tempdt2[, list(zmax=max(V1[[1]]$z, na.rm=T), zmin=min(V1[[1]]$z, na.rm=T)), by='col']
 		abs.ranges <- range(c(ranges$zmax, ranges$zmin), finite=T)
 		if(length(contour.levels) == 1)
@@ -4655,7 +4656,7 @@ plot.logicle <- function(x, y, type='p', mar=par('mar'), log='', logicle.params=
 			abs.levels <- contour.levels
 		}
 		# abs.levels <- seq(abs.ranges[1], abs.ranges[2], length.out=contour.levels+2)[2:(contour.levels+2)]
-		contour.alphas <- getDefault(contour.alphas, seq(0.1,0.8, length.out=max(c(2,length(contour.levels))))[2:max(c(2,length(contour.levels)))])
+		contour.alphas <- getDefault(contour.alphas, seq(0.1,0.8, length.out=max(c(2,length(abs.levels))))[2:max(c(2,length(abs.levels)))])
 		tempdt2[, filled.contour3(V1[[1]], col=setColor(.BY[[1]], contour.alphas), add=T, axes=F, levels=abs.levels, quantiles=contour.quantiles), by='col']
 	}
 	else
@@ -6505,7 +6506,7 @@ getBoxPlotAt <- function(n, w)
 	return(at)
 }
 
-data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1), legend.plot=T, legend.args=list(), p=NULL, p.cex=0.8, p.adj.x=0.75, p.adj.y=0.5, save.it=F, save.type='png', save.dir=if(save.it){NULL}else{''}, save.file=if(save.it){NULL}else{''}, width=6, height=5, res=300, family='Open Sans Light', ylim=NULL, xlim=NULL, log='', logicle.params=NULL, col=NULL, mar=par('mar'), xlab=xcol, ylab=ycol, range=0, strip.chart=T, strip.method='jitter', strip.jitter=0.2, strip.col.change=-0.6, strip.cex=0.4, rect.col=setColor('black', alpha=0.1), abline.args=NULL, ...)
+data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1), legend.plot=T, legend.args=list(), sample.size=NULL, p=NULL, p.cex=0.8, p.adj.x=0.75, p.adj.y=0.5, save.it=F, save.type='png', save.dir=if(save.it){NULL}else{''}, save.file=if(save.it){NULL}else{''}, width=6, height=5, res=300, family='Open Sans Light', ylim=NULL, xlim=NULL, log='', logicle.params=NULL, col=NULL, mar=par('mar'), xlab=xcol, ylab=ycol, range=0, strip.chart=T, strip.method='jitter', strip.jitter=0.2, strip.col.change=-0.6, strip.cex=0.4, rect.col=setColor('black', alpha=0.1), abline.args=NULL, ...)
 {
 	daFile <- file.path(save.dir, save.file)
 	
@@ -6586,7 +6587,11 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
 	temp <- boxplot(daFormula, lex.order=F, xlab='', ylab='', add=T, data=d, outpch=21, outcex=0.5, col=col, axes=F, xlim=xlim, range=range, lty=1, ...)
 	if(strip.chart)
 	{
-		stripchart(daFormula, data=d, pch=16, cex=strip.cex, col=col2, vertical=T, method=strip.method, jitter=strip.jitter, add=T)
+		if(is.null(sample.size))
+		{
+			sample.size <- nrow(d)
+		}
+		stripchart(daFormula, data=d[sort(sample.int(nrow(d), sample.size))], pch=16, cex=strip.cex, col=col2, vertical=T, method=strip.method, jitter=strip.jitter, add=T)
 	}
 	axis(1, at=at$x, labels=unique(d[[xcol]]), las=2)#, ...)
 	
@@ -6635,6 +6640,7 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
 			dev.off()
 		}
 	}
+	return(at)
 }
 
 makeGaussKernel <- function(r)
