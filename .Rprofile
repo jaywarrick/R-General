@@ -6170,7 +6170,22 @@ getCandidates <- function(dt, cId, xcol, ycol, xpos, ypos, searchRadius, N)
 	dt[, r:=as.double((get(xcol)-xpos)^2 + (get(ycol)-ypos)^2)]
 	dt <- dt[order(r)]
 	dt <- dt[1:N]
-	return(as.vector(dt[r < searchRadius^2, c(cId), with=F]))
+	if(nrow(dt)==0)
+	{
+	  return(NA)
+	}
+	else
+	{
+	  ret <- dt[r < searchRadius^2][[cId]]
+	  if(length(ret) == 0)
+	  {
+	    return(NA)
+	  }
+	  else
+	  {
+	    return(ret)
+	  }
+	}
 }
 
 getNeighborsInRadius <- function(dt, cIdCol, xcol, ycol, keep=c(), searchRadius, by=NULL)
@@ -6191,33 +6206,34 @@ getNeighborsInRadius <- function(dt, cIdCol, xcol, ycol, keep=c(), searchRadius,
 			temp <- thingsToDo[i]
 			setkeyv(temp, by)
 			dt2 <- dt[temp]
-			dt[temp, neighbors:=list(list(getNeighborsInRadius_(dt2, cIdCol=cIdCol, theId=.BY[[1]], keep=keep, searchRadius=searchRadius))), by=cIdCol][]
+			browser()
+			dt[temp, neighbors:=list(list(getNeighborsInRadius_(dt2, xcol=xcol, ycol=ycol, cIdCol=cIdCol, theId=.BY[[1]], keep=keep, searchRadius=searchRadius))), by=cIdCol][]
 		}
 	}
 }
 
 getNeighborsInRadius_ <- function(dt, cIdCol, theId, xcol, ycol, keep=c(), searchRadius)
 {
-	dt[, dx:=x-x[get(cIdCol)==theId]]
-	dt[, dy:=y-y[get(cIdCol)==theId]]
+	dt[, dx:=get(xcol)-get(xcol)[get(cIdCol)==theId]]
+	dt[, dy:=get(ycol)-get(ycol)[get(cIdCol)==theId]]
 	dt[, r:=sqrt(dx^2 + dy^2)]
 	return(dt[r < searchRadius, c(cIdCol, keep, 'r'), with=F])
 }
 
-getNearestNeighbors <- function(x, searchRadius=0.1, cIdCol='cId', xcol='Geometric.COMX_None_Nuc', ycol='Geometric.COMY_None_Nuc', N=1)
-{
-	x$neighbors <- NULL
-	x2 <- copy(x)
-	x[, neighbors:=list()]
-	for(ex in uniqueo(x$x))
-	{
-		for(ey in uniqueo(x$y))
-		{
-			x[x==ex & y==ey, neighbors:=list(list(getCandidates(x2[x==ex & y==ey], cId=cIdCol, xcol=xcol, ycol=ycol, xpos=get(xcol), ypos=get(ycol), searchRadius=searchRadius, N=N))), by=cIdCol]
-		}
-	}
-	return(x)
-}
+# getNearestNeighbors <- function(x, searchRadius=0.1, cIdCol='cId', xcol='Geometric.COMX_None_Nuc', ycol='Geometric.COMY_None_Nuc', N=1)
+# {
+# 	x$neighbors <- NULL
+# 	x2 <- copy(x)
+# 	x[, neighbors:=list()]
+# 	for(ex in uniqueo(x$x))
+# 	{
+# 		for(ey in uniqueo(x$y))
+# 		{
+# 			x[x==ex & y==ey, neighbors:=list(list(getCandidates(x2[x==ex & y==ey], cId=cIdCol, xcol=xcol, ycol=ycol, xpos=get(xcol), ypos=get(ycol), searchRadius=searchRadius, N=N))), by=cIdCol]
+# 		}
+# 	}
+# 	return(x)
+# }
 
 # The first point is the point of interest and the next two are the neighbors
 getColinearity_Helper <- function(x, y)
