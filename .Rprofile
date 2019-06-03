@@ -2476,17 +2476,31 @@ pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
 	return(ret)
 }
 
-data.table.test <- function(x, val.col, compare.by, pair.by=NULL, for.each=NULL, test=c('wilcox','t.test'), p.adjust.method='BH', ...)
+data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=NULL, test=c('wilcox','t.test'), p.adjust.method='BH', debug.mode=F, ...)
 {
 	my.test.1 <- function(x, y, test=c('wilcox','t.test'), ...)
 	{
 		ret1 <- NA
 		if(test[1]=='wilcox')
 		{
+			if(debug.mode)
+			{
+				print('X:')
+				print(x)
+				print('Y:')
+				print(y)
+			}
 			tryCatch(ret1 <- wilcox.test(x, y, ...)$p.value, error=function(e){ret1 <- NA})
 		}
 		else
 		{
+			if(debug.mode)
+			{
+				print('X:')
+				print(x)
+				print('Y:')
+				print(y)
+			}
 			tryCatch(ret1 <- t.test(x, y, ...)$p.value, error=function(e){ret1 <- NA})
 		}
 		return(ret1)
@@ -2496,14 +2510,44 @@ data.table.test <- function(x, val.col, compare.by, pair.by=NULL, for.each=NULL,
 	{
 		if(is.null(pair.by))
 		{
-			p.value <- my.test.1(dt1[[val.col]], dt2[[val.col]], test=test, paired=F, ...)
+			if(is.null(dt2))
+			{
+				# Then a one sample test (or data is already normalized by control)
+				p.value <- my.test.1(dt1[[val.col]], NULL, test=test, paired=F, ...)
+				p.sym <- getPSymbol(p.value, sym.1='~')
+				n1 <- sum(!is.na(dt1[[val.col]]))
+				n2 <- NA
+				mu1 <- mean(dt1[[val.col]], na.rm=T)
+				med1 <- median(dt1[[val.col]], na.rm=T)
+				sd1 <- sd(dt1[[val.col]], na.rm=T)
+				mad1 <- mad(dt1[[val.col]][!is.na(dt1[[val.col]])])
+				mu2 <- NA
+				med2 <- NA
+				sd2 <- NA
+				mad2 <- NA
+			}
+			else
+			{
+				p.value <- my.test.1(dt1[[val.col]], dt2[[val.col]], test=test, paired=F, ...)
+				p.sym <- getPSymbol(p.value, sym.1='~')
+				n1 <- sum(!is.na(dt1[[val.col]]))
+				n2 <- sum(!is.na(dt2[[val.col]]))
+				mu1 <- mean(dt1[[val.col]], na.rm=T)
+				med1 <- median(dt1[[val.col]], na.rm=T)
+				sd1 <- sd(dt1[[val.col]], na.rm=T)
+				mad1 <- mad(dt1[[val.col]][!is.na(dt1[[val.col]])])
+				mu2 <- mean(dt2[[val.col]], na.rm=T)
+				med2 <- median(dt2[[val.col]], na.rm=T)
+				sd2 <- sd(dt2[[val.col]], na.rm=T)
+				mad2 <- mad(dt2[[val.col]][!is.na(dt2[[val.col]])])
+			}
+			
 			
 			if(is.na(p.value) || is.nan(p.value))
 			{
 				warning('NaN p-value found')
 			}
-			n1 <- nrow(dt1)
-			n2 <- nrow(dt2)
+			
 		}
 		else
 		{
@@ -2515,12 +2559,20 @@ data.table.test <- function(x, val.col, compare.by, pair.by=NULL, for.each=NULL,
 			# print(subDt1[])
 			# print(subDt2[])
 			p.value <- my.test.1(dt1[[val.col]], dt2[[val.col]], test=test, paired=T, ...)
-			
-			n1 <- nrow(subDt1)
+			p.sym <- getPSymbol(p.value, sym.1='~')
+			n1 <- sum(!is.na(dt1[[val.col]]))
 			n2 <- NA
+			mu1 <- mean(dt1[[val.col]], na.rm=T)
+			med1 <- median(dt1[[val.col]], na.rm=T)
+			sd1 <- sd(dt1[[val.col]], na.rm=T)
+			mad1 <- mad(dt1[[val.col]][!is.na(dt1[[val.col]])])
+			mu2 <- mean(dt2[[val.col]], na.rm=T)
+			med2 <- median(dt2[[val.col]], na.rm=T)
+			sd2 <- sd(dt2[[val.col]], na.rm=T)
+			mad2 <- mad(dt2[[val.col]][!is.na(dt2[[val.col]])])
 		}
 		# print(list(p.value=p.value, n1=n1, n2=n2))
-		return(list(p.value=p.value, n1=n1, n2=n2))
+		return(list(p.value=p.value, p.sym=p.sym, n1=n1, n2=n2, mu1=mu1, mu2=mu2, med1=med1, med2=med2, sd1=sd1, sd2=sd2, mad1=mad1, mad2=mad2))
 	}
 	
 	my.test.3 <- function(dt, val.col, compare.by, pair.by=NULL, test, ...)
@@ -2530,35 +2582,80 @@ data.table.test <- function(x, val.col, compare.by, pair.by=NULL, for.each=NULL,
 			stop('The value column does not exist in the data.table provided. Aborting.')
 		}
 		dt <- copy(dt)
-		dt.n <- dt[, list(n=.N), by=compare.by]
-		dt.n <- dt.n[n > 1]
-		setkeyv(dt, compare.by)
-		setkeyv(dt.n, compare.by)
-		dt <- dt[dt.n, nomatch=0]
-		paste.cols(dt, cols=compare.by, name='splitNames', sep='.')
+		
+		if(!is.null(compare.by))
+		{
+			dt.n <- dt[, list(n=.N), by=compare.by]
+			dt.n <- dt.n[n > 1]
+			setkeyv(dt, compare.by)
+			setkeyv(dt.n, compare.by)
+			dt <- dt[dt.n, nomatch=0]
+			paste.cols(dt, cols=compare.by, name='splitNames', sep='.')
+		}
+		else
+		{
+			dt[, splitNames:='Group']
+		}
+		
 		if(nrow(dt)==0)
 		{
 			# None of the groups had enough samples
+			warning('None of the groups had enough samples. Returning NULL.')
 			return(NULL)
 		}
-		if(length(unique(dt$splitNames)) <= 1)
+		if(!is.null(compare.by) && length(unique(dt$splitNames)) <= 1)
 		{
 			# There weren't enough groups to compare
+			warning('There were not enoung groups to compare. NA values generated.')
 			return(data.table(V1=unique(dt$splitNames), V2='', p.value=NA, n1=nrow(dt), n2=as.integer(0), p.value.adj=NA))
 		}
-		splits <- as.data.table(t(combn(uniqueo(dt$splitNames),2)))
-		splits[, c('p.value','n1','n2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=dt[splitNames==.BY[[2]] & is.finite(get(val.col))], val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1,V2)]
-		splits[p.value >= 0, p.value.adj:=p.adjust(p.value, method=p.adjust.method)]
-		##print(splits[])
-		return(splits)
+		
+		if(!is.null(compare.by))
+		{
+			splits <- as.data.table(t(combn(uniqueo(dt$splitNames),2)))
+			splits[, c('p.value', 'p.sym', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=dt[splitNames==.BY[[2]] & is.finite(get(val.col))], val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1,V2)]
+			splits[p.value >= 0, p.value.adj:=p.adjust(p.value, method=p.adjust.method)]
+			splits[p.value >= 0, p.adj.sym:=getPSymbol(p.value.adj, sym.1='~')]
+			##print(splits[])
+			return(splits)
+		}
+		else
+		{
+			splits <- as.data.table(t(combn(uniqueo(dt$splitNames),1)))
+			splits[, c('p.value', 'p.sym', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=NULL, val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1)]
+			splits[p.value >= 0, p.value.adj:=p.adjust(p.value, method=p.adjust.method)]
+			splits[p.value >= 0, p.adj.sym:=getPSymbol(p.value.adj, sym.1='~')]
+			##print(splits[])
+			return(splits)
+		}
+		
 	}
 	
 	x <- copy(x)
-	setorderv(x, c(for.each, compare.by))
+	if(!is.null(compare.by))
+	{
+		setorderv(x, c(for.each, compare.by))
+	}
+	else
+	{
+		setorderv(x, c(for.each))
+	}
+	
 	ret <- x[, my.test.3(dt=.SD, val.col=val.col, compare.by=compare.by, pair.by=pair.by, test=test, ...), by=for.each]
-	ret[, ':='(V1=factor(V1, levels=uniqueo(x[[compare.by]])), V2=factor(V2, levels=uniqueo(x[[compare.by]])))]
-	setorderv(ret, c(for.each, 'V1', 'V2'))
-	setnames(ret, c('V1','V2'), paste(compare.by, 1:2, sep='.'))
+	daLevels <- uniqueo(c(ret$V1, ret$V2))
+	ret[, V1:=factor(V1, levels=daLevels)]
+	setorderv(ret, for.each)
+	if(!is.null(compare.by))
+	{
+		ret[, V2:=factor(V2, levels=daLevels)]
+		setorderv(ret, c(for.each, 'V1', 'V2'))
+		setnames(ret, c('V1','V2'), paste(paste(compare.by, collapse='.'), 1:2, sep='.'))
+	}
+	else
+	{
+		ret[, ':='(V1=NULL, n2=NULL, mu2=NULL, med2=NULL, sd2=NULL, mad2=NULL)]
+	}
+	
 	return(ret[])
 }
 
@@ -2679,10 +2776,20 @@ my.test <- function(x, y, test=c('wilcox','t.test'), adjust.p=F, adjust.method='
 	return(list(p=ret1))
 }
 
-getWilcoxStatForEachGroup <- function(dt, valCol, by, ...)
+data.table.wilcox.stats <- function(dt, val.col, grp.by, for.each, ...)
+{
+	ret <- dt[, getWilcoxStatForEachGroup(.SD, val.col=val.col, by=grp.by), by=for.each]
+	ret[, Wmin:=0]
+	ret[, Wmax:=n.x*n.y]
+	setorderv(ret, c(for.each, 'W'))
+	ret[, W.norm:=(W-Wmin)/(Wmax-Wmin)]
+	return(ret[])
+}
+
+getWilcoxStatForEachGroup <- function(dt, val.col, by, ...)
 {
 	dt2 <- copy(dt)
-	ret <- dt2[, getWilcoxStats(get(valCol),dt[[valCol]], ...), by=by]
+	ret <- dt2[, getWilcoxStats(get(val.col),dt[[val.col]], ...), by=by]
 	return(ret)
 }
 
@@ -2839,7 +2946,7 @@ writeLatexWilcoxCombinedTable <- function(x, captionAddition='', includeVals=F, 
 	}
 }
 
-getPSymbol <- function(pval, not.sig='')
+getPSymbol <- function(pval, not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
 {
 	if(is.list(pval))
 	{
@@ -2855,10 +2962,11 @@ getPSymbol <- function(pval, not.sig='')
 		return(ret)
 	}
 	ret <- rep(not.sig, length(pval))
-	ret[pval <= 0.05] <- '*'
-	ret[pval <= 0.01] <- '**'
-	ret[pval <= 0.001] <- '***'
-	ret[pval <= 0.0001] <- '****'
+	ret[pval <= 0.1] <- sym.1
+	ret[pval <= 0.05] <- sym.05
+	ret[pval <= 0.01] <- sym.01
+	ret[pval <= 0.001] <- sym.001
+	ret[pval <= 0.0001] <- sym.0001
 	return(ret)
 }
 
@@ -4531,8 +4639,8 @@ calcTickSep <- function(x, transition, base, frac)
 	# Just do it for the right indicies
 	valsAbove <- (x > transition) & is.finite(x)
 	valsBelow <- (x <= transition) & is.finite(x)
-	print(length(valsAbove))
-	print(sum(valsAbove))
+	# print(length(valsAbove))
+	# print(sum(valsAbove))
 	if(sum(valsAbove) == 0)
 	{
 		upperRange <- c(1,base)
