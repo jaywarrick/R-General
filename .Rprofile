@@ -5904,7 +5904,7 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 			weighted.n[n1] <- sum(x.w)/dnorm(0, sd=win.dist/2)
 			n1 <- n1 + 1
 		}
-		return(list(x=xret, y=yret, y.sd=sqrt(y.sdret), N=weighted.n))
+		return(list(x=xret, y=yret, y.sd=sqrt(y.sdret), N=weighted.n, y.se=sqrt(y.sdret)/sqrt(weighted.n)))
 	}
 	
 }
@@ -6639,7 +6639,7 @@ data.table.box.plot <- function(x, ycol, xcol, by, percentile.limits=c(0,1,0,1),
 		{
 			sample.size <- nrow(d)
 		}
-		stripchart(daFormula, data=d[sort(sample.int(nrow(d), sample.size))], pch=16, cex=strip.cex, col=col2, vertical=T, method=strip.method, jitter=strip.jitter, add=T)
+		stripchart(daFormula, data=d[sort(sample.int(nrow(d), min(c(sample.size, nrow(d)))))], pch=16, cex=strip.cex, col=col2, vertical=T, method=strip.method, jitter=strip.jitter, add=T)
 	}
 	axis(1, at=at$x, labels=unique(d[[xcol]]), las=2)#, ...)
 	
