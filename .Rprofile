@@ -2803,6 +2803,8 @@ getWilcoxStats <- function(x, y, ...)
 		return(NULL)
 	}
 	temp <- wilcox.test(x=x, y=y, ...)
+	
+	# Documentation says that the W put out by wilcox.test is the same as the Mann-Whiteny U statistic
 	W <- as.numeric(temp$statistic)
 	
 	counts <- table(c(x, y))
