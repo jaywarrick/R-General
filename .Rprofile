@@ -2683,7 +2683,7 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 	y[, da.compare.by.f:=factor(da.compare.by)]
 	if(is.null(pair.by))
 	{
-		if(test=='t.test')
+		if(test[1]=='t.test')
 		{
 			daGlobal <- y[, list(p.value.global=getAnovaP(dt=copy(.SD), val.col=val.col, compare.by=compare.by, pair.by=pair.by)), by=for.each][]
 		}
@@ -2695,7 +2695,7 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 	}
 	else
 	{
-		if(test=='t.test')
+		if(test[1]=='t.test')
 		{
 			daGlobal <- y[, list(p.value.global=getAnovaP(dt=copy(.SD), val.col=val.col, compare.by=compare.by, pair.by=pair.by)), by=for.each][]
 		}
@@ -7524,6 +7524,5 @@ getFirstIndexOfCharInString <- function(x, char='\\.')
 	index <- str_locate_all(x, char)
 	return(sapply(index, extract))
 }
-
 
 
