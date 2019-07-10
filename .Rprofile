@@ -1387,6 +1387,10 @@ colorizeBlueToRed <- function(x, s=0.7, l=0.5, a=1)
 #' Using -1 and 1 make the color black or white, respectively
 changeLightness <- function(col, change=0)
 {
+	if(length(col) == 1 && length(change) > 1)
+	{
+		col <- rep(col, length(change))
+	}
 	# The value of the change should be between [-1,1].
 	# Negative values darken while positive values lighten
 	# Using -1 and 1 make the color black or white, respectively
@@ -7526,5 +7530,3 @@ getFirstIndexOfCharInString <- function(x, char='\\.')
 	index <- str_locate_all(x, char)
 	return(sapply(index, extract))
 }
-
-
