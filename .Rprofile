@@ -1052,7 +1052,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	
 	if(legend.plot && !is.null(group.column))
 	{
-		legend.args <- merge.lists(list(x="topright", bty=if(!legend.border)"n" else "o", inset=c(0,0)), legend.args)
+		legend.args <- merge.lists(list(x="topright", bty='n', inset=c(0,0)), legend.args)
 	}
 	else
 	{
@@ -1102,11 +1102,11 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	
 	if(!is.null(group.column))
 	{
-		if(legend)
+		if(legend.plot)
 		{
 			args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
 							 col=color.colors,
-							 legend.text=color.names.display, args.legend=args.legend, xpd=TRUE,
+							 legend.text=color.names.display, args.legend=legend.args, xpd=TRUE,
 							 xlab=if(is.null(xlab)) group.column else xlab,
 							 ylab=if(is.null(ylab)) y.column else ylab)
 		}
@@ -1334,8 +1334,14 @@ adjustIntensity <- function(x, oldMin, oldMax, newMin, newMax)
 {
 	ratio = (newMax - newMin) / (oldMax - oldMin);
 	offset = newMin - ratio*oldMin;
-	x = x * ratio + offset;
-	return(x)
+	ret = x * ratio + offset;
+	return(ret)
+}
+
+adjustToPercentiles <- function(x, minPercentile, maxPercentile, newMin, newMax)
+{
+	l(oldMin, oldMax) %=% getPercentileValues(x, levels=c(minPercentile, maxPercentile))
+	return(adjustIntensity(x, oldMin=oldMin, oldMax=oldMax, newMin=newMin, newMax=newMax))
 }
 
 colorize <- function(x, min.h=0.666, max.h=0, s=0.7, l=0.5, a=1)
@@ -1381,6 +1387,10 @@ colorizeBlueToRed <- function(x, s=0.7, l=0.5, a=1)
 #' Using -1 and 1 make the color black or white, respectively
 changeLightness <- function(col, change=0)
 {
+	if(length(col) == 1 && length(change) > 1)
+	{
+		col <- rep(col, length(change))
+	}
 	# The value of the change should be between [-1,1].
 	# Negative values darken while positive values lighten
 	# Using -1 and 1 make the color black or white, respectively
@@ -2457,8 +2467,8 @@ getSortedCorrelations <- function(cor.result)
 	setnames(ret, names(ret), c('M1','M2','cor'))
 	ret[, toSort := abs(cor)]
 	setorder(ret, -toSort)
-	ret[, toSort:=NULL][]
-	return(ret)
+	ret[, toSort:=NULL]
+	return(ret[])
 }
 
 pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
@@ -2476,7 +2486,7 @@ pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
 	return(ret)
 }
 
-data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=NULL, test=c('wilcox','t.test'), p.adjust.method='BH', debug.mode=F, ...)
+data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=NULL, test=c('wilcox','t.test'), p.adjust.method='BH', p.adjust.by=NULL, calc.summary.by=NULL, summary.func=median, debug.mode=F, nSig=1, ...)
 {
 	my.test.1 <- function(x, y, test=c('wilcox','t.test'), ...)
 	{
@@ -2530,6 +2540,11 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 			{
 				p.value <- my.test.1(dt1[[val.col]], dt2[[val.col]], test=test, paired=F, ...)
 				p.sym <- getPSymbol(p.value, sym.1='~')
+				p.label <-sig.digits(p.value, nSig=nSig)
+				if(p.value > 0.1)
+				{
+					p.label <- 'n.s'
+				}
 				n1 <- sum(!is.na(dt1[[val.col]]))
 				n2 <- sum(!is.na(dt2[[val.col]]))
 				mu1 <- mean(dt1[[val.col]], na.rm=T)
@@ -2554,12 +2569,17 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 			# pair.by represents the replicates that should be matched
 			setkeyv(dt1, pair.by)
 			setkeyv(dt2, pair.by)
-			subDt1 <- merge(dt1, dt2[, ..pair.by])
-			subDt2 <- merge(dt2, dt1[, ..pair.by])
+			# subDt1 <- merge(dt1, dt2[, ..pair.by])
+			# subDt2 <- merge(dt2, dt1[, ..pair.by])
 			# print(subDt1[])
 			# print(subDt2[])
 			p.value <- my.test.1(dt1[[val.col]], dt2[[val.col]], test=test, paired=T, ...)
 			p.sym <- getPSymbol(p.value, sym.1='~')
+			p.label <-sig.digits(p.value, nSig=nSig)
+			if(p.value > 0.1)
+			{
+				p.label <- 'n.s'
+			}
 			n1 <- sum(!is.na(dt1[[val.col]]))
 			n2 <- NA
 			mu1 <- mean(dt1[[val.col]], na.rm=T)
@@ -2572,7 +2592,7 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 			mad2 <- mad(dt2[[val.col]][!is.na(dt2[[val.col]])])
 		}
 		# print(list(p.value=p.value, n1=n1, n2=n2))
-		return(list(p.value=p.value, p.sym=p.sym, n1=n1, n2=n2, mu1=mu1, mu2=mu2, med1=med1, med2=med2, sd1=sd1, sd2=sd2, mad1=mad1, mad2=mad2))
+		return(list(p.value=p.value, p.sym=p.sym, p.label=p.label, n1=n1, n2=n2, mu1=mu1, mu2=mu2, med1=med1, med2=med2, sd1=sd1, sd2=sd2, mad1=mad1, mad2=mad2))
 	}
 	
 	my.test.3 <- function(dt, val.col, compare.by, pair.by=NULL, test, ...)
@@ -2613,25 +2633,27 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 		if(!is.null(compare.by))
 		{
 			splits <- as.data.table(t(combn(uniqueo(dt$splitNames),2)))
-			splits[, c('p.value', 'p.sym', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=dt[splitNames==.BY[[2]] & is.finite(get(val.col))], val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1,V2)]
-			splits[p.value >= 0, p.value.adj:=p.adjust(p.value, method=p.adjust.method)]
-			splits[p.value >= 0, p.adj.sym:=getPSymbol(p.value.adj, sym.1='~')]
+			splits[, c('p.value', 'p.sym', 'p.label', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=dt[splitNames==.BY[[2]] & is.finite(get(val.col))], val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1,V2)]
 			##print(splits[])
 			return(splits)
 		}
 		else
 		{
 			splits <- as.data.table(t(combn(uniqueo(dt$splitNames),1)))
-			splits[, c('p.value', 'p.sym', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=NULL, val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1)]
-			splits[p.value >= 0, p.value.adj:=p.adjust(p.value, method=p.adjust.method)]
-			splits[p.value >= 0, p.adj.sym:=getPSymbol(p.value.adj, sym.1='~')]
+			splits[, c('p.value', 'p.sym', 'p.label', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=NULL, val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1)]
 			##print(splits[])
 			return(splits)
 		}
 		
 	}
 	
-	x <- copy(x)
+	y <- copy(x) # We'll use this later
+	x <- copy(y) # We'll use this now
+	if(!is.null(calc.summary.by))
+	{
+		x <- x[, list(calc=summary.func(get(val.col))), by=calc.summary.by]
+		setnames(x, 'calc', val.col)
+	}
 	if(!is.null(compare.by))
 	{
 		setorderv(x, c(for.each, compare.by))
@@ -2642,6 +2664,11 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 	}
 	
 	ret <- x[, my.test.3(dt=.SD, val.col=val.col, compare.by=compare.by, pair.by=pair.by, test=test, ...), by=for.each]
+	ret[p.value >= 0, p.value.adj:=p.adjust(p.value, method=p.adjust.method), by=p.adjust.by]
+	ret[p.value >= 0, p.sym.adj:=getPSymbol(p.value.adj, sym.1='~')]
+	ret[p.value >= 0, p.label.adj:=sig.digits(p.value.adj, nSig=nSig)]
+	ret[p.value.adj > 0.1, p.label.adj:='n.s']
+	
 	daLevels <- uniqueo(c(ret$V1, ret$V2))
 	ret[, V1:=factor(V1, levels=daLevels)]
 	setorderv(ret, for.each)
@@ -2656,7 +2683,64 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 		ret[, ':='(V1=NULL, n2=NULL, mu2=NULL, med2=NULL, sd2=NULL, mad2=NULL)]
 	}
 	
-	return(ret[])
+	paste.cols(y, cols=compare.by, name='da.compare.by')
+	y[, da.compare.by.f:=factor(da.compare.by)]
+	if(is.null(pair.by))
+	{
+		if(test[1]=='t.test')
+		{
+			daGlobal <- y[, list(p.value.global=getAnovaP(dt=copy(.SD), val.col=val.col, compare.by=compare.by, pair.by=pair.by)), by=for.each][]
+		}
+		else
+		{
+			daGlobal <- y[, list(p.value.global=kruskal.test(get(val.col), g=da.compare.by.f)$p.value), by=for.each][]
+		}
+		
+	}
+	else
+	{
+		if(test[1]=='t.test')
+		{
+			daGlobal <- y[, list(p.value.global=getAnovaP(dt=copy(.SD), val.col=val.col, compare.by=compare.by, pair.by=pair.by)), by=for.each][]
+		}
+		else
+		{
+			paste.cols(y, cols=compare.by, name='da.compare.by')
+			paste.cols(y, cols=pair.by, name='da.pair.by')
+			y[, da.compare.by.f:=factor(da.compare.by)]
+			y[, da.pair.by.f:=factor(da.pair.by)]
+			daGlobal <- y[, list(p.value.global=friedman.test(y=get(val.col), groups=da.compare.by.f, blocks=da.pair.by.f)$p.value), by=for.each][]
+		}
+	}
+	
+	setkeyv(daGlobal, for.each)
+	setkeyv(ret, for.each)
+	
+	ret <- ret[daGlobal]
+	
+	return(ret)
+}
+
+getAnovaP <- function(dt, val.col, compare.by, pair.by=NULL)
+{
+	dt2 <- copy(dt)
+	lapply.data.table(dt2, factor, cols=compare.by, in.place = T)
+	if(!is.null(pair.by))
+	{
+		paste.cols(dt2, cols=pair.by, name='da.pair.by')
+		dt2[, da.pair.by.f:=factor(da.pair.by)]
+		f1 <- as.formula(paste(val.col, " ~ da.compare.by.f + Error(da.pair.by.f)"))
+		blah <- summary(aov(f1, data=dt2))[[2]][[1]]
+	}
+	else
+	{
+		f1 <- as.formula(paste(val.col, " ~ da.compare.by.f"))
+		blah <- summary(aov(f1, data=dt2))[[1]]
+	}
+	 
+	blah <- blah[1,ncol(blah)]
+	# print(blah)
+	return(blah)
 }
 
 file.open <- function(path)
@@ -2803,6 +2887,8 @@ getWilcoxStats <- function(x, y, ...)
 		return(NULL)
 	}
 	temp <- wilcox.test(x=x, y=y, ...)
+	
+	# Documentation says that the W put out by wilcox.test is the same as the Mann-Whiteny U statistic
 	W <- as.numeric(temp$statistic)
 	
 	counts <- table(c(x, y))
@@ -2838,7 +2924,9 @@ getCombnEffectSize_ <- function(dt, valCol, combn.by, rank.biserial)
 
 getCombnEffectSize <- function(dt, valCol, group.by, combn.by, rank.biserial=F)
 {
-	return(dt[, getCombnEffectSize_(.SD, valCol=valCol, combn.by=combn.by, rank.biserial=rank.biserial), by=group.by][])
+	ret <- dt[, getCombnEffectSize_(.SD, valCol=valCol, combn.by=combn.by, rank.biserial=rank.biserial), by=group.by][]
+	setnames(ret, c('V1','V2'), gsub('V', paste0(paste(combn.by, collapse='.'), '.'), c('V1','V2'), fixed=T))
+	return(ret)
 }
 
 #' Returns either the Hedge's g (like Cohen's d for unequal variance and sample size)
@@ -3438,6 +3526,8 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 	if(!is.null(samples.to.match.and.append))
 	{
 		# Then append the read data to the sample data.
+		# temporarily remove the cId column as it will mess up the rbindlist and is replaced again below
+		samples.to.match.and.append[, cId:=NULL]
 		ret <- rbindlist(list(a=ret, b=samples.to.match.and.append), use.names=T)
 	}
 	
@@ -5949,9 +6039,15 @@ sim.untransform.bounds <- function(x, x.min, x.max)
 	return((x.max*exp(x)+x.min)/(exp(x)+1))
 }
 
-logit.transform <- function(x, base=10)
+logit.transform <- function(x, base=10, forceFinite=F)
 {
-	log(x/(1-x), base=base)
+	ret <- log(x/(1-x), base=base)
+	if(forceFinite)
+	{
+		ret[x <= 0] <- .Machine$double.xmin
+		ret[x >= 1] <- .Machine$double.xmax
+	}
+	return(ret)
 }
 
 logit.untransform <- function(x, base=10)
@@ -6193,20 +6289,24 @@ clear.warnings <- function()
 	assign("last.warning", NULL, envir = baseenv())
 }
 
-sig.digits <- function(x, nSig=2, nTrail=0)
+sig.digits <- function(x, nSig=2, trim.spaces=T, trim.zeros=F)
 {
-	# return(format(signif(x,digits=n), digits=n, justify='right'))
 	ret <- signif(x,digits=nSig)
-	ret.s <- as.character(ret)
-	if(all(!grepl(".", ret.s, fixed=T)))
+	ret <- format(ret, scientific=F)
+	
+	if(trim.zeros)
 	{
-		return(sprintf(paste0("%.",nTrail,"f"), ret))
+		# Trim zeros and whitespace and trailing decimal points
+		ret <- gsub('0+$', '', ret)
+		ret[substr(ret, nchar(ret), nchar(ret))=='.'] <- substr(ret[substr(ret, nchar(ret), nchar(ret))=='.'], 1, nchar(ret[substr(ret, nchar(ret), nchar(ret))=='.'])-1)
 	}
-	ret.n <- tstrsplit(ret.s, ".", fixed=T, keep=2)[[1]]
-	ret.n[is.na(ret.n)] <- ""
-	ret.n <- nchar(ret.n)
-	ret.n <- max(ret.n)
-	return(sprintf(paste0("%.",max(ret.n,nTrail),"f"), ret))
+	
+	if(trim.spaces)
+	{
+		ret <- trimws(ret)
+	}
+	
+	return(ret)
 }
 
 getOS <- function()
@@ -6549,7 +6649,8 @@ errRL3 <- function(par, CRatio, RL)
 #' t is the fit paramter that is specific to the cell geometry and imaging setup
 calcCRatio <- function(RL, RLMin, RLMax, s)
 {
-	ret <- ((RLMin^2*RLMax^2-RL^2)/((RL^2-RLMin^2)*s))
+	# ret <- ((RLMin^2*RLMax^2-RL^2)/((RL^2-RLMin^2)*s))
+	ret <- ((RLMax^2-RL^2)/((RL^2-RLMin^2)*s))
 	ret[ret < 0 & ret > -1] <- 0
 	ret[ret < 0 & ret <= -1] <- Inf
 	return(ret)
@@ -6561,7 +6662,8 @@ calcCRatio <- function(RL, RLMin, RLMax, s)
 #' t is the fit paramter that is specific to the cell geometry and imaging setup
 calcCRatio2 <- function(RL, RLMin, RLMax, s)
 {
-	ret <- ((RLMin*RLMax-RL)/((RL-RLMin)*s))
+	# ret <- ((RLMin*RLMax-RL)/((RL-RLMin)*s))
+	ret <- ((RLMax-RL)/((RL-RLMin)*s))
 	ret[ret < 0 & ret > -1] <- 0
 	ret[ret < 0 & ret <= -1] <- Inf
 	return(ret)
@@ -6571,20 +6673,40 @@ calcCRatio2 <- function(RL, RLMin, RLMax, s)
 #' RL is the Radial Localization
 #' RLMax is the max RL for the cell / imaging setup
 #' t is the fit paramter that is specific to the cell geometry and imaging setup
-calcARatio <- function(RL, RLMin, RLMax, sSampled, sActual)
+calcARatio <- function(RL, RLMin, RLMax, sSampled, sActual, replace.ARatio.under=NaN, replace.ARatio.over=NaN)
 {
-	CRatio <- calcCRatio(RL=RL, RLMin=RLMin, RLMax=RLMax, s=sSampled)
-	return(CRatio*sActual/(CRatio*sActual + 1))
+	# CRatio <- calcCRatio(RL=RL, RLMin=RLMin, RLMax=RLMax, s=sSampled)
+	ret <- (RLMax^2-RL^2)/((RLMax^2-RL^2)+(RL^2-RLMin^2)*(sSampled/sActual))
+	if(!is.null(replace.ARatio.under))
+	{
+		ret[ret < 0] <- replace.ARatio.under
+	}
+	if(!is.null(replace.ARatio.over))
+	{
+		ret[ret > 1] <- replace.ARatio.over
+	}
+	return(ret)
+	# return(CRatio*sActual/(CRatio*sActual + 1))
 }
 
 #' ARatio is the Nuclear:Cytoplasmic Amount Ratio
 #' RL is the Radial Localization
 #' RLMax is the max RL for the cell / imaging setup
 #' t is the fit paramter that is specific to the cell geometry and imaging setup
-calcARatio2 <- function(RL, RLMin, RLMax, sSampled, sActual)
+calcARatio2 <- function(RL, RLMin, RLMax, sSampled, sActual, replace.ARatio.under=NaN, replace.ARatio.over=NaN)
 {
-	CRatio <- calcCRatio2(RL=RL, RLMin=RLMin, RLMax=RLMax, s=sSampled)
-	return(CRatio*sActual/(CRatio*sActual + 1))
+	# CRatio <- calcCRatio2(RL=RL, RLMin=RLMin, RLMax=RLMax, s=sSampled)
+	ret <- (RLMax-RL)/((RLMax-RL)+(RL-RLMin)*(sSampled/sActual))
+	if(!is.null(replace.ARatio.under))
+	{
+		ret[ret < 0] <- replace.ARatio.under
+	}
+	if(!is.null(replace.ARatio.over))
+	{
+		ret[ret > 1] <- replace.ARatio.over
+	}
+	return(ret)
+	# return(CRatio*sActual/(CRatio*sActual + 1))
 }
 
 #' Calculate quantiles under a surface
@@ -7429,4 +7551,22 @@ normalizeDistributions <- function(x,
 	
 	x.d <- getDistributions(x, xcol=paste0(col, '.norm'), by=c(by, plot.by))
 	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.post)
+}
+
+getFirstIndexOfCharInString <- function(x, char='\\.')
+{
+	extract <- function(x)
+	{
+		if(nrow(x) > 0)
+		{
+			return(as.integer(x[1,1]))
+		}
+		else
+		{
+			return(NA)
+		}
+	}
+	library(stringr)
+	index <- str_locate_all(x, char)
+	return(sapply(index, extract))
 }
