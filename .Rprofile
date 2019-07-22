@@ -7406,10 +7406,10 @@ fitExpFunc1 <- function(x, y, ...)
 	return(daFit$par)
 }
 
-getDistShifts <- function(x, xcol, newcol='shift', by, span=0.5, adj=c(1,1), ...)
+getDistShifts <- function(x, xcol, newcol='shift', by, span=0.5, adj=c(1,1), bias=0, ...)
 {
 	x.d <- getDistributions(x, xcol=xcol, ycol='density', by=by, ...)
-	shifts <- calculateShifts(x.d, xcol=xcol, ycol='density', by=by, adj=adj, span=span)
+	shifts <- calculateShifts(x.d, xcol=xcol, ycol='density', by=by, adj=adj, span=span, bias=bias)
 	x.d[, c(paste0(xcol, '.adj')):=get(xcol)+shifts[.BY]$adj, by=by][]
 	x[, c(newcol):=shifts[.BY]$adj, by=by][]
 	return(list(x.d=x.d, shifts=shifts))
@@ -7436,7 +7436,7 @@ getDistributions <- function(x, xcol, ycol='density', by, ...)
 	return(ret)
 }
 
-calculateShifts <- function(x, xcol, ycol, by, adj=c(1,1), span=0.5)
+calculateShifts <- function(x, xcol, ycol, by, adj=c(1,1), span=0.5, bias=0)
 {
 	library(NMOF)
 	setorderv(x, c(xcol, by))
@@ -7457,20 +7457,36 @@ calculateShifts <- function(x, xcol, ycol, by, adj=c(1,1), span=0.5)
 	{
 		test <- x[grps[row]]
 		ref <- x[grps[row+1]]
-		ret[row, shift:=gridSearch(fun=getDistErr, levels=list(shift=c(seq(-r.x, 0, dx/5), 0, seq(dx/5, r.x, dx/5))), test.x=test[[xcol]], test.y=test[[ycol]], ref.x=ref[[xcol]], ref.y=ref[[ycol]], adj=adj)$minlevels[1]]	
+		ret[row, shift:=gridSearch(fun=getDistErr, levels=list(shift=c(seq(-r.x, 0, dx/5), 0, seq(dx/5, r.x, dx/5))), test.x=test[[xcol]], test.y=test[[ycol]], ref.x=ref[[xcol]], ref.y=ref[[ycol]], adj=adj, bias=bias)$minlevels[1]]	
 	}
 	ret[, adj:=rev(cumsum(rev(shift)))]
 	return(ret[])
 }
 
-getDistErr <- function(shift, test.x, test.y, ref.x, ref.y, adj=c(1,1))
+getDistErr <- function(shift, test.x, test.y, ref.x, ref.y, adj=c(1,1), bias=0)
 {
+	#' Use the bias to preferentially align the left (bias < 0) or right (bias > 0) side of the distributions over time.
+	#' Use bias = 0 (default) to align without bias.
 	dx <- median(getDeltas(ref.x))
 	y.max <- max(test.y, na.rm=T)
 	l <- length(test.x)
 	shift.i <- round(shift[1]/dx)
 	rel.y <- test.y[max(c(1,-(shift.i-1))):min(l,l-shift.i)]-ref.y[max(c(1,shift.i+1)):min(l,l+shift.i)]
-	err <- adj[1]*(shift[1]/dx/l)^2 + adj[2]*sum((rel.y/y.max)^2)/l
+	if(bias == 0)
+	{
+		w <- rep(1, length(rel.y))
+	}
+	else
+	{
+		# w <- cumsum(test.y[max(c(1,-(shift.i-1))):min(l,l-shift.i)]) + cumsum(ref.y[max(c(1,shift.i+1)):min(l,l+shift.i)])
+		w <- cumsum(ref.y[max(c(1,shift.i+1)):min(l,l+shift.i)])
+		w <- (w-min(w))/(max(w)-min(w))
+		if(bias < 0)
+		{
+			w <- 1-w
+		}
+	}
+	err <- adj[1]*(shift[1]/dx/l)^2 + adj[2]*sum((w*(rel.y/y.max))^2)/length(ref.y)
 	return(err)
 }
 
@@ -7479,38 +7495,69 @@ normalizeDistributions <- function(x,
 							col,
 							by,
 							plot.by,
+							norm.by,
 							plot.filter.fun=NULL,
 							adj=c(1,1),
 							two.pass=T,
-							xlim.pre=c(-5,20),
-							xlim.post=c(-5,5))
+							bias=0,
+							xlim.pre=NULL,
+							xlim.post=NULL,
+							method=c('subtraction','division'))
 {
 	# Params:
 	# col = col to normalize
 	# by = do normalization for each group specified in 'by'
 	# plot.by = plot pre- and post-normalization distributions using 'by' and 'plot.by' groupings
 	# plot.filter.fun = function that will be passed 'x' and returns which rows should be plotted (e.g., x$Time < 5)
+	# two.pass = runs the algorithm twice to minimize influence of initial shift
+	# bias = numeric, align the left (bias < 0) or right (bias > 0) side of the distributions over time. Use bias = 0 (default) to align without bias.
 	# adj = the amount of weight to be given to horizontal shifts and vertical errors when computing error betweeen distributions
 	plot.filter.fun <- getDefault(plot.filter.fun, function(x){return(T)})
 	x.d <- getDistributions(x, xcol=col, by=c(by,plot.by))
-	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.pre)
-	l(x.d, shifts) %=% getDistShifts(x, xcol=col, newcol='adj1', by=by, span=0.5, adj=adj) # Adds the 'adj' column of shift amounts needed to align distributions
+	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=by[!(by %in% plot.by)], plot.by=plot.by, xlim=xlim.pre)
+	l(x.d, shifts) %=% getDistShifts(x, xcol=col, newcol='adj1', by=by, span=0.5, adj=adj, bias=bias) # Adds the 'adj' column of shift amounts needed to align distributions
 	x[, c(paste0(col, '.adj1')):=get(col) + adj1]
 	if(two.pass)
 	{
-		l(x.d, shifts) %=% getDistShifts(x, xcol=paste0(col, '.adj1'), newcol='adj2', by=by, span=0.5, adj=adj) # Adds the 'adj' column of shift amounts needed to align distributions
+		l(x.d, shifts) %=% getDistShifts(x, xcol=paste0(col, '.adj1'), newcol='adj2', by=by, span=0.5, adj=adj, bias=bias) # Adds the 'adj' column of shift amounts needed to align distributions
+		x.d[, list(w-cumsum())]
+		w <- (w-min(w))/(max(w)-min(w))
+		if(bias < 0)
+		{
+			w <- 1-w
+		}
 		x[, c(paste0(col, '.adj1.adj2')):=get(paste0(col, '.adj1')) + adj2]
-		x[is.finite(get(paste0(col, '.adj1.adj2'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1.adj2')) - median(get(paste0(col, '.adj1.adj2'))))/myMAD(get(paste0(col, '.adj1.adj2')))]
+		x[is.finite(get(paste0(col, '.adj1.adj2'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1.adj2')) - median(get(paste0(col, '.adj1.adj2'))))/myMAD(get(paste0(col, '.adj1.adj2'))), by=norm.by]
 		x[, c('Nuc.adj1','Nuc.adj1.adj2','adj1','adj2'):=NULL]
 	}
 	else
 	{
-		x[is.finite(get(paste0(col, '.adj1'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1')) - median(get(paste0(col, '.adj1'))))/myMAD(get(paste0(col, '.adj1')))]
-		x[, c('Nuc.adj1','adj1'):=NULL]
+		x.d <- getDistributions(x, xcol=paste0(col, '.adj1'), by=c(by,plot.by))
+		x.d[, w:=cumsum(density), by=c(by,plot.by)]
+		x.d[, w:=(w-min(w))/(max(w)-min(w)), by=c(by,plot.by)]
+		if(bias < 0)
+		{
+			x.d[, w:=1-w]
+		}
+		setkeyv(x.d, merge.vectors(by, plot.by))
+		x[, .w:=approx(x=x.d[.BY][[paste0(col, '.adj1')]], y=x.d[.BY][['w']], xout=get(paste0(col, '.adj1')), yleft=if(bias<0){1}else{0}, yright=if(bias<0){0}else{1})$y, by=c(by, plot.by)]
+		if(substr(method[1],1,1)=='s')
+		{
+			x[is.finite(get(paste0(col, '.adj1'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1')) - weighted.median(get(paste0(col, '.adj1')), w=if(bias==0){rep(1,length(.w))}else{.w})), by=norm.by]
+			x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/myMAD(get(paste0(col, '.norm')))]
+		}
+		else
+		{
+			x[is.finite(get(paste0(col, '.adj1'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1')) / weighted.median(get(paste0(col, '.adj1')), w=if(bias==0){rep(1,length(.w))}else{.w})), by=norm.by]
+			# x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/myMAD(get(paste0(col, '.norm')))]
+		}
+		
+		x[, c('Nuc.adj1','adj1','.w'):=NULL]
 	}
 	
 	x.d <- getDistributions(x, xcol=paste0(col, '.norm'), by=c(by, plot.by))
-	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.post)
+	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=by[!(by %in% plot.by)], plot.by=plot.by, xlim=xlim.post)
+	return(shifts)
 }
 
 getFirstIndexOfCharInString <- function(x, char='\\.')
