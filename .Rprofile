@@ -5108,6 +5108,46 @@ drawLogitAxis <- function(axisNum=1, base=10, n.minor.ticks=8, las=0, ...)
 	axis(axisNum, at=logit.transform(seq(0.2,0.8,0.1), base=base), tcl=par("tcl")*0.5, labels=FALSE)
 }
 
+logticks <- function (ax = 1, n.minor = 9, t.lims, t.ratio = 0.5, major.ticks = NULL, 
+		base = c("ten", "ln", "two"), draw.labels=T, ...) 
+{
+	lims <- par("usr")
+	if (ax %in% c(1, 3)) 
+		lims <- lims[1:2]
+	else lims[3:4]
+	if (is.null(major.ticks)) 
+		major.ticks <- unique(as.integer(pretty(lims, n = 5)))
+	if (missing(t.lims)) 
+		t.lims <- range(major.ticks)
+	ml <- t.lims[1]
+	mu <- t.lims[2]
+	major.ticks <- major.ticks[major.ticks >= ml & major.ticks <= 
+						  	mu]
+	base <- match.arg(base)
+	LOG <- switch(base, ten = log10, ln = log, two = log2)
+	base <- switch(base, two = 2, ln = "e", ten = 10)
+	if(draw.labels)
+	{
+		tick.labels <- sapply(major.ticks, function(i) as.expression(bquote(.(base)^.(i))))
+		axis(ax, at = major.ticks, labels = tick.labels, ...)
+	}
+	else
+	{
+		axis(ax, at = major.ticks, labels = rep('', length(major.ticks)), ...)
+	}
+	if (base == "e") 
+		base <- exp(1)
+	n <- n.minor + 2
+	minors <- LOG(pretty(base^major.ticks[1:2], n)) - major.ticks[1]
+	minors <- minors[-c(1, n)]
+	minor.ticks <- c(outer(minors, major.ticks, `+`))
+	minor.ticks.loc <- minor.ticks[minor.ticks > ml & minor.ticks < 
+							 	mu]
+	axis(ax, at = minor.ticks.loc, tcl = par("tcl") * t.ratio, 
+		labels = FALSE)
+	return(invisible(base))
+}
+
 drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, overwrite.log.base=NULL, ...)
 {
 	if(is.null(base))
@@ -7319,15 +7359,15 @@ get.PE.PC<-function(formula, data, RR=1.5)
 	return(res)
 }
 
-expFunc <- function(x, tau, initial, alpha, offset, increasing)
+expFunc <- function(x, tau, A, alpha, offset, increasing)
 {
 	if(increasing)
 	{
-		return(initial*(1-exp(-x/tau)) + offset + alpha*x)
+		return(A*(1-exp(-x/tau)) + offset + alpha*x)
 	}
 	else
 	{
-		return(offset + initial*exp(-x/tau) + alpha*x)
+		return(offset + A*exp(-x/tau) + alpha*x)
 	}
 	
 }
@@ -7336,19 +7376,19 @@ expFunc.par <- function(x, par, increasing)
 {
 	if(length(par)==1)
 	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=1, alpha=0, offset=0, dincreasing=increasing)))
+		return(as.vector(expFunc(x=x, tau=par[1], A=1, alpha=0, offset=0, dincreasing=increasing)))
 	}
 	if(length(par)==2)
 	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=0, offset=0, increasing=increasing)))
+		return(as.vector(expFunc(x=x, tau=par[1], A=par[2], alpha=0, offset=0, increasing=increasing)))
 	}
 	if(length(par)==3)
 	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=0, increasing=increasing)))
+		return(as.vector(expFunc(x=x, tau=par[1], A=par[2], alpha=0, offset=par[3], increasing=increasing)))
 	}
 	else if(length(par)==4)
 	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=par[4], increasing=increasing)))
+		return(as.vector(expFunc(x=x, tau=par[1], A=par[2], alpha=par[3], offset=par[4], increasing=increasing)))
 	}
 }
 
@@ -7358,18 +7398,18 @@ getExpFuncPar <- function(x, y)
 	setorder(duh, y)
 	ylim <- range(y)
 	increasing <- mean(y[1:(round(length(y)/2))]) < mean(y[(round(length(y)/2)):length(y)])
-	initial <- max(y)
+	A <- ylim[2]-ylim[1]
 	if(increasing)
 	{
-		tau <- x[which(y > 0.63*max(y))[1]]
+		tau <- x[which(y > ylim[1] + 0.63*A)[1]]
 	}
 	else
 	{
-		tau <- x[which(y < 0.37*max(y))[1]]
+		tau <- x[which(y < ylim[1] + 0.37*A)[1]]
 	}
 	alpha <- 0
 	offset <- 0
-	return(c(tau=tau, initial=initial, alpha=alpha, offset=offset, increasing=increasing))
+	return(c(tau=tau, A=A, alpha=alpha, offset=offset, increasing=increasing))
 }
 
 getExpFuncError <- function(par, x, y, increasing)
@@ -7388,7 +7428,7 @@ fitExpFunc4 <- function(x, y, ...)
 fitExpFunc3 <- function(x, y, ...)
 {
 	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1:3], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	daFit <- optim(par=par0[c(1,2,4)], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
 	return(daFit$par)
 }
 
