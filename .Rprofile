@@ -3383,6 +3383,10 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 
 readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, times=NULL, time.completeness=0, cellIdString=c('Id'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
+	if(time.completeness <= 0)
+	{
+		time.completeness <- 1
+	}
 	xList <- list()
 	count <- 1;
 	time.col.orig <- time.col
@@ -3507,13 +3511,16 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 						{
 							stop("time.completeness parameter must be > 0 and <= 1 as it represents the minimum fraction of the timelapse for which as cell must have data in order to be kept.")
 						}
-						nTimes <- temp[, list(N=length(unique(get(time.col)))), by=uniques]
-						nTimes <- nTimes[N >= nMin]
-						nTimes[, N:=NULL]
-						temp <- temp[nTimes]
-						if(nrow(temp)==0)
+						if(length(uniques) > 0)
 						{
-							warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
+							nTimes <- temp[, list(N=length(unique(get(time.col)))), by=if(length(uniques)==0){NULL}else{uniques}]
+							nTimes <- nTimes[N >= nMin]
+							nTimes[, N:=NULL]
+							temp <- temp[nTimes]
+							if(nrow(temp)==0)
+							{
+								warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
+							}
 						}
 					}
 					else
