@@ -7244,7 +7244,7 @@ myMAD <- function(x, na.rm=F)
 	# return(ret)
 }
 
-sd.robust <- function(x, na.rm=F)
+sd.robust <- function(x, na.rm=T)
 {
 	if(!any(is.finite(x)))
 	{
@@ -7252,7 +7252,7 @@ sd.robust <- function(x, na.rm=F)
 	}
 	da.mad <- mad(x, na.rm=na.rm, constant=1.4826)
 	da.sd <- sd(x, na.rm=na.rm)
-	da.iqr <- IQR(x)/1.34
+	da.iqr <- IQR(x, na.rm=na.rm)/1.34
 	temp <- c(da.mad, da.sd, da.iqr)
 	if(all(temp == 0))
 	{
@@ -7564,8 +7564,8 @@ getDistributions <- function(x, xcol, ycol='density', by, ...)
 	r <- range(x[[xcol]], finite=T)
 	temp <- copy(x)
 	# temp.s <- temp[, list(sd=myMAD(get(xcol)), iqr=IQR(get(xcol), na.rm=T), N=.N), by=by]
-	temp.s <- temp[, list(bw=bw.nrd0.robust(get(xcol))), by=by]
-	temp.s[, bw:=getDefault(list(...)$adjust, 1)*min(c(sd, iqr), na.rm=T)/(1.34*(N^(-0.2)))]
+	temp.s <- temp[, list(bw=getDefault(list(...)$adjust, 1)*bw.nrd0.robust(get(xcol))), by=by]
+	# temp.s[, bw:=getDefault(list(...)$adjust, 1)*min(c(sd, iqr), na.rm=T)/(1.34*(N^(-0.2)))]
 	bw <- temp.s[, list(bw=median(bw, na.rm=T))]$bw
 	from <- r[1]-getDefault(list(...)$cut, 3)*bw
 	to <- r[2]+getDefault(list(...)$cut, 3)*bw
@@ -7720,7 +7720,7 @@ alignDistributions <- function(x,
 	if(substr(norm.method[1],1,1)=='s')
 	{
 		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) - weighted.median(get(newName), w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
-		x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/sd.robust(get(paste0(col, '.norm')))]
+		x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/sd.robust(get(paste0(col, '.norm')), na.rm=T)]
 	}
 	else
 	{
@@ -7807,4 +7807,7 @@ getFnormThresh <- function(x, p=0.99)
 	return(qfnorm(p, 0, getFnormSD(x)))
 }
 
-
+makeBasicFormula <- function(lhs, rhs)
+{
+	return(as.formula(paste(lhs, '~', paste(rhs, collapse=' + '))))
+}
