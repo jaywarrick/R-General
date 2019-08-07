@@ -3513,7 +3513,7 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 						}
 						if(length(uniques) > 0)
 						{
-							nTimes <- temp[, list(N=length(unique(get(time.col)))), by=if(length(uniques)==0){NULL}else{uniques}]
+							nTimes <- temp[, list(N=length(unique(get(time.col)))), by=c(if(length(uniques)==0){NULL}else{uniques})]
 							nTimes <- nTimes[N >= nMin]
 							nTimes[, N:=NULL]
 							temp <- temp[nTimes]
