@@ -7321,7 +7321,7 @@ get.PE.PC<-function(formula, data, RR=1.5)
 
 expFunc <- function(x, tau, initial, alpha, offset, increasing)
 {
-	if(increasing)
+	if(as.logical(increasing))
 	{
 		return(initial*(1-exp(-x/tau)) + offset + alpha*x)
 	}
@@ -7329,27 +7329,17 @@ expFunc <- function(x, tau, initial, alpha, offset, increasing)
 	{
 		return(offset + initial*exp(-x/tau) + alpha*x)
 	}
-	
 }
 
+# 5 possible parameters
+# tau (exponential constant)
+# initial (initial amplitude)
+# offset (constant offset)
+# alpha (slope of linear contribution)
+# increasing (T if increasing (positive tau) or F if decreasing (negative exponential))
 expFunc.par <- function(x, par, increasing)
 {
-	if(length(par)==1)
-	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=1, alpha=0, offset=0, dincreasing=increasing)))
-	}
-	if(length(par)==2)
-	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=0, offset=0, increasing=increasing)))
-	}
-	if(length(par)==3)
-	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=0, increasing=increasing)))
-	}
-	else if(length(par)==4)
-	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=par[4], increasing=increasing)))
-	}
+     return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), initial=getDefault(par['initial'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
 }
 
 getExpFuncPar <- function(x, y)
@@ -7357,7 +7347,7 @@ getExpFuncPar <- function(x, y)
 	duh <- data.table(x=x, y=y)
 	setorder(duh, y)
 	ylim <- range(y)
-	increasing <- mean(y[1:(round(length(y)/2))]) < mean(y[(round(length(y)/2)):length(y)])
+	increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
 	initial <- max(y)
 	if(increasing)
 	{
@@ -7378,33 +7368,33 @@ getExpFuncError <- function(par, x, y, increasing)
 	return(sum((ypred-y)^2))
 }
 
-fitExpFunc4 <- function(x, y, ...)
+fitExpFunc <- function(x, y, par0, increasing=getExpFuncPar(x,y)['increasing'], ...)
 {
-	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1:4], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	# par0 <- as.vector(merge.lists(as.list(getExpFuncPar(x, y)), as.list(par0)))
+	daFit <- optim(par=par0, fn=getExpFuncError, x=x, y=y, increasing=increasing, ...)
 	return(daFit$par)
 }
 
-fitExpFunc3 <- function(x, y, ...)
-{
-	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1:3], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
-	return(daFit$par)
-}
-
-fitExpFunc2 <- function(x, y, ...)
-{
-	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1:2], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
-	return(daFit$par)
-}
-
-fitExpFunc1 <- function(x, y, ...)
-{
-	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
-	return(daFit$par)
-}
+# fitExpFunc3 <- function(x, y, ...)
+# {
+# 	par0 <- getExpFuncPar(x, y)
+# 	daFit <- optim(par=par0[1:3], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+# 	return(daFit$par)
+# }
+# 
+# fitExpFunc2 <- function(x, y, ...)
+# {
+# 	par0 <- getExpFuncPar(x, y)
+# 	daFit <- optim(par=par0[1:2], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+# 	return(daFit$par)
+# }
+# 
+# fitExpFunc1 <- function(x, y, ...)
+# {
+# 	par0 <- getExpFuncPar(x, y)
+# 	daFit <- optim(par=par0[1], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+# 	return(daFit$par)
+# }
 
 getDistShifts <- function(x, xcol, newcol='shift', by, span=0.5, adj=c(1,1), ...)
 {
