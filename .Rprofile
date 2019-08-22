@@ -679,7 +679,7 @@ assignToClustersN <- function(data, nClusters=2, rndSeed=1234, clusterCol='clust
 	emobj <- simple.init(x, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
 	
 	data[, c(clusterCol):= assign.class(as.matrix(data), ret, return.all = FALSE)$class]
@@ -778,7 +778,7 @@ assignToClusters <- function(data, nClusters=2, starts=NULL, starts.percentile=N
 	}
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
 	
 	# Create a data.frame to return
@@ -866,7 +866,7 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 	emobj <- simple.init(mat, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(mat, emobj, assign.class = TRUE, EMC=control)
 	
 	temp <- copy(data)
