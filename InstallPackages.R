@@ -56,6 +56,8 @@ install.packages('extrafont')
 install.packages('fontcm')
 install.packages('Cairo')
 install.packages('varhandle')
+install.packages('VGAM')
+install.packages('NMOF')
 
 # Enabling bash on Windows for data.table line parsing capabilities...
 # Install Cygwin https://cygwin.com/install.html

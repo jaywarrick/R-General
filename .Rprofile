@@ -679,7 +679,7 @@ assignToClustersN <- function(data, nClusters=2, rndSeed=1234, clusterCol='clust
 	emobj <- simple.init(x, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
 	
 	data[, c(clusterCol):= assign.class(as.matrix(data), ret, return.all = FALSE)$class]
@@ -733,7 +733,7 @@ assignToClustersN <- function(data, nClusters=2, rndSeed=1234, clusterCol='clust
 	# return(list(data=temp2, mu=tempMu2$mu, thresh=thresh, emclusterObj=ret, pi=pi))
 }
 
-assignToClusters <- function(data, nClusters=2, rndSeed=1234)
+assignToClusters <- function(data, nClusters=2, starts=NULL, starts.percentile=NULL, rndSeed=1234)
 {
 	library(EMCluster)
 	set.seed(rndSeed)
@@ -743,19 +743,42 @@ assignToClusters <- function(data, nClusters=2, rndSeed=1234)
 		stop('Data is NULL. Aborting assignToClusters.')
 	}
 	
-	if(length(data[is.finite(data)]) < nClusters)
+	yo <- data[is.finite(data)]
+	x <- data.frame(x=yo)
+	
+	seedPoints <- NULL # in percentile/quantile
+	if(!is.null(starts))
+	{
+		nClusters <- length(starts)
+		if(length(starts) != nClusters)
+		{
+			stop("The parameters 'starts' must be the same length as the value of nClusters. Aborting")
+		}
+		seedPoints <- 1-getPercentilesForValues(yo, vals=starts)
+	}
+	else if(!is.null(starts.percentile))
+	{
+		nClusters <- length(starts.percentile)
+		if(length(starts.percentile) != nClusters)
+		{
+			stop("The parameters 'starts.percentile' must be the same length as the value of nClusters. Aborting")
+		}
+		seedPoints <- 1-starts.percentile
+	}
+	if(length(yo) < nClusters)
 	{
 		stop('The number of data points must be >= the number of desired clusters')
 	}
 	
-	yo <- data[is.finite(data)]
-	x <- data.frame(x=yo)
-	
 	# Get basic cluster results (results are potentially out of order)
 	emobj <- simple.init(x, nclass = nClusters)
+	if(!is.null(seedPoints))
+	{
+		emobj$pi <- seedPoints
+	}
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
 	
 	# Create a data.frame to return
@@ -843,7 +866,7 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 	emobj <- simple.init(mat, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(mat, emobj, assign.class = TRUE, EMC=control)
 	
 	temp <- copy(data)
@@ -1387,6 +1410,10 @@ colorizeBlueToRed <- function(x, s=0.7, l=0.5, a=1)
 #' Using -1 and 1 make the color black or white, respectively
 changeLightness <- function(col, change=0)
 {
+	if(length(col) == 1 && length(change) > 1)
+	{
+		col <- rep(col, length(change))
+	}
 	# The value of the change should be between [-1,1].
 	# Negative values darken while positive values lighten
 	# Using -1 and 1 make the color black or white, respectively
@@ -2010,7 +2037,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			temp[, grp:=as.numeric(factor(grp, levels=my.sample(1:max(grp), min(sample.size, max(grp)), seed=sample.seed)))]
 			setorderv(temp, c('grp', by))
 		}
-		# Print this out to make sure the legeng matches when doing sampling.
+		# Print this out to make sure the legend matches when doing sampling.
 		#print(unique(temp$cId))
 		
 		# Plot
@@ -2031,13 +2058,33 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	}
 	else if(type[1] == 'p' || type[1] == 'c')
 	{
-		temp <- data[, .SD[my.sample(1:.N, min(.N,sample.size), seed=sample.seed)], by=line.color.by]
+		temp <- copy(data)
+		temp[, grp:=.GRP, by=by]
+		temp <- temp[grp %in% my.sample(1:max(grp), min(sample.size, max(grp)), seed=sample.seed)]
+		# Get sample
 		if(randomize)
 		{
-			temp <- temp[sample(.N,.N)]
+			temp[, grp:=as.numeric(factor(grp, levels=my.sample(1:max(grp), min(sample.size, max(grp)), seed=sample.seed)))]
+			setorderv(temp, c('grp', by))
 		}
 		
-		plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+		# This was the old way of sampling and randomizing
+		# temp <- data[, .SD[my.sample(1:.N, min(.N,sample.size), seed=sample.seed)], by=line.color.by]
+		# if(randomize)
+		# {
+		# 	temp <- temp[sample(.N,.N)]
+		# }
+		
+		if(type[1] == 'c' || getDefault(legend.args$pch, 21) >= 21)
+		{
+			# Then set color to be the background color of the point
+			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+		}
+		else
+		{
+			# Then use the col arg to set the color of the point
+			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+		}
 		
 		# # data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
 		# if(!is.null(errcol))
@@ -2242,9 +2289,16 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		if(type[1] == 'p' || type[1] == 'c')
 		{
 			legend.args$legend <- final.legend.colors$names
-			legend.args$col <- getDefault(pch.outline, rgb(0,0,0,0))
-			legend.args$pt.bg <- final.legend.colors$my.color
 			legend.args$pch <- getDefault(legend.args$pch, 21)
+			if(type[1] == 'c' || legend.args$pch >= 21)
+			{
+				legend.args$col <- getDefault(pch.outline, rgb(0,0,0,0))
+				legend.args$pt.bg <- final.legend.colors$my.color
+			}
+			else
+			{
+				legend.args$col <- final.legend.colors$my.color
+			}
 			do.call(legend, legend.args)
 		}
 		else
@@ -3329,6 +3383,10 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 
 readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, times=NULL, time.completeness=0, cellIdString=c('Id'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
+	if(time.completeness <= 0)
+	{
+		time.completeness <- 1
+	}
 	xList <- list()
 	count <- 1;
 	time.col.orig <- time.col
@@ -3453,13 +3511,16 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 						{
 							stop("time.completeness parameter must be > 0 and <= 1 as it represents the minimum fraction of the timelapse for which as cell must have data in order to be kept.")
 						}
-						nTimes <- temp[, list(N=length(unique(get(time.col)))), by=uniques]
-						nTimes <- nTimes[N >= nMin]
-						nTimes[, N:=NULL]
-						temp <- temp[nTimes]
-						if(nrow(temp)==0)
+						if(length(uniques) > 0)
 						{
-							warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
+							nTimes <- temp[, list(N=length(unique(get(time.col)))), by=c(if(length(uniques)==0){NULL}else{uniques})]
+							nTimes <- nTimes[N >= nMin]
+							nTimes[, N:=NULL]
+							temp <- temp[nTimes]
+							if(nrow(temp)==0)
+							{
+								warning("The data table did not contain data that had a sufficient number of timepoints. Warning.")
+							}
 						}
 					}
 					else
@@ -5104,6 +5165,46 @@ drawLogitAxis <- function(axisNum=1, base=10, n.minor.ticks=8, las=0, ...)
 	axis(axisNum, at=logit.transform(seq(0.2,0.8,0.1), base=base), tcl=par("tcl")*0.5, labels=FALSE)
 }
 
+logticks <- function (ax = 1, n.minor = 9, t.lims, t.ratio = 0.5, major.ticks = NULL, 
+		base = c("ten", "ln", "two"), draw.labels=T, ...) 
+{
+	lims <- par("usr")
+	if (ax %in% c(1, 3)) 
+		lims <- lims[1:2]
+	else lims[3:4]
+	if (is.null(major.ticks)) 
+		major.ticks <- unique(as.integer(pretty(lims, n = 5)))
+	if (missing(t.lims)) 
+		t.lims <- range(major.ticks)
+	ml <- t.lims[1]
+	mu <- t.lims[2]
+	major.ticks <- major.ticks[major.ticks >= ml & major.ticks <= 
+						  	mu]
+	base <- match.arg(base)
+	LOG <- switch(base, ten = log10, ln = log, two = log2)
+	base <- switch(base, two = 2, ln = "e", ten = 10)
+	if(draw.labels)
+	{
+		tick.labels <- sapply(major.ticks, function(i) as.expression(bquote(.(base)^.(i))))
+		axis(ax, at = major.ticks, labels = tick.labels, ...)
+	}
+	else
+	{
+		axis(ax, at = major.ticks, labels = rep('', length(major.ticks)), ...)
+	}
+	if (base == "e") 
+		base <- exp(1)
+	n <- n.minor + 2
+	minors <- LOG(pretty(base^major.ticks[1:2], n)) - major.ticks[1]
+	minors <- minors[-c(1, n)]
+	minor.ticks <- c(outer(minors, major.ticks, `+`))
+	minor.ticks.loc <- minor.ticks[minor.ticks > ml & minor.ticks < 
+							 	mu]
+	axis(ax, at = minor.ticks.loc, tcl = par("tcl") * t.ratio, 
+		labels = FALSE)
+	return(invisible(base))
+}
+
 drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, overwrite.log.base=NULL, ...)
 {
 	if(is.null(base))
@@ -5755,6 +5856,21 @@ getDefault <- function(x, default, test=is.null)
 	{
 		return(x)
 	}
+}
+
+getPercentilesForValues <- function(x, vals, finite=T, na.rm=T)
+{
+	if(finite)
+	{
+		x <- x[is.finite(x)]
+	}
+	if(na.rm)
+	{
+		x <- x[!is.na(x)]
+	}
+	indices <- sapply(vals, FUN=function(val, x){which.min(abs(x-val))[1]}, x)
+	percentiles <- rank(x)/length(x)
+	return(percentiles[indices])
 }
 
 getPercentileValues <- function(x, levels=c(0,1), finite=T, na.rm=T)
@@ -7205,13 +7321,44 @@ fitDist <- function(x)
 
 myMAD <- function(x, na.rm=F)
 {
-	ret <- mad(x, na.rm=na.rm, constant=1)
+	return(sd.robust(x, na.rm=na.rm))
+	# if(!any(is.finite(x)))
+	# {
+	# 	stop('No finite values to use for calculation. Aborting')
+	# }
+	# ret <- mad(x, na.rm=na.rm, constant=constant)
+	# ret[ret==0] <- sd(x)/(1.4826/constant)
+	# return(ret)
+}
+
+sd.robust <- function(x, na.rm=T)
+{
 	if(!any(is.finite(x)))
 	{
 		stop('No finite values to use for calculation. Aborting')
 	}
-	ret[ret==0] <- sd(x)/1.4826
+	da.mad <- mad(x, na.rm=na.rm, constant=1.4826)
+	da.sd <- sd(x, na.rm=na.rm)
+	da.iqr <- IQR(x, na.rm=na.rm)/1.34
+	temp <- c(da.mad, da.sd, da.iqr)
+	if(all(temp == 0))
+	{
+		return(0)
+	}
+	ret <- min(temp[is.finite(temp)], na.rm=T)
 	return(ret)
+}
+
+bw.nrd0.robust <- function(x)
+{
+	if(length(x[is.finite(x)]) < 2)
+	{
+		return(NA)
+	}
+	else
+	{
+		return(bw.nrd0(x[is.finite(x)]))
+	}
 }
 
 cutForMids <- function(x, n, include.lowest=F, ...)
@@ -7395,37 +7542,27 @@ get.PE.PC<-function(formula, data, RR=1.5)
 	return(res)
 }
 
-expFunc <- function(x, tau, initial, alpha, offset, increasing)
+expFunc <- function(x, tau, A, alpha, offset, increasing)
 {
-	if(increasing)
+	if(as.logical(increasing))
 	{
-		return(initial*(1-exp(-x/tau)) + offset + alpha*x)
+		return(A*(1-exp(-x/tau)) + offset + alpha*x)
 	}
 	else
 	{
-		return(offset + initial*exp(-x/tau) + alpha*x)
+		return(offset + A*exp(-x/tau) + alpha*x)
 	}
-	
 }
 
+# 5 possible parameters
+# tau (exponential constant)
+# initial (initial amplitude)
+# offset (constant offset)
+# alpha (slope of linear contribution)
+# increasing (T if increasing (positive tau) or F if decreasing (negative exponential))
 expFunc.par <- function(x, par, increasing)
 {
-	if(length(par)==1)
-	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=1, alpha=0, offset=0, dincreasing=increasing)))
-	}
-	if(length(par)==2)
-	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=0, offset=0, increasing=increasing)))
-	}
-	if(length(par)==3)
-	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=0, increasing=increasing)))
-	}
-	else if(length(par)==4)
-	{
-		return(as.vector(expFunc(x=x, tau=par[1], initial=par[2], alpha=par[3], offset=par[4], increasing=increasing)))
-	}
+     return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), initial=getDefault(par['initial'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
 }
 
 getExpFuncPar <- function(x, y)
@@ -7433,19 +7570,20 @@ getExpFuncPar <- function(x, y)
 	duh <- data.table(x=x, y=y)
 	setorder(duh, y)
 	ylim <- range(y)
-	increasing <- mean(y[1:(round(length(y)/2))]) < mean(y[(round(length(y)/2)):length(y)])
+	increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
 	initial <- max(y)
+
 	if(increasing)
 	{
-		tau <- x[which(y > 0.63*max(y))[1]]
+		tau <- x[which(y > ylim[1] + 0.63*A)[1]]
 	}
 	else
 	{
-		tau <- x[which(y < 0.37*max(y))[1]]
+		tau <- x[which(y < ylim[1] + 0.37*A)[1]]
 	}
 	alpha <- 0
 	offset <- 0
-	return(c(tau=tau, initial=initial, alpha=alpha, offset=offset, increasing=increasing))
+	return(c(tau=tau, A=A, alpha=alpha, offset=offset, increasing=increasing))
 }
 
 getExpFuncError <- function(par, x, y, increasing)
@@ -7454,38 +7592,38 @@ getExpFuncError <- function(par, x, y, increasing)
 	return(sum((ypred-y)^2))
 }
 
-fitExpFunc4 <- function(x, y, ...)
+fitExpFunc <- function(x, y, par0, increasing=getExpFuncPar(x,y)['increasing'], ...)
 {
-	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1:4], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+	# par0 <- as.vector(merge.lists(as.list(getExpFuncPar(x, y)), as.list(par0)))
+	daFit <- optim(par=par0, fn=getExpFuncError, x=x, y=y, increasing=increasing, ...)
 	return(daFit$par)
 }
 
-fitExpFunc3 <- function(x, y, ...)
-{
-	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1:3], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
-	return(daFit$par)
-}
+# fitExpFunc3 <- function(x, y, ...)
+# {
+# 	par0 <- getExpFuncPar(x, y)
+# 	daFit <- optim(par=par0[1:3], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+# 	return(daFit$par)
+# }
+# 
+# fitExpFunc2 <- function(x, y, ...)
+# {
+# 	par0 <- getExpFuncPar(x, y)
+# 	daFit <- optim(par=par0[1:2], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+# 	return(daFit$par)
+# }
+# 
+# fitExpFunc1 <- function(x, y, ...)
+# {
+# 	par0 <- getExpFuncPar(x, y)
+# 	daFit <- optim(par=par0[1], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
+# 	return(daFit$par)
+# }
 
-fitExpFunc2 <- function(x, y, ...)
+getDistShifts <- function(x, xcol, data.filter.fun=function(x){T}, newcol='shift', by, span=0.5, adj=c(1,1), bias=0, ...)
 {
-	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1:2], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
-	return(daFit$par)
-}
-
-fitExpFunc1 <- function(x, y, ...)
-{
-	par0 <- getExpFuncPar(x, y)
-	daFit <- optim(par=par0[1], fn=getExpFuncError, x=x, y=y, increasing=par0[5], ...)
-	return(daFit$par)
-}
-
-getDistShifts <- function(x, xcol, newcol='shift', by, span=0.5, adj=c(1,1), ...)
-{
-	x.d <- getDistributions(x, xcol=xcol, ycol='density', by=by, ...)
-	shifts <- calculateShifts(x.d, xcol=xcol, ycol='density', by=by, adj=adj, span=span)
+	x.d <- getDistributions(x[data.filter.fun(x)], xcol=xcol, ycol='density', by=by, ...)
+	shifts <- calculateShifts(x.d, xcol=xcol, ycol='density', by=by, adj=adj, span=span, bias=bias)
 	x.d[, c(paste0(xcol, '.adj')):=get(xcol)+shifts[.BY]$adj, by=by][]
 	x[, c(newcol):=shifts[.BY]$adj, by=by][]
 	return(list(x.d=x.d, shifts=shifts))
@@ -7503,16 +7641,19 @@ getDistributions <- function(x, xcol, ycol='density', by, ...)
 	}
 	r <- range(x[[xcol]], finite=T)
 	temp <- copy(x)
-	temp.s <- temp[, list(sd=myMAD(get(xcol)), iqr=IQR(get(xcol), na.rm=T), N=.N), by=by]
-	temp.s[, bw:=getDefault(list(...)$adjust, 1)*min(c(sd, iqr), na.rm=T)/(1.34*(N^(-0.2)))]
+	# temp.s <- temp[, list(sd=myMAD(get(xcol)), iqr=IQR(get(xcol), na.rm=T), N=.N), by=by]
+	temp.s <- temp[, list(bw=getDefault(list(...)$adjust, 1)*bw.nrd0.robust(get(xcol))), by=by]
+	# temp.s[, bw:=getDefault(list(...)$adjust, 1)*min(c(sd, iqr), na.rm=T)/(1.34*(N^(-0.2)))]
 	bw <- temp.s[, list(bw=median(bw, na.rm=T))]$bw
 	from <- r[1]-getDefault(list(...)$cut, 3)*bw
 	to <- r[2]+getDefault(list(...)$cut, 3)*bw
 	ret <- x[is.finite(get(xcol)), getDensityXY(.SD, xcol=xcol, ycol=ycol, from=from, to=to), by=by]
+	ret[, cpd:=cumsum(density), by=by]
+	ret[, cpd:=(cpd-min(cpd))/(max(cpd)-min(cpd)), by=by]
 	return(ret)
 }
 
-calculateShifts <- function(x, xcol, ycol, by, adj=c(1,1), span=0.5)
+calculateShifts <- function(x, xcol, ycol, by, adj=c(1,1), span=0.5, bias=0)
 {
 	library(NMOF)
 	setorderv(x, c(xcol, by))
@@ -7533,60 +7674,151 @@ calculateShifts <- function(x, xcol, ycol, by, adj=c(1,1), span=0.5)
 	{
 		test <- x[grps[row]]
 		ref <- x[grps[row+1]]
-		ret[row, shift:=gridSearch(fun=getDistErr, levels=list(shift=c(seq(-r.x, 0, dx/5), 0, seq(dx/5, r.x, dx/5))), test.x=test[[xcol]], test.y=test[[ycol]], ref.x=ref[[xcol]], ref.y=ref[[ycol]], adj=adj)$minlevels[1]]	
+		ret[row, shift:=gridSearch(fun=getDistErr, levels=list(shift=c(seq(-r.x, 0, dx/5), 0, seq(dx/5, r.x, dx/5))), test.x=test[[xcol]], test.y=test[[ycol]], ref.x=ref[[xcol]], ref.y=ref[[ycol]], adj=adj, bias=bias)$minlevels[1]]	
 	}
 	ret[, adj:=rev(cumsum(rev(shift)))]
 	return(ret[])
 }
 
-getDistErr <- function(shift, test.x, test.y, ref.x, ref.y, adj=c(1,1))
+getDistErr <- function(shift, test.x, test.y, ref.x, ref.y, adj=c(1,1), bias=0)
 {
+	#' Use the bias to preferentially align the left (bias < 0) or right (bias > 0) side of the distributions over time.
+	#' Use bias = 0 (default) to align without bias.
 	dx <- median(getDeltas(ref.x))
 	y.max <- max(test.y, na.rm=T)
 	l <- length(test.x)
 	shift.i <- round(shift[1]/dx)
 	rel.y <- test.y[max(c(1,-(shift.i-1))):min(l,l-shift.i)]-ref.y[max(c(1,shift.i+1)):min(l,l+shift.i)]
-	err <- adj[1]*(shift[1]/dx/l)^2 + adj[2]*sum((rel.y/y.max)^2)/l
+	if(bias == 0)
+	{
+		w <- rep(1, length(rel.y))
+	}
+	else
+	{
+		# w <- cumsum(test.y[max(c(1,-(shift.i-1))):min(l,l-shift.i)]) + cumsum(ref.y[max(c(1,shift.i+1)):min(l,l+shift.i)])
+		w <- cumsum(ref.y[max(c(1,shift.i+1)):min(l,l+shift.i)])
+		w <- (w-min(w))/(max(w)-min(w))
+		if(bias < 0)
+		{
+			w <- 1-w
+		}
+	}
+	err <- adj[1]*(shift[1]/dx/l)^2 + adj[2]*sum((w*(rel.y/y.max))^2)/length(ref.y)
 	return(err)
 }
 
 #' Standardize a column of data by aligning (brute force gridSearch of offset) and scaling (subtract median, divide by mad) distributions.
-normalizeDistributions <- function(x,
-							col,
-							by,
-							plot.by,
-							plot.filter.fun=NULL,
-							adj=c(1,1),
-							two.pass=T,
-							xlim.pre=c(-5,20),
-							xlim.post=c(-5,5))
+alignDistributions <- function(x,
+						 col,
+						 align.by,
+						 line.color.by,
+						 plot.by,
+						 norm.by,
+						 data.filter.fun,
+						 align.filter.fun,
+						 plot.filter.fun,
+						 adj=c(1,1),
+						 two.pass=T,
+						 bias=0,
+						 xlim.percentiles=c(0.01,0.99),
+						 norm.method=c('subtraction','division'))
 {
 	# Params:
 	# col = col to normalize
-	# by = do normalization for each group specified in 'by'
-	# plot.by = plot pre- and post-normalization distributions using 'by' and 'plot.by' groupings
-	# plot.filter.fun = function that will be passed 'x' and returns which rows should be plotted (e.g., x$Time < 5)
+	# align.by = do alignment for each group specified in 'aling.by'
+	# line.color.by = on each plot, a distribution will be shown for each line.color.by grouping
+	# plot.by = plot pre- and post-normalization distributions using 'align.by' and 'plot.by' groupings
+	# norm.by = After alignments are done for each align.by grouping, the data will be normalized for each norm.by grouping (see norm.method)
+	# data.filter.fun = function that will be passed 'x' and returns which rows should be used to calculate alignments (e.g., x$Nuc > 0)
+	# align.filter.fun = function that will be passed 'x' and returns which data should be shifted by the calculated alignments (e.g., x$Tx %in% c('Veh','DrugA'))
+	# plot.filter.fun = function that will be passed 'x' and returns which rows should be plotted (e.g., x$Time > 5 & x$Time < 10)
 	# adj = the amount of weight to be given to horizontal shifts and vertical errors when computing error betweeen distributions
+	# two.pass = runs the algorithm twice to minimize influence of initial shift, refining alignment to 1/5 of the point spacing in the distribution curve
+	# bias = numeric, align the left (bias < 0) or right (bias > 0) side of the distributions over time. Use bias = 0 (default) to align without bias.
+	# x.lim.percentiles = default c(0.01,0.99), in terms of area under the density distribution curve (i.e., cumulative probability distribution values between 0 and 1), when should plotting start and end
+	# norm.method = how should the data be normalized. If 'subtraction', then x = (x-median) for each norm.by grp and divided by global MAD. If 'division', then x = (x/median) for each norm.by grouping.
+	
+	# Gather parameters
+	x[, temp.grp:=1]
+	align.by <- getDefault(align.by, 'temp.grp')
+	line.color.by <- getDefault(line.color.by, 'temp.grp')
+	plot.by <- getDefault(plot.by, 'temp.grp')
+	norm.by <- getDefault(norm.by, 'temp.grp')
+	plot.by <- plot.by[!(plot.by %in% line.color.by)]
+	align.filter.fun <- getDefault(align.filter.fun, function(x){return(T)})
+	data.filter.fun <- getDefault(data.filter.fun, function(x){return(T)})
 	plot.filter.fun <- getDefault(plot.filter.fun, function(x){return(T)})
-	x.d <- getDistributions(x, xcol=col, by=c(by,plot.by))
-	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.pre)
-	l(x.d, shifts) %=% getDistShifts(x, xcol=col, newcol='adj1', by=by, span=0.5, adj=adj) # Adds the 'adj' column of shift amounts needed to align distributions
-	x[, c(paste0(col, '.adj1')):=get(col) + adj1]
-	if(two.pass)
+	
+	# Do Pre-Plotting
+	x.d <- getDistributions(x, xcol=col, by=c(line.color.by,plot.by))
+	xlim <- range(x.d[cpd > xlim.percentiles[1] & cpd < xlim.percentiles[2]][[col]])
+	if(length(by) == 1)
 	{
-		l(x.d, shifts) %=% getDistShifts(x, xcol=paste0(col, '.adj1'), newcol='adj2', by=by, span=0.5, adj=adj) # Adds the 'adj' column of shift amounts needed to align distributions
-		x[, c(paste0(col, '.adj1.adj2')):=get(paste0(col, '.adj1')) + adj2]
-		x[is.finite(get(paste0(col, '.adj1.adj2'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1.adj2')) - median(get(paste0(col, '.adj1.adj2'))))/myMAD(get(paste0(col, '.adj1.adj2')))]
-		x[, c('Nuc.adj1','Nuc.adj1.adj2','adj1','adj2'):=NULL]
+		data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
 	}
 	else
 	{
-		x[is.finite(get(paste0(col, '.adj1'))), c(paste0(col, '.norm')):=(get(paste0(col, '.adj1')) - median(get(paste0(col, '.adj1'))))/myMAD(get(paste0(col, '.adj1')))]
-		x[, c('Nuc.adj1','adj1'):=NULL]
+		data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
 	}
 	
-	x.d <- getDistributions(x, xcol=paste0(col, '.norm'), by=c(by, plot.by))
-	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=by, plot.by=plot.by, xlim=xlim.post)
+	# Do Alignments
+	if(align.by != 'temp.grp')
+	{
+		l(x.d, shifts) %=% getDistShifts(x, xcol=col, data.filter.fun=data.filter.fun, newcol='adj1', by=c(align.by), span=0.5, adj=adj, bias=bias) # Adds the 'adj' column of shift amounts needed to align distributions
+		x[align.filter.fun(x), c(paste0(col, '.adj1')):=get(col) + adj1]
+		x[!align.filter.fun(x), c(paste0(col, '.adj1')):=get(col) + 0]
+		
+		newName <- paste0(col, '.adj1')
+		if(two.pass)
+		{
+			l(x.d, shifts) %=% getDistShifts(x, xcol=paste0(col, '.adj1'), data.filter.fun=data.filter.fun, newcol='adj2', by=c(align.by), span=0.5, adj=adj, bias=bias) # Adds the 'adj' column of shift amounts needed to align distributions
+			x[align.filter.fun(x), c(paste0(col, '.adj1.adj2')):=get(paste0(col, '.adj1')) + adj2]
+			x[!align.filter.fun(x), c(paste0(col, '.adj1.adj2')):=get(paste0(col, '.adj1')) + 0]
+			
+			newName <- paste0(col, '.adj1.adj2')
+		}
+	}
+	else
+	{
+		newName <- paste0(col, '.adj1')
+		x[, c(paste0(col, '.adj1')):=get(col), by=c(align.by)]
+	}
+	
+	# Do Normalization
+	x.d <- getDistributions(x[data.filter.fun(x)], xcol=newName, by=norm.by)
+	x.d[, w:=cumsum(density), by=norm.by]
+	x.d[, w:=(w-min(w))/(max(w)-min(w)), by=norm.by]
+	if(bias < 0)
+	{
+		x.d[, w:=1-w]
+	}
+	x.d[, temp.grp:=1]
+	setkeyv(x.d, c(norm.by))
+	x[, .w:=approx(x=getDefault(x.d[.BY][[newName]], seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2), test=function(x){length(x) == 1 && is.na(x[1])}), y=getDefault(x.d[.BY][['w']], rep(1, 2), test=function(x){length(x) == 1 && is.na(x[1])}), xout=get(newName), yleft=if(bias<0){1}else{0}, yright=if(bias<0){0}else{1})$y, by=c(norm.by)]
+	if(substr(norm.method[1],1,1)=='s')
+	{
+		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) - weighted.median(get(newName), w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
+		x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/sd.robust(get(paste0(col, '.norm')), na.rm=T)]
+	}
+	else
+	{
+		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) / weighted.median(get(newName), w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
+		# x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/sd.robust(get(paste0(col, '.norm')))]
+	}
+	
+	# Do Post-Plotting
+	x.d <- getDistributions(x, xcol=paste0(col, '.norm'), by=c(line.color.by,plot.by))
+	suppressWarnings(x[, c('Nuc.adj1','Nuc.adj1.adj2','adj1','adj2','.w','temp.grp'):=NULL])
+	xlim <- range(x.d[cpd > xlim.percentiles[1] & cpd < xlim.percentiles[2]][[paste0(col, '.norm')]])
+	if(length(align.by)==1)
+	{
+		data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
+	}
+	else
+	{
+		data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
+	}
+	
 }
 
 getFirstIndexOfCharInString <- function(x, char='\\.')
@@ -7607,4 +7839,53 @@ getFirstIndexOfCharInString <- function(x, char='\\.')
 	return(sapply(index, extract))
 }
 
+my.sample <- function(x, size, seed=sample(1:1000,1), replace=F, prob=NULL)
+{
+	set.seed(seed)
+	return(sample(x=x, size=min(size, length(x)), replace=replace, prob=prob))
+}
 
+my.sample.int <- function(n, size, seed=sample(1:1000,1), replace=F, prob=NULL, ...)
+{
+	set.seed(seed)
+	return(sample.int(n=n, size=min(size, n), replace=replace, prob=prob, ...))
+}
+
+dfnorm <- function(...)
+{
+	library(VGAM)
+	return(dfoldnorm(...))
+}
+
+pfnorm <- function(...)
+{
+	library(VGAM)
+	return(pfoldnorm(...))
+}
+
+qfnorm <- function(...)
+{
+	library(VGAM)
+	return(qfoldnorm(...))
+}
+
+rfnorm <- function(...)
+{
+	library(VGAM)
+	return(rfoldnorm(...))
+}
+
+getFnormSD <- function(x)
+{
+	return(median(x, na.rm=T)/0.6744897)
+}
+
+getFnormThresh <- function(x, p=0.99)
+{
+	return(qfnorm(p, 0, getFnormSD(x)))
+}
+
+makeBasicFormula <- function(lhs, rhs)
+{
+	return(as.formula(paste(lhs, '~', paste(rhs, collapse=' + '))))
+}
