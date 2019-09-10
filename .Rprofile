@@ -6173,7 +6173,7 @@ roll.gaussian <- function(x, win.width=2, ...)
 }
 
 #'One sd is equal to the win.dist/2 and extends +/- 5 sigma
-roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fun=c('mean','median'), finite=T, kernel=0)
+roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fun=c('mean','median'), finite=T, kernel=0, power=2)
 {
 	if(finite)
 	{
@@ -6224,21 +6224,13 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 			}
 			if(kernel==1)
 			{
-				x.w <- dnorm.approx0(x, mean=xret[n], sd=win.dist/2)
-				yret[n1] <- sum(y*x.w)/sum(x.w)
-				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
-				weighted.n[n1] <- sum(x.w)/dnorm.approx0(0, sd=win.dist/2)
-				n1 <- n1 + 1
-			}
-			if(kernel==2)
-			{
 				x.w <- dnorm.approx1(x, mean=xret[n], sd=win.dist/2)
 				yret[n1] <- sum(y*x.w)/sum(x.w)
 				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
 				weighted.n[n1] <- sum(x.w)/dnorm.approx1(0, sd=win.dist/2)
 				n1 <- n1 + 1
 			}
-			if(kernel==3)
+			if(kernel==2)
 			{
 				x.w <- dnorm.approx2(x, mean=xret[n], sd=win.dist/2)
 				yret[n1] <- sum(y*x.w)/sum(x.w)
@@ -6246,7 +6238,7 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 				weighted.n[n1] <- sum(x.w)/dnorm.approx2(0, sd=win.dist/2)
 				n1 <- n1 + 1
 			}
-			if(kernel==4)
+			if(kernel==3)
 			{
 				x.w <- dnorm.approx3(x, mean=xret[n], sd=win.dist/2)
 				yret[n1] <- sum(y*x.w)/sum(x.w)
@@ -6254,7 +6246,7 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 				weighted.n[n1] <- sum(x.w)/dnorm.approx3(0, sd=win.dist/2)
 				n1 <- n1 + 1
 			}
-			if(kernel==5)
+			if(kernel==4)
 			{
 				x.w <- dnorm.approx4(x, mean=xret[n], sd=win.dist/2)
 				yret[n1] <- sum(y*x.w)/sum(x.w)
@@ -6262,7 +6254,16 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 				weighted.n[n1] <- sum(x.w)/dnorm.approx4(0, sd=win.dist/2)
 				n1 <- n1 + 1
 			}
+			if(kernel==5)
+			{
+				x.w <- dnorm.approx5(x, mean=xret[n], sd=win.dist/2, power=power)
+				yret[n1] <- sum(y*x.w)/sum(x.w)
+				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+				weighted.n[n1] <- sum(x.w)/dnorm.approx5(0, sd=win.dist/2, power=power)
+				n1 <- n1 + 1
+			}
 		}
+		
 		return(list(x=xret, y=yret, y.sd=sqrt(y.sdret), N=weighted.n, y.se=sqrt(y.sdret)/sqrt(weighted.n)))
 	}
 	
@@ -6271,25 +6272,25 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 dnorm.approx1 <- function(x, mean=0, sd=1)
 {
 	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
-	ret <- exp(-1*( (x-mean)^2/sd^2 - (x-mean)^2/sd^2 * (1/(1+30*(sd^2)/(x-mean)^2))))
-	return(ret)
-}
-
-dnorm.approx0 <- function(x, mean=0, sd=1)
-{
-	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
-	ret <- exp(-1*( (x-mean)^2/sd^2))
+	ret <- exp(-0.5*(x-mean)^2 / (sd^2))
 	return(ret)
 }
 
 dnorm.approx2 <- function(x, mean=0, sd=1)
 {
 	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
-	ret <- 1e-5 + exp(-1*( (x-mean)^2/sd^2))
+	ret <- exp(-0.5*( (x-mean)^2/sd^2 - (x-mean)^2/sd^2 * (1/(1+30*(sd^2)/(x-mean)^2))))
 	return(ret)
 }
 
 dnorm.approx3 <- function(x, mean=0, sd=1)
+{
+	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+	ret <- 1e-5 + exp(-0.5*( (x-mean)^2/sd^2))
+	return(ret)
+}
+
+dnorm.approx4 <- function(x, mean=0, sd=1)
 {
 	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
 	ret <- rep(1e-12, length(x))
@@ -6297,10 +6298,10 @@ dnorm.approx3 <- function(x, mean=0, sd=1)
 	return(ret)
 }
 
-dnorm.approx4 <- function(x, mean=0, sd=1)
+dnorm.approx5 <- function(x, mean=0, sd=1, power=2)
 {
 	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
-	ret <- 1/(1+abs((x-mean)/sd)^2)
+	ret <- 1/(1+abs((x-mean)/sd)^power)
 	return(ret)
 }
 
