@@ -7476,13 +7476,13 @@ expFunc <- function(x, tau, A, alpha, offset, increasing)
 
 # 5 possible parameters
 # tau (exponential constant)
-# initial (initial amplitude)
+# A (initial amplitude)
 # offset (constant offset)
 # alpha (slope of linear contribution)
 # increasing (T if increasing (positive tau) or F if decreasing (negative exponential))
 expFunc.par <- function(x, par, increasing)
 {
-     return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), initial=getDefault(par['initial'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
+     return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), A=getDefault(par['A'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
 }
 
 getExpFuncPar <- function(x, y)
@@ -7491,7 +7491,7 @@ getExpFuncPar <- function(x, y)
 	setorder(duh, y)
 	ylim <- range(y)
 	increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
-	initial <- max(y)
+	A <- ylim[2]-ylim[1]
 
 	if(increasing)
 	{
@@ -7641,7 +7641,8 @@ alignDistributions <- function(x,
 						 two.pass=T,
 						 bias=0,
 						 xlim.percentiles=c(0.01,0.99),
-						 norm.method=c('subtraction','division'))
+						 norm.method=c('subtraction','division'),
+						 norm.percentile=0.5)
 {
 	# Params:
 	# col = col to normalize
@@ -7717,12 +7718,12 @@ alignDistributions <- function(x,
 	x[, .w:=approx(x=getDefault(x.d[.BY][[newName]], seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2), test=function(x){length(x) == 1 && is.na(x[1])}), y=getDefault(x.d[.BY][['w']], rep(1, 2), test=function(x){length(x) == 1 && is.na(x[1])}), xout=get(newName), yleft=if(bias<0){1}else{0}, yright=if(bias<0){0}else{1})$y, by=c(norm.by)]
 	if(substr(norm.method[1],1,1)=='s')
 	{
-		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) - weighted.median(get(newName), w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
+		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) - weighted.percentile(get(newName), percentile=norm.percentile, w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
 		x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/sd.robust(get(paste0(col, '.norm')), na.rm=T)]
 	}
 	else
 	{
-		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) / weighted.median(get(newName), w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
+		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) / weighted.percentile(get(newName), percentile=norm.percentile, w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
 		# x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/sd.robust(get(paste0(col, '.norm')))]
 	}
 	
@@ -7808,4 +7809,9 @@ getFnormThresh <- function(x, p=0.99)
 makeBasicFormula <- function(lhs, rhs)
 {
 	return(as.formula(paste(lhs, '~', paste(rhs, collapse=' + '))))
+}
+
+weighted.percentile <- function (x, w, percentile=0.5, na.rm = TRUE) 
+{
+  unname(weighted.quantile(x, probs = percentile, w = w, na.rm = na.rm))
 }
