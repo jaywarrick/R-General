@@ -938,8 +938,8 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 #'
 #' @param dt - the table with the data
 #' @param y.column - name of the columne with the y-values you would like to plot
-#' @param color.column - name of the column that should be associated with different bar colors
-#' @param group.column - name of the column that should be associated with different groups
+#' @param color.columns - names of the columns that should be associated with different bar colors
+#' @param group.columns - names of the columns that should be associated with different groups
 #' @param error.upper.column - name of the column with the magnitudes of the upper error bars (use NULL to avoid plotting, default)
 #' @param error.lower.column - name of the column with the magnitudes of the lower error bars (default is error.upper.Column, use NULL to avoid plotting)
 #' @param main - title for the plot
@@ -957,11 +957,11 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 #' @param ... - additional arguments that are passed to the barplot function (see ?barplot)
 #'
 #' @export
-bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.column=NULL, error.lower.column=error.upper.column,
+bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.column=NULL, error.lower.column=error.upper.column,
 			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, alpha=0.4, group.names=NULL, color.colors=NULL, rotate.x.labels=F, rotate.y.labels=F, plot.border=T,
 			 error.bar.args=list(length=0.1),
 			 legend.plot=TRUE, legend.args=list(),
-			 par.args=list(mar=c(4.5,4.5,2,2)), use.pastels=T, ...)
+			 par.args=list(mar=c(4.5,4.5,2,2)), use.pastels=T, sep=':', ...)
 {
 	# Save default margins
 	# default.mar <- par('mar')
@@ -973,13 +973,21 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	
 	# Detect whether or not upper and lower error bars will be plotted
 	has.upper <- FALSE
-	if(!is.null(error.upper.column) && error.upper.column %in% names(dt))
+	if(!is.null(error.upper.column))
 	{
+	     if(!(error.upper.column %in% names(dt)))
+	     {
+	          stop('Specified error.upper.column does not exist in table. Aborting.')
+	     }
 		has.upper <- TRUE
 	}
 	has.lower <- FALSE
-	if(!is.null(error.lower.column) && error.lower.column %in% names(dt))
+	if(!is.null(error.lower.column))
 	{
+	     if(!(error.lower.column %in% names(dt)))
+	     {
+	          stop('Specified error.lower.column does not exist in table. Aborting.')
+	     }
 		has.lower <- TRUE
 	}
 	
@@ -994,60 +1002,47 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	y <- dt[[y.column]]
 	
 	# Get check the specified color and group columns
-	if(is.null(color.column) || !(color.column %in% names(dt)))
+	if(is.null(color.columns) || length(group.columns) == 0 || !all(color.columns %in% names(dt)))
 	{
-		stop("At least a color.column must be specified and must be present in the provided table of data. Aborting.")
+		stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
 	}
-	if(!is.null(group.column) && !(group.column %in% names(dt)))
+	if(!is.null(group.columns) && (length(group.columns) == 0 || !all(group.columns %in% names(dt))))
 	{
-		stop("The specified group column is not present in the provided table of data")
+		stop("All group.columns must be specified and must be present in the provided table of data. Aborting.")
 	}
 	
 	# Get the matrix needed for barplot
-	if(!is.null(group.column))
+	if(!is.null(group.columns))
 	{
-		if(!has.upper && !has.lower)
-		{
-			subDT <- dt[, mget(c(color.column, group.column, y.column))]
-		}
-		if(!has.lower)
-		{
-			subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column))]
-		}
-		if(!has.upper)
-		{
-			subDT <- dt[, mget(c(color.column, group.column, y.column, error.lower.column))]
-		}
-		else
-		{
-			subDT <- dt[, mget(c(color.column, group.column, y.column, error.upper.column, error.lower.column))]
-		}
-		
-		tempCast <- dcast(subDT, as.formula(paste(color.column, '~', group.column)), value.var=y.column)
-		color.names <- tempCast[[1]]
-		group.names <- names(tempCast)[2:ncol(tempCast)]
-		mat <- as.matrix(tempCast[, 2:ncol(tempCast)])# Get error bar magnitudes if possible
+	     subDT <- dt[, c(getDefault(color.columns, character(0)), getDefault(group.columns, character(0)), y.column, 'upper'[has.upper], 'lower'[has.lower]):=mget(c(getDefault(color.columns, character(0)), getDefault(group.columns, character(0)), y.column, getDefault(error.upper.column, character(0)), getDefault(error.lower.column, character(0))))]
+	     tempCast <- dcast(subDT, as.formula(paste(paste(color.columns, collapse='+'), ' ~', paste(group.columns, collapse='+'))), value.var=y.column, fill=0)
+	     color.names <- paste.cols(tempCast, cols=color.columns, name='.colors', sep=sep)$.colors
+	     tempCast[, .colors:=NULL]
+	     group.names <- names(tempCast)[!(names(tempCast) %in% color.columns)]
+	     mat <- as.matrix(tempCast[, group.names, with=F])
+	     if(has.upper)
+	     {
+	          upperCast <- dcast(subDT, as.formula(paste(paste(color.columns, collapse='+'), ' ~', paste(group.columns, collapse='+'))), value.var=error.upper.column, fill=0)
+	          upper <- melt.data.table(upperCast, measure.vars = group.names)$value
+	     }
+	     if(has.lower)
+	     {
+	          lowerCast <- dcast(subDT, as.formula(paste(paste(color.columns, collapse='+'), ' ~', paste(group.columns, collapse='+'))), value.var=error.lower.column, fill=0)
+	          lower <- melt.data.table(lowerCast, measure.vars = group.names)$value 
+	     }
 	}
 	else
 	{
-		if(!has.upper && !has.lower)
-		{
-			subDT <- dt[, mget(c(color.column, y.column))]
-		}
-		if(!has.lower)
-		{
-			subDT <- dt[, mget(c(color.column, y.column, error.upper.column))]
-		}
-		if(!has.upper)
-		{
-			subDT <- dt[, mget(c(color.column, y.column, error.lower.column))]
-		}
-		else
-		{
-			subDT <- dt[, mget(c(color.column, y.column, error.upper.column, error.lower.column))]
-		}
-		mat <- y
-		color.names <- dt[[color.column]]
+	     mat <- y
+	     color.names <- dt[[color.column]]
+	     if(has.upper)
+	     {
+	          upper <- dt[[error.upper.column]]
+	     }
+	     if(has.lower)
+	     {
+	          lower <- dt[[error.lower.column]]
+	     }
 	}
 	
 	# Copy over group and color names from the table if not specified or if specified incorrectly
@@ -1060,7 +1055,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 		warning("The number of provided color names does not match the number being plotted. Using the color names in the color.column.")
 		color.names.display <- color.names
 	}
-	if(!is.null(group.column))
+	if(!is.null(group.columns))
 	{
 		if(is.null(group.names.display))
 		{
@@ -1073,9 +1068,9 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 		}
 	}
 	
-	if(legend.plot && !is.null(group.column))
+	if(legend.plot && !is.null(group.columns))
 	{
-		legend.args <- merge.lists(list(x="topright", bty='n', inset=c(0,0)), legend.args)
+		legend.args <- merge.lists(list(x="topright", bty='n', inset=c(0,0), title=paste(color.columns, collapse=sep)), legend.args)
 	}
 	else
 	{
@@ -1123,14 +1118,14 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 		warning("The number of colors does not match the number of color.names for the table.")
 	}
 	
-	if(!is.null(group.column))
+	if(!is.null(group.columns))
 	{
 		if(legend.plot)
 		{
 			args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
 							 col=color.colors,
 							 legend.text=color.names.display, args.legend=legend.args, xpd=TRUE,
-							 xlab=if(is.null(xlab)) group.column else xlab,
+							 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
 							 ylab=if(is.null(ylab)) y.column else ylab)
 		}
 		else
@@ -1138,7 +1133,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 			args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
 							 col=color.colors,
 							 legend.text=F, args.legend=NULL, xpd=TRUE,
-							 xlab=if(is.null(xlab)) group.column else xlab,
+							 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
 							 ylab=if(is.null(ylab)) y.column else ylab)
 		}
 		
@@ -1148,7 +1143,7 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 		args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=color.names.display,
 						 col=color.colors,
 						 legend.text=F, args.legend=NULL, xpd=TRUE,
-						 xlab=if(is.null(xlab)) group.column else xlab,
+						 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
 						 ylab=if(is.null(ylab)) y.column else ylab)
 		
 	}
@@ -1187,31 +1182,38 @@ bar <- function(dt, y.column, color.column, group.column=NULL, error.upper.colum
 	{
 		# Then plot some errobars
 		# Sort things appropriately if we have a grouped bar plot, otherwise, no need to
-		if(!is.null(group.column))
+		if(!is.null(group.columns))
 		{
-			# First turn the color and group columns into factors so we can order things 'manually'
-			subDT[[color.column]] <- factor( as.character(subDT[[color.column]]), levels=color.names)
-			subDT[[group.column]] <- factor( as.character(subDT[[group.column]]), levels=group.names)
-			subDT <- subDT[order(subDT[[group.column]], subDT[[color.column]])]
+		     tempDT <- melt.data.table(tempCast, measure.vars = group.names)
+			# # First turn the color and group columns into factors so we can order things 'manually'
+			# subDT[[color.column]] <- factor( as.character(subDT[[color.column]]), levels=color.names)
+			# subDT[[group.column]] <- factor( as.character(subDT[[group.column]]), levels=group.names)
+			# subDT <- subDT[order(subDT[[group.column]], subDT[[color.column]])]
 		}
-		
-		# Get error bar magnitudes if possible
-		upper <- NULL
-		if(has.upper)
-		{
-			upper <- subDT[[error.upper.column]]
-		}
-		lower <- NULL
-		if(has.lower)
-		{
-			lower <- subDT[[error.lower.column]]
-		}
+	     else
+	     {
+	          tempDT <- copy(dt)
+	     }
+
+		# # Get error bar magnitudes if possible
+		# upper <- NULL
+		# if(has.upper)
+		# {
+		# 	# upper <- subDT[[error.upper.column]]
+		# 	upper <- melt.data.table(upperCast, measure.vars = group.names)$value
+		# }
+		# lower <- NULL
+		# if(has.lower)
+		# {
+		# 	# lower <- subDT[[error.lower.column]]
+		# 	lower <- melt.data.table(lowerCast, measure.vars = group.names)$value
+		# }
 		
 		# Get the xlocations of where to place the error bars
 		errloc <- as.vector(do.call(barplot, args.barplot))
 		
 		# Compile the error bar arguments
-		args.error.final <- list(x=errloc, y=subDT[[y.column]], upper=subDT[[error.upper.column]], lower=lower, draw.lower=has.lower)
+		args.error.final <- list(x=errloc, y=tempDT$value, upper=upper, lower=lower, draw.lower=has.lower)
 		args.error.final <- modifyList(args.error.final, error.bar.args)
 		
 		# Draw the error bars
@@ -6171,6 +6173,9 @@ roll.gaussian <- function(x, win.width=2, ...)
 	library(smoother)
 	return(smth(x, method='gaussian', window=win.width, ...))
 }
+
+roll.decay.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fun=c('mean','median'), finite=T)
+{}
 
 #'One sd is equal to the win.dist/2 and extends +/- 5 sigma
 roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fun=c('mean','median'), finite=T)
