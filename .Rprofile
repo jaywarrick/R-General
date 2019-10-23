@@ -679,7 +679,7 @@ assignToClustersN <- function(data, nClusters=2, rndSeed=1234, clusterCol='clust
 	emobj <- simple.init(x, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
 	
 	data[, c(clusterCol):= assign.class(as.matrix(data), ret, return.all = FALSE)$class]
@@ -778,7 +778,7 @@ assignToClusters <- function(data, nClusters=2, starts=NULL, starts.percentile=N
 	}
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
 	
 	# Create a data.frame to return
@@ -866,7 +866,7 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 	emobj <- simple.init(mat, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
 					  fixed.iter = 1, n.candidate = 3,
-					  EM.iter = 100, EM.eps = 1e-3, exhaust.iter = 5)
+					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(mat, emobj, assign.class = TRUE, EMC=control)
 	
 	temp <- copy(data)
@@ -6178,7 +6178,7 @@ roll.decay.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fu
 {}
 
 #'One sd is equal to the win.dist/2 and extends +/- 5 sigma
-roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fun=c('mean','median'), finite=T)
+roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL, fun=c('mean','median'), finite=T, kernel=0, power=2)
 {
 	if(finite)
 	{
@@ -6219,16 +6219,97 @@ roll.gaussian.uneven <- function(x, y, win.dist=(max(x)-min(x))/10, breaks=NULL,
 	{
 		for(n in seq_along(xret))
 		{
-			x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
-			yret[n1] <- sum(y*x.w)/sum(x.w)
-			y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
-			weighted.n[n1] <- sum(x.w)/dnorm(0, sd=win.dist/2)
-			n1 <- n1 + 1
+			if(kernel==0)
+			{
+				x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+				yret[n1] <- sum(y*x.w)/sum(x.w)
+				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+				weighted.n[n1] <- sum(x.w)/dnorm(0, sd=win.dist/2)
+				n1 <- n1 + 1
+			}
+			if(kernel==1)
+			{
+				x.w <- dnorm.approx1(x, mean=xret[n], sd=win.dist/2)
+				yret[n1] <- sum(y*x.w)/sum(x.w)
+				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+				weighted.n[n1] <- sum(x.w)/dnorm.approx1(0, sd=win.dist/2)
+				n1 <- n1 + 1
+			}
+			if(kernel==2)
+			{
+				x.w <- dnorm.approx2(x, mean=xret[n], sd=win.dist/2)
+				yret[n1] <- sum(y*x.w)/sum(x.w)
+				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+				weighted.n[n1] <- sum(x.w)/dnorm.approx2(0, sd=win.dist/2)
+				n1 <- n1 + 1
+			}
+			if(kernel==3)
+			{
+				x.w <- dnorm.approx3(x, mean=xret[n], sd=win.dist/2)
+				yret[n1] <- sum(y*x.w)/sum(x.w)
+				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+				weighted.n[n1] <- sum(x.w)/dnorm.approx3(0, sd=win.dist/2)
+				n1 <- n1 + 1
+			}
+			if(kernel==4)
+			{
+				x.w <- dnorm.approx4(x, mean=xret[n], sd=win.dist/2)
+				yret[n1] <- sum(y*x.w)/sum(x.w)
+				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+				weighted.n[n1] <- sum(x.w)/dnorm.approx4(0, sd=win.dist/2)
+				n1 <- n1 + 1
+			}
+			if(kernel==5)
+			{
+				x.w <- dnorm.approx5(x, mean=xret[n], sd=win.dist/2, power=power)
+				yret[n1] <- sum(y*x.w)/sum(x.w)
+				y.sdret[n1] <- sum(x.w * (y - yret[n1])^2)/sum(x.w)
+				weighted.n[n1] <- sum(x.w)/dnorm.approx5(0, sd=win.dist/2, power=power)
+				n1 <- n1 + 1
+			}
 		}
+		
 		return(list(x=xret, y=yret, y.sd=sqrt(y.sdret), N=weighted.n, y.se=sqrt(y.sdret)/sqrt(weighted.n)))
 	}
 	
 }
+
+dnorm.approx1 <- function(x, mean=0, sd=1)
+{
+	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+	ret <- exp(-0.5*(x-mean)^2 / (sd^2))
+	return(ret)
+}
+
+dnorm.approx2 <- function(x, mean=0, sd=1)
+{
+	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+	ret <- exp(-0.5*( (x-mean)^2/sd^2 - (x-mean)^2/sd^2 * (1/(1+30*(sd^2)/(x-mean)^2))))
+	return(ret)
+}
+
+dnorm.approx3 <- function(x, mean=0, sd=1)
+{
+	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+	ret <- 1e-5 + exp(-0.5*( (x-mean)^2/sd^2))
+	return(ret)
+}
+
+dnorm.approx4 <- function(x, mean=0, sd=1)
+{
+	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+	ret <- rep(1e-12, length(x))
+	ret[x >= mean-sd & x <= mean + sd] <- 1
+	return(ret)
+}
+
+dnorm.approx5 <- function(x, mean=0, sd=1, power=2)
+{
+	# ret <- dnorm(x, mean=xret[n], sd=win.dist/2) - x.w <- dnorm(x, mean=xret[n], sd=win.dist/2)
+	ret <- 1/(1+abs((x-mean)/sd)^power)
+	return(ret)
+}
+
 
 #' Get the adjustable running window average of the data
 #' @param i The index within 'frames' at which to calculate an average over a window centered at this location
@@ -7481,13 +7562,13 @@ expFunc <- function(x, tau, A, alpha, offset, increasing)
 
 # 5 possible parameters
 # tau (exponential constant)
-# initial (initial amplitude)
+# A (initial amplitude)
 # offset (constant offset)
 # alpha (slope of linear contribution)
 # increasing (T if increasing (positive tau) or F if decreasing (negative exponential))
 expFunc.par <- function(x, par, increasing)
 {
-     return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), initial=getDefault(par['initial'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
+     return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), A=getDefault(par['A'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
 }
 
 getExpFuncPar <- function(x, y)
@@ -7496,7 +7577,7 @@ getExpFuncPar <- function(x, y)
 	setorder(duh, y)
 	ylim <- range(y)
 	increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
-	initial <- max(y)
+	A <- ylim[2]-ylim[1]
 
 	if(increasing)
 	{
@@ -7646,7 +7727,8 @@ alignDistributions <- function(x,
 						 two.pass=T,
 						 bias=0,
 						 xlim.percentiles=c(0.01,0.99),
-						 norm.method=c('subtraction','division'))
+						 norm.method=c('subtraction','division'),
+						 norm.percentile=0.5)
 {
 	# Params:
 	# col = col to normalize
@@ -7722,12 +7804,12 @@ alignDistributions <- function(x,
 	x[, .w:=approx(x=getDefault(x.d[.BY][[newName]], seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2), test=function(x){length(x) == 1 && is.na(x[1])}), y=getDefault(x.d[.BY][['w']], rep(1, 2), test=function(x){length(x) == 1 && is.na(x[1])}), xout=get(newName), yleft=if(bias<0){1}else{0}, yright=if(bias<0){0}else{1})$y, by=c(norm.by)]
 	if(substr(norm.method[1],1,1)=='s')
 	{
-		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) - weighted.median(get(newName), w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
+		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) - weighted.percentile(get(newName), percentile=norm.percentile, w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
 		x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/sd.robust(get(paste0(col, '.norm')), na.rm=T)]
 	}
 	else
 	{
-		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) / weighted.median(get(newName), w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
+		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) / weighted.percentile(get(newName), percentile=norm.percentile, w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
 		# x[, c(paste0(col, '.norm')):=get(paste0(col, '.norm'))/sd.robust(get(paste0(col, '.norm')))]
 	}
 	
@@ -7813,4 +7895,9 @@ getFnormThresh <- function(x, p=0.99)
 makeBasicFormula <- function(lhs, rhs)
 {
 	return(as.formula(paste(lhs, '~', paste(rhs, collapse=' + '))))
+}
+
+weighted.percentile <- function (x, w, percentile=0.5, na.rm = TRUE) 
+{
+  unname(weighted.quantile(x, probs = percentile, w = w, na.rm = na.rm))
 }
