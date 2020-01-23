@@ -1934,21 +1934,39 @@ start.plot.to.file <- function(save.file, save.width, save.height, family='Open 
 	}
 	else if(getOS()!='osx')
 	{
-		if(any(.hasFont(family)))
-		{
-			font <- family[which(.hasFont(family))[1]]
-			print(paste0("Setting the font to ", font))
-			save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
-			png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
-			.use.lightFont(font=font)
-		}
-		else
-		{
-			print("Couldn't find the specified font family. Using default.")
-			save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
-			png(save.file, width=save.width, height=save.height, res=res, units='in')
-			.use.lightFont(font=font)
-		}
+	  if(endsWith(save.file, 'pdf'))
+	  {
+  		if(any(.hasFont(family)))
+  		{
+  			font <- family[which(.hasFont(family))[1]]
+  			print(paste0("Setting the font to ", font))
+  			library(Cairo)
+  			cairo_pdf(save.file, width=save.width, height=save.height, family=font)
+  			embedTheFont <- T
+  			# save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
+  			# png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
+  			# .use.lightFont(font=font)
+  		}
+  		else
+  		{
+  			print("Couldn't find the specified font family. Using default.")
+  			save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
+  			png(save.file, width=save.width, height=save.height, res=res, units='in')
+  			.use.lightFont(font=font)
+  		}
+	  }
+	  else if(endsWith(save.file, 'png'))
+	  {
+	    png(save.file, width=save.width, height=save.height, units='in', res=res)
+	    if(!is.null(family))
+	    {
+	      .use.lightFont(font=family[1])
+	    }
+	  }
+	  else
+	  {
+	    stop(paste0('The save type ', save.type, ' is not supported. Aborting'))
+	  }
 		
 	}
 	
@@ -6155,6 +6173,20 @@ roll.mean <- function(x, win.width=2, na.rm=T, ...)
 	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
 	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align='center'))
+}
+
+roll.min <- function(x, win.width=2, na.rm=T, ...)
+{
+	library(zoo)
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=min, na.rm=na.rm, ..., partial=T, align='center'))
+}
+
+roll.max <- function(x, win.width=2, na.rm=T, ...)
+{
+	library(zoo)
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=max, na.rm=na.rm, ..., partial=T, align='center'))
 }
 
 roll.median <- function(x, win.width=2, na.rm=T, ...)
