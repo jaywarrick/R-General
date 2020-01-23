@@ -7,7 +7,11 @@
 #' then drag the actual .ttf files from within the github folders to the font folder to install them
 #' 
 #' On mac - open the system's 'Font Book.app' and you can drag each font folder to the
-#' app to install them
+#' app to install them. Important note: The font must be installed for all users. To do so
+#' you must drag the font to the "Computer" folder in Font Book. The first font installed
+#' will install to the "User", which then allows the "Computer" folder to be visible.
+#' Drag remaining into "Computer" and then redrag first one into "Computer" and delete
+#' the first one from the "User" folder.
 #' 
 #' THEN you can run the following script all the way through the last step where the 'extrafont'
 #' package is installed, loaded, and run to load all system and user fonts, such as those
