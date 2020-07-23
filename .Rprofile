@@ -7603,12 +7603,16 @@ expFunc.par <- function(x, par, increasing)
      return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), A=getDefault(par['A'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
 }
 
-getExpFuncPar <- function(x, y)
+getExpFuncPar <- function(x, y, increasing=NULL)
 {
 	duh <- data.table(x=x, y=y)
 	setorder(duh, y)
 	ylim <- range(y)
-	increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
+	if(is.null(increasing))
+	{
+	  increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
+	}
+	
 	A <- ylim[2]-ylim[1]
 
 	if(increasing)
@@ -7620,7 +7624,7 @@ getExpFuncPar <- function(x, y)
 		tau <- x[which(y < ylim[1] + 0.37*A)[1]]
 	}
 	alpha <- 0
-	offset <- 0
+	offset <- min(y)
 	return(c(tau=tau, A=A, alpha=alpha, offset=offset, increasing=increasing))
 }
 
@@ -7634,7 +7638,7 @@ fitExpFunc <- function(x, y, par0, increasing=getExpFuncPar(x,y)['increasing'], 
 {
 	# par0 <- as.vector(merge.lists(as.list(getExpFuncPar(x, y)), as.list(par0)))
 	daFit <- optim(par=par0, fn=getExpFuncError, x=x, y=y, increasing=increasing, ...)
-	return(daFit$par)
+	return(merge.lists(daFit$par, list(increasing=increasing)))
 }
 
 # fitExpFunc3 <- function(x, y, ...)
