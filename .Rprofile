@@ -1957,21 +1957,39 @@ start.plot.to.file <- function(save.file, save.width, save.height, family='Open 
 	}
 	else if(getOS()!='osx')
 	{
-		if(any(.hasFont(family)))
-		{
-			font <- family[which(.hasFont(family))[1]]
-			print(paste0("Setting the font to ", font))
-			save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
-			png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
-			.use.lightFont(font=font)
-		}
-		else
-		{
-			print("Couldn't find the specified font family. Using default.")
-			save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
-			png(save.file, width=save.width, height=save.height, res=res, units='in')
-			.use.lightFont(font=font)
-		}
+	  if(endsWith(save.file, 'pdf'))
+	  {
+  		if(any(.hasFont(family)))
+  		{
+  			font <- family[which(.hasFont(family))[1]]
+  			print(paste0("Setting the font to ", font))
+  			library(Cairo)
+  			cairo_pdf(save.file, width=save.width, height=save.height, family=font)
+  			embedTheFont <- T
+  			# save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
+  			# png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
+  			# .use.lightFont(font=font)
+  		}
+  		else
+  		{
+  			print("Couldn't find the specified font family. Using default.")
+  			save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
+  			png(save.file, width=save.width, height=save.height, res=res, units='in')
+  			.use.lightFont(font=font)
+  		}
+	  }
+	  else if(endsWith(save.file, 'png'))
+	  {
+	    png(save.file, width=save.width, height=save.height, units='in', res=res)
+	    if(!is.null(family))
+	    {
+	      .use.lightFont(font=family[1])
+	    }
+	  }
+	  else
+	  {
+	    stop(paste0('The save type ', save.type, ' is not supported. Aborting'))
+	  }
 		
 	}
 	
@@ -6205,6 +6223,19 @@ roll.rank <- function(x, win.width=3, ...)
 	
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
 	return(rollapply(x, width=win.width, FUN=.roll.rank, ..., partial=T, align='center'))
+
+roll.min <- function(x, win.width=2, na.rm=T, ...)
+{
+	library(zoo)
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=min, na.rm=na.rm, ..., partial=T, align='center'))
+}
+
+roll.max <- function(x, win.width=2, na.rm=T, ...)
+{
+	library(zoo)
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=max, na.rm=na.rm, ..., partial=T, align='center'))
 }
 
 roll.median <- function(x, win.width=2, na.rm=T, ...)
@@ -7653,12 +7684,16 @@ expFunc.par <- function(x, par, increasing)
      return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), A=getDefault(par['A'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
 }
 
-getExpFuncPar <- function(x, y)
+getExpFuncPar <- function(x, y, increasing=NULL)
 {
 	duh <- data.table(x=x, y=y)
 	setorder(duh, y)
 	ylim <- range(y)
-	increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
+	if(is.null(increasing))
+	{
+	  increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
+	}
+	
 	A <- ylim[2]-ylim[1]
 
 	if(increasing)
@@ -7670,7 +7705,7 @@ getExpFuncPar <- function(x, y)
 		tau <- x[which(y < ylim[1] + 0.37*A)[1]]
 	}
 	alpha <- 0
-	offset <- 0
+	offset <- min(y)
 	return(c(tau=tau, A=A, alpha=alpha, offset=offset, increasing=increasing))
 }
 
@@ -7684,7 +7719,7 @@ fitExpFunc <- function(x, y, par0, increasing=getExpFuncPar(x,y)['increasing'], 
 {
 	# par0 <- as.vector(merge.lists(as.list(getExpFuncPar(x, y)), as.list(par0)))
 	daFit <- optim(par=par0, fn=getExpFuncError, x=x, y=y, increasing=increasing, ...)
-	return(daFit$par)
+	return(merge.lists(daFit$par, list(increasing=increasing)))
 }
 
 # fitExpFunc3 <- function(x, y, ...)
