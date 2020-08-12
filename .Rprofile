@@ -153,7 +153,7 @@
 	}
 	else
 	{
-		font <- c('Open Sans Light','Roboto Light','Quicksand Light','Muli Light','Montserrat Light')
+		font <- c('Open Sans','Roboto Light','Quicksand Light','Muli Light','Montserrat Light')
 	}
 	
 	if(any(.hasFont(font)))
@@ -182,6 +182,10 @@
 
 dev.off2 <- function(file)
 {
+     if(startsWith(file, '~'))
+     {
+          stop('Embed fonts must have a fully defined path and cannot start with a tilde. Fully specify the path.')
+     }
 	library(extrafont)
 	dev.off()
 	embed_fonts(file)
@@ -397,7 +401,7 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 	paste.cols(x=x, cols=cols, name=idName, sep=sep)
 }
 
-getUniqueCombos <- function(x, idCols, ordered=T)
+getUniqueCombos <- function(x, by, idCols=by, ordered=T)
 {
 	ret <- unique(x, by=idCols)[, idCols, with=F]
 	if(ordered)
@@ -1002,13 +1006,17 @@ bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.col
 	y <- dt[[y.column]]
 	
 	# Get check the specified color and group columns
-	if(is.null(color.columns) || length(group.columns) == 0 || !all(color.columns %in% names(dt)))
-	{
-		stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
-	}
+	# if(is.null(color.columns) || (!is.null(group.columns) && length(group.columns) == 0) || !all(color.columns %in% names(dt)))
+	# {
+	# 	stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
+	# }
 	if(!is.null(group.columns) && (length(group.columns) == 0 || !all(group.columns %in% names(dt))))
 	{
 		stop("All group.columns must be specified and must be present in the provided table of data. Aborting.")
+	}
+	if(!is.null(color.columns) && (length(color.columns) == 0 || !all(color.columns %in% names(dt))))
+	{
+	     stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
 	}
 	
 	# Get the matrix needed for barplot
@@ -1034,7 +1042,8 @@ bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.col
 	else
 	{
 	     mat <- y
-	     color.names <- dt[[color.column]]
+	     color.names <- getUniqueCombosAsStringVector(dt, idCols=color.columns, ordered=F)
+	     # color.names <- dt[[color.columns]]
 	     if(has.upper)
 	     {
 	          upper <- dt[[error.upper.column]]
@@ -1213,10 +1222,22 @@ bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.col
 		errloc <- as.vector(do.call(barplot, args.barplot))
 		
 		# Compile the error bar arguments
-		args.error.final <- list(x=errloc, y=tempDT$value, upper=upper, lower=lower, draw.lower=has.lower)
+		if(!is.null(group.columns))
+		{
+		     args.error.final <- list(x=errloc, y=tempDT$value, upper=upper, lower=lower, draw.lower=has.lower)
+		}
+		else
+		{
+		     args.error.final <- list(x=errloc, y=tempDT[[y.column]], upper=upper, lower=lower, draw.lower=has.lower)
+		}
+		
 		args.error.final <- modifyList(args.error.final, error.bar.args)
 		
 		# Draw the error bars
+		# if(any(args.error.final$upper==0 & args.error.final$lower==0))
+		# {
+		#      stop('Upper and lower error cannot be set to 0.')
+		# }
 		do.call(error.bar, args.error.final)
 	}
 	else
@@ -3126,15 +3147,15 @@ getSignSymbol <- function(V1)
 	return(ret)
 }
 
-getFirstSplit <- function(x)
+getFirstSplit <- function(x, sep=' ')
 {
-	return(getNSplit(x=x, n=1))
+	return(getNSplit(x=x, sep=sep, n=1))
 }
 
-getNSplit <- function(x, n=1)
+getNSplit <- function(x, sep, n=1)
 {
-	temp <- strsplit(x, ' ')
-	return(temp[[1]][1])
+	temp <- strsplit(as.character(x), split=sep)
+	return(sapply(temp, '[', n))
 }
 
 getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
@@ -4312,6 +4333,8 @@ multi.mixedorder <- function(..., na.last = TRUE, decreasing = FALSE){
 
 merge.lists <- function(list1, list2)
 {
+	# Default values in list1
+	# Overriding values in list2
 	for(name in names(list2))
 	{
 		list1[[name]] <- list2[[name]]
@@ -4694,9 +4717,20 @@ finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col=
 	}
 }
 
-getPrettyNum <- function(x, sigFigs=3)
+getPrettyNum <- function(x, sigFigs=3, dropTrailingZeros=F)
 {
-	return(formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = T))
+	ret <- formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = dropTrailingZeros)
+	if(any(endsWith(ret, '.')))
+	{
+	     for(i in 1:length(ret))
+	     {
+	          if(endsWith(ret[i], '.'))
+	          {
+	               ret[i] <- substr(ret[i], 1, nchar(ret[i])-1)
+	          }
+	     }
+	}
+	return(ret)
 }
 
 fillDefaultLogicleParams <- function(x, y, logicle.params)
@@ -5315,7 +5349,7 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 		linSidePrettyNums <- linSidePrettyNums[order(linSidePrettyNums)]
 		linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums <= transition]
 		linSidePrettyLabels <- c(as.character(linSidePrettyNums))
-		linSidePrettyLabels[length(linSidePrettyLabels)] <- as.character(getPrettyNum(linSidePrettyNums[length(linSidePrettyNums)]))
+		linSidePrettyLabels[length(linSidePrettyLabels)] <- as.character(getPrettyNum(linSidePrettyNums[length(linSidePrettyNums)], dropTrailingZeros = T))
 		
 		# Aggregate list of nums
 		prettyNums <- c(linSidePrettyNums, logSideNums)
@@ -6159,6 +6193,20 @@ roll.mean <- function(x, win.width=2, na.rm=T, ...)
 	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align='center'))
 }
 
+.roll.rank <- function(x)
+{
+	ret <- rank(x)
+	return(ret[length(x) %/% 2])
+}
+
+roll.rank <- function(x, win.width=3, ...)
+{
+	library(zoo)
+	
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=.roll.rank, ..., partial=T, align='center'))
+}
+
 roll.median <- function(x, win.width=2, na.rm=T, ...)
 {
 	library(zoo)
@@ -6449,15 +6497,16 @@ clear.warnings <- function()
 
 sig.digits <- function(x, nSig=2, trim.spaces=T, trim.zeros=F)
 {
-	ret <- signif(x,digits=nSig)
-	ret <- format(ret, scientific=F)
-	
-	if(trim.zeros)
-	{
-		# Trim zeros and whitespace and trailing decimal points
-		ret <- gsub('0+$', '', ret)
-		ret[substr(ret, nchar(ret), nchar(ret))=='.'] <- substr(ret[substr(ret, nchar(ret), nchar(ret))=='.'], 1, nchar(ret[substr(ret, nchar(ret), nchar(ret))=='.'])-1)
-	}
+     ret <- getPrettyNum(x, sigFigs = nSig, dropTrailingZeros = trim.zeros)
+	# ret <- signif(x,digits=nSig)
+	# ret <- format(ret, scientific=F)
+	# 
+	# if(trim.zeros)
+	# {
+	# 	# Trim zeros and whitespace and trailing decimal points
+	# 	ret <- gsub('0+$', '', ret)
+	# 	ret[substr(ret, nchar(ret), nchar(ret))=='.'] <- substr(ret[substr(ret, nchar(ret), nchar(ret))=='.'], 1, nchar(ret[substr(ret, nchar(ret), nchar(ret))=='.'])-1)
+	# }
 	
 	if(trim.spaces)
 	{
@@ -6943,12 +6992,29 @@ replaceAllNonAlphaNum <- function(strVec, newToken=' ')
 }
 
 # For use with box plot graphing function
-drawRects <- function(at, width=3, col=setColor('lightblue', alpha=0.2))
+drawRects <- function(at, width=3, col=setColor('lightblue', alpha=0.2), adj='center')
 {
+	# adj can equal 'center', 'left', and 'right'
 	lim <- par('usr')
-	for(x in at)
+	if(length(adj) == 1)
 	{
-		rect(x-width/2, lim[3], x+width/2, lim[4], border=NA, col=col)
+		adj <- rep(adj, length(at))
+	}
+	
+	for(i in seq_along(at))
+	{
+		if(adj[i] == 'center')
+		{
+			rect(at[i]-width/2, lim[3], at[i]+width/2, lim[4], border=NA, col=col)
+		}
+		else if(adj[i] == 'left')
+		{
+			rect(at[i], lim[3], at[i]+width, lim[4], border=NA, col=col)
+		}
+		else
+		{
+			rect(at[i]-width, lim[3], at[i], lim[4], border=NA, col=col)
+		}
 	}
 }
 
@@ -7302,11 +7368,27 @@ fitHill2 <- function(x, y, ...)
 	return(daFit$par)
 }
 
-data.table.expand.grid <- function(..., KEEP.OUT.ATTRS=T, stringsAsFactors = T)
+data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFactors = T)
 {
-	ret <- data.table(expand.grid(..., KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors))
+     if(is.null(pt))
+     {
+          ret <- data.table(expand.grid(..., KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors))
+     }
+	else
+	{
+	     ret <- my.data.table.expand.pt(..., pt=pt, KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors)
+	}
 	return(ret)
 }
+
+# my.data.table.expand.point <- function(..., pt, KEEP.OUT.ATTRS=T, stringsAsFactors = T)
+# {
+#      dts <- list()
+#      for(item in pt)
+#      {
+#           
+#      }
+# }
 
 # Fitting the distribution
 LL <- function(lambda, avg.size, x)
