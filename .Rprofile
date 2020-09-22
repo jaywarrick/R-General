@@ -6223,6 +6223,7 @@ roll.rank <- function(x, win.width=3, ...)
 	
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
 	return(rollapply(x, width=win.width, FUN=.roll.rank, ..., partial=T, align='center'))
+}
 
 roll.min <- function(x, win.width=2, na.rm=T, ...)
 {
