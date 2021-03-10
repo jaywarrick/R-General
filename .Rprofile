@@ -1,5 +1,6 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
+library(data.table)
 
 .define.fonts <- function()
 {
