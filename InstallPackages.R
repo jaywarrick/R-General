@@ -63,6 +63,21 @@ install.packages('varhandle')
 install.packages('VGAM')
 install.packages('NMOF')
 
+
+install.packages('qpcR')
+install.packages('shinyjs')
+install.packages('readxl')
+n
+install.packages('writexl')
+install.packages('data.table')
+n
+install.packages('shinyalert')
+install.packages('zip')
+install.packages('R.utils')
+install.packages('httr')
+install.packages('DT')
+install.packages('aws.s3')
+
 # Enabling bash on Windows for data.table line parsing capabilities...
 # Install Cygwin https://cygwin.com/install.html
 # Add C:\cygwin64\bin to the system 'Path' variable (right-click computer > advanced settings > environment variables)

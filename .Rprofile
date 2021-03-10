@@ -403,11 +403,11 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 
 getUniqueCombos <- function(x, by, idCols=by, ordered=T)
 {
-	ret <- unique(x, by=idCols)[, idCols, with=F]
 	if(ordered)
 	{
 		setorderv(x, cols=idCols)
 	}
+	ret <- unique(x, by=idCols)[, idCols, with=F]
 	return(ret)
 }
 
@@ -1574,6 +1574,10 @@ wave2rgb <- function(wavelength, gamma=0.8){
 
 loopingPastels <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
 {
+	if(!is.numeric(k))
+	{
+		k <- as.numeric(as.factor(k))
+	}
 	cols=hsl(h=seq(min.h,max.h, length.out=max.k+1)[-(max.k+1)], s=s, l=l, a=a)
 	n <- length(cols)
 	return(cols[((k-1) %% (n)) + 1])
@@ -1740,11 +1744,19 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	# }
 	
 	# Create the legend table
-	legend.colors <- getUniqueCombosN(data, idCols=c(plot.by, by))
+	legend.colors <- getUniqueCombosN(data, idCols=c(plot.by, union(by, line.color.by)))
 	legend.colors[, plot.by.index:=.GRP, by=plot.by]
 	legend.colors[, by.index:=.GRP, by=by]
 	legend.colors[, line.color.by.index:=.GRP, by=line.color.by]
-	paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
+	# browser()
+	if(!is.null(line.color.by))
+	{
+		paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
+	}
+	else
+	{
+		legend.colors[, names:='']
+	}
 	
 	# Set legend colors
 	if(is.null(line.color.by))
@@ -1805,7 +1817,17 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 		legend.colors[, my.color:=adjustColor(my.color, alpha.factor=alpha)]
 	}
 	
-	data <- data[legend.colors, nomatch=0]
+	if(length(intersect(names(data), names(legend.colors))) > 0)
+	{
+		# browser()
+		data <- data[legend.colors, nomatch=0, on=intersect(names(data), names(legend.colors))]
+	}
+	else
+	{
+		data <- copy(data)
+		data[, c(names(legend.colors)):=legend.colors]
+	}
+	
 	setnames(data, 'my.color', 'my.temp.color')
 	if(!is.null(colorcol))
 	{
@@ -1872,7 +1894,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file,'.', save.type), save.width=save.width, save.height=save.height, sample.size=sample.size, sample.seed=sample.seed, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, plot.by.index=plot.by.index, mtext.args=mtext.args, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file,'.', save.type), save.width=save.width, save.height=save.height, sample.size=sample.size, sample.seed=sample.seed, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, plot.by=plot.by.index, mtext.args=mtext.args, ...)]
 		}
 		else
 		{
@@ -2119,12 +2141,12 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		if(type[1] == 'c' || getDefault(legend.args$pch, 21) >= 21)
 		{
 			# Then set color to be the background color of the point
-			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
 		}
 		else
 		{
 			# Then use the col arg to set the color of the point
-			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
 		}
 		
 		# # data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
@@ -2143,12 +2165,12 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			
 			for(i in 1:nrow(cross.data))
 			{
-				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, col='black', pch=cross.pch, cex=cross.cex, lwd=cross.lwd*1.3, add=T, ...)
-				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, col=setColor(cross.data$my.temp.color[i], 1), pch=cross.pch, cex=cross.cex, lwd=cross.lwd*0.65, add=T, ...)
+				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, col='black', pch=cross.pch, cex=cross.cex, lwd=cross.lwd*1.3, add=T, ...)
+				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, col=setColor(cross.data$my.temp.color[i], 1), pch=cross.pch, cex=cross.cex, lwd=cross.lwd*0.65, add=T, ...)
 			}
 		}
 		
-		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, trans.logit=trans.logit, ...)
+		finish.logicle(log=log, logicle.params=logicle.params.plc, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, trans.logit=trans.logit, ...)
 	}
 	else if(type == 'h' | type == 'd')
 	{
@@ -2320,7 +2342,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	}
 	
 	# Make the legend
-	if(legend.plot & !is.null(by))
+	if(legend.plot & !(is.null(by) & is.null(line.color.by)))
 	{
 		if(sample.size > 0)
 		{
@@ -3173,7 +3195,14 @@ getFirstSplit <- function(x, sep=' ')
 getNSplit <- function(x, sep, n=1)
 {
 	temp <- strsplit(as.character(x), split=sep)
-	return(sapply(temp, '[', n))
+	ret <- sapply(temp, '[', n)
+	
+	if(length(n) > 1)
+	{
+		temp <- function(n,x2){return(x2[n,])}
+		ret <- lapply(n, x2=ret, FUN=temp)
+	}
+	return(ret)
 }
 
 getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
@@ -4713,9 +4742,16 @@ finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col=
 	# Plot h and v lines
 	if(!is.null(h))
 	{
-		if(logY & !is.null(logicle.params))
+		if(logY)
 		{
-			abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[2]), col=h.col, lty=h.lty, lwd=h.lwd)
+			if(is.null(logicle.params))
+			{
+				abline(h=log10(h), col=h.col, lty=h.lty, lwd=h.lwd)
+			}
+			else
+			{
+				abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[2]), col=h.col, lty=h.lty, lwd=h.lwd)
+			}
 		}
 		else
 		{
@@ -4726,7 +4762,14 @@ finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col=
 	{
 		if(logX & !is.null(logicle.params))
 		{
-			abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[1]), col=v.col, lty=v.lty, lwd=v.lwd)
+			if(is.null(logicle.params))
+			{
+				abline(v=log10(v), col=v.col, lty=v.lty, lwd=v.lwd)
+			}
+			else
+			{
+				abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[1]), col=v.col, lty=v.lty, lwd=v.lwd)
+			}
 		}
 		else
 		{
@@ -6431,8 +6474,8 @@ getDerivative <- function(x, t)
 	return(v)
 }
 
-#' Get the derivative of a vector
-#' @param x A numeric vector on which to calculate the deltas (t+1) - (t)
+#' Get the differences between adjacent values in a vector
+#' @param x A numeric vector on which to calculate the deltas (x+1) - (x)
 getDeltas <- function(x)
 {
 	if(length(x) < 2)
@@ -6447,6 +6490,39 @@ getDeltas <- function(x)
 getPaddedDeltas <- function(x, pad=NA)
 {
 	return(c(pad, x[2:length(x)] - x[1:(length(x)-1)]))
+}
+
+findFirstUpCrossing <- function(x, y, thresh, undetectedValue)
+{
+	ret <- undetectedValue
+	first <- which(y >= thresh)[1]
+	if(!is.na(first))
+	{
+		if(first > 0)
+		{
+			# Linearly interpolate the ascending threshold crossing point.
+			crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
+			ret <- crossing
+		}
+	}
+	return(ret)
+}
+
+findFirstDownCrossing <- function(x, y, thresh, undetected.value)
+{
+	ret <- undetected.value
+	last <- which(y <= thresh)[1]
+	# browser()
+	if(!is.na(last))
+	{
+		if(last > 0)
+		{
+			# Linearly interpolate the threshold crossing point.
+			crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
+			ret <- crossing
+		}
+	}
+	return(ret)
 }
 
 #' Get the local derivative around a point in a vector accounding for boundary scenarios at the start and end of the vector
@@ -6693,7 +6769,7 @@ getNeighborsInRadius <- function(dt, cIdCol, xcol, ycol, keep=c(), searchRadius,
 			temp <- thingsToDo[i]
 			setkeyv(temp, by)
 			dt2 <- dt[temp]
-			browser()
+			# browser()
 			dt[temp, neighbors:=list(list(getNeighborsInRadius_(dt2, xcol=xcol, ycol=ycol, cIdCol=cIdCol, theId=.BY[[1]], keep=keep, searchRadius=searchRadius))), by=cIdCol][]
 		}
 	}
