@@ -3744,6 +3744,28 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 		data <- data.table(data)
 	}
 	
+	duh <- measurementCols
+	if(!is.null(duh) && length(duh) == 1)
+	{
+		#Split the arg if separated by commas
+		duh <- strsplit(duh, ",", fixed=T)[[1]]
+	}
+	measurementCols <- duh
+	duh <- valueCols
+	if(!is.null(duh) && length(duh) == 1)
+	{
+		#Split the arg if separated by commas
+		duh <- strsplit(duh, ",", fixed=T)[[1]]
+	}
+	valueCols <- duh
+	duh <- idCols
+	if(!is.null(duh) && length(duh) == 1)
+	{
+		#Split the arg if separated by commas
+		duh <- strsplit(duh, ",", fixed=T)[[1]]
+	}
+	idCols <- duh
+	
 	if(!is.null(measurementCols))
 	{
 		# Parse commas to indicate that the string should be split into multiple items.
