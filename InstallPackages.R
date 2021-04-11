@@ -62,16 +62,16 @@ install.packages('Cairo')
 install.packages('varhandle')
 install.packages('VGAM')
 install.packages('NMOF')
+install.packages('openssl')
 
 
 install.packages('qpcR')
 install.packages('shinyjs')
 install.packages('readxl')
-n
 install.packages('writexl')
 install.packages('data.table')
-n
 install.packages('shinyalert')
+install.packages('shinyAce')
 install.packages('zip')
 install.packages('R.utils')
 install.packages('httr')
