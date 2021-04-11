@@ -154,7 +154,7 @@ library(data.table)
 	}
 	else
 	{
-		font <- c('Open Sans','Roboto Light','Quicksand Light','Muli Light','Montserrat Light')
+		font <- c('Open Sans Light','Roboto Light','Quicksand Light','Muli Light','Montserrat Light')
 	}
 	
 	if(any(.hasFont(font)))
@@ -1690,7 +1690,6 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 {
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
-	
 	if('grp' %in% names(data))
 	{
 		stop("'grp' is used internally to help plot. Please change the name of this variable.")
@@ -1746,10 +1745,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	
 	# Create the legend table
 	legend.colors <- getUniqueCombosN(data, idCols=c(plot.by, union(by, line.color.by)))
+	legend.colors[, N:=NULL]
 	legend.colors[, plot.by.index:=.GRP, by=plot.by]
 	legend.colors[, by.index:=.GRP, by=by]
 	legend.colors[, line.color.by.index:=.GRP, by=line.color.by]
-	# browser()
+	
 	if(!is.null(line.color.by))
 	{
 		paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
@@ -3148,8 +3148,12 @@ writeLatexWilcoxCombinedTable <- function(x, captionAddition='', includeVals=F, 
 	}
 }
 
-getPSymbol <- function(pval, not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
+getPSymbol <- function(pval, na.val='', not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
 {
+  if(is.na(pval))
+  {
+    return(na.val)
+  }
 	if(is.list(pval))
 	{
 		collapseSymbols <- function(symbols)
@@ -4410,6 +4414,158 @@ merge.lists <- function(list1, list2)
 		list1[[name]] <- list2[[name]]
 	}
 	return(list1)
+}
+
+interdigitate <- function(a, b)
+{
+  len <- length(c(a, b))
+  x <- vector(class(a), len)
+  
+  a.l <- rep(length(a) >= length(b), len)
+  b.l <- rep(length(b) >= length(a), len)
+  len.min <- min(length(a), length(b))
+  a.l[1:(2*len.min)] <- rep(c(T,F), len.min)
+  b.l[1:(2*len.min)] <- rep(c(F,T), len.min)
+  x[a.l] <- a
+  x[b.l] <- b
+  return(x)
+}
+
+getNameValue <- function(string, sep='=')
+{
+  vals <- strsplit(string, split=sep, fixed=T)[[1]]
+  ret <- data.table()
+  ret[[vals[1]]] <- vals[2]
+  return(data.table())
+}
+
+getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.time', ecol='LD.status', na.val=as.character(NA))
+{
+  library('reader')
+  # Get rid of cells that started with a positive event status
+  temp <- events[!(get(tcol)==min(get(tcol)) & get(ecol)==1)]
+  # Get survival curves
+  rhs <- if(is.null(by)){names(events)[!names(events) %in% c(idcol, tcol, ecol)]}else{by}
+  setkeyv(temp, rhs)
+  my.f <- makeBasicFormula(paste('Surv(', tcol, ', ', ecol, ')', sep=''), rhs)
+  fit <- do.call(survfit, args=list(formula=my.f, data=temp))
+  my.surv <- data.table()
+  for(name in rhs)
+  {
+    my.surv[, c(name):=as.character(sapply(sapply(names(fit$strata), function(x){strsplit(x, split=', ', fixed=T)[[1]][which(rhs==name)]}), function(y){strsplit(y, split='=', fixed=T)[[1]][2]}))]
+    if(is.factor(temp[[name]]))
+    {
+      my.surv[, c(name):=factor(get(name), levels=levels(temp[[name]]))]
+    }
+  }
+  my.surv <- my.surv[rep(1:.N, fit$strata)]
+  my.surv[, c(tcol, 'n.risk', 'n.censor', 'surv', 'std.err', 'cumhaz', 'chaz', 'conf.int', 'lower', 'upper'):=list(time=fit$time, n.risk=fit$n.risk, n.censor=fit$n.censor, surv=fit$surv, std.err=fit$std.err, cumhaz=fit$cumhaz, chaz=fit$std.chaz, conf.int=fit$conf.int, lower=fit$surv-fit$lower, upper=fit$upper-fit$surv)]
+  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name=tcol, from=0, to=40), .SDcols = c('surv', 'upper','lower',tcol), by=c(rhs)]
+  if(flip)
+  {
+    my.surv[, surv:=1-surv]
+    my.surv.s[, surv:=1-surv]
+  }
+  stats <- as.data.table(pairwise_survdiff(my.f, data = temp)$p.value, keep.rownames=T)
+  stats.sym <- lapply.data.table(stats, getPSymbol, cols=getAllColNamesExcept(stats, 'rn'), by=c('rn'), na.val=na.val)
+  
+  ## Create a printable fixed width table of the stats information
+  # Create a lookup table betwen the by columns and the fixed width printable version of the by grouping labels called 'temp'
+  stats.sym2 <- copy(stats.sym)
+  for(name in by)
+  {
+    names(stats.sym2) <- gsub(paste(name,'=',sep=''), '', names(stats.sym2), fixed=T)
+    replaceSubStringInAllRowsOfCol(stats.sym2, old=paste(name,'=',sep=''), new='', col='rn')
+  }
+  names(stats.sym2) <- gsub(',', ':', names(stats.sym2), fixed=T)
+  replaceSubStringInAllRowsOfCol(stats.sym2, old=',', new=':', col='rn')
+  # setnames(stats.sym2, old='rn', new=' ')
+  temp <- conv.fixed.width(getUniqueCombos(events, by=by))
+  paste.cols(temp, cols=by, name='Combo.fw', sep=':')
+  lapply.data.table(temp, trimws, cols=by, in.place=T)
+  # Use the stats.sym table to create a table that can be formatted for printing
+  # Make it long form, taking just the unique combos by including both the group1 vs group2 but also group2 vs group1 (which are equivalent)
+  fw.table <- melt.data.table(stats.sym2, id.vars='rn')
+  fw.table <- rbind(fw.table[, c('rn','variable','value'):=list(variable, rn, value)],  melt.data.table(stats.sym2, id.vars='rn'))[rn != variable]
+  fw.table <- fw.table[order(value)]
+  fw.table <- unique(fw.table, by=c('rn','variable'))
+  # Create a new by variable for keeping track of group1 vs group2 comparisons and
+  by.v <- paste(by, '.v', sep='')
+  # Stats separates group sublabels by comma. Separate them to create the group1 label columns
+  splitColumnAtString(fw.table, colToSplit = 'rn', newColNames = by, sep=': ', keep=1L:length(by))
+  # Do the same to crewate the group2 label columns
+  splitColumnAtString(fw.table, colToSplit = 'variable', newColNames = by.v, sep=': ', keep=1L:length(by))
+  # Trim any potential whitespace characters from the group labels provided by stats.sym
+  lapply.data.table(fw.table, trimws, cols=c(by, by.v), in.place=T)
+  # Reset names incase rerunning this section of code multiple times
+  names(by) <-  by
+  by <- as.character(by)
+  # Use our lookup table to get the fixed width printable version for each group1 labeling
+  fw.table[temp, text:=Combo.fw, on=by]
+  # Use our lookup table to get the fixed width printable version for each group1 labeling, using by.v to associate names of group1 (by) and group2 (by.v)
+  names(by) <- by.v
+  fw.table[temp, text2:=Combo.fw, on=by]
+  # Make sure the by groupings have the same levels/ordering as the original events table
+  for(by.n in by)
+  {
+    if(is.factor(events[[by.n]]))
+    {
+      fw.table[, c(by.n):=factor(get(by.n), levels=levels(events[[by.n]]))]
+    }
+  }
+  for(by.n in by)
+  {
+    by.n.v <- paste(by.n, '.v', sep='')
+    if(is.factor(events[[by.n]]))
+    {
+      fw.table[, c(by.n.v):=factor(get(by.n.v), levels=levels(events[[by.n]]))]
+    }
+  }
+  setorderv(fw.table, c(by, by.v))
+  # Apply that ordering to the combined text
+  fw.table[, text:=factor(text, levels=unique(text))]
+  fw.table[, text2:=factor(text2, levels=levels(text))]
+  # Reorganize the table for printing
+  fw.table <- reorganize(fw.table, idCols='text', measurementCols = 'text2', valueCols = 'value')[, 1:(length(unique(fw.table$text)))]
+  # Replace NA values with ''
+  lapply.data.table(fw.table, FUN=function(x){x[is.na(x)] <- ''; return(x)}, cols=names(fw.table)[-1L], in.place=T)
+  # Replace the 'text' col name with a new name of '|' for printing
+  setnames(fw.table, old='text', new=' ')
+  # Add the header label
+  fw.table <- rbind(data.table()[, c(names(fw.table)):=as.list(names(fw.table))], fw.table)
+  fw.table <- conv.fixed.width(fw.table)
+  
+  paste.cols(fw.table, names(fw.table), name='final', sep=' ')
+  return(list(events=temp, sc=my.surv, sc.step=my.surv.s, stats=stats, symbols=stats.sym, fw.table=fw.table, fit=fit, p.val=surv_pvalue(fit=fit), p.val.trend=surv_pvalue(fit=fit, test.for.trend = T), formula=my.f, rhs=rhs))
+}
+
+convertMultipleToSteps <- function(dt, x.name, from=min(dt[[x.name]]), to=max(dt[[x.name]]))
+{
+  # e.g.,  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name='time', from=0, to=40), .SDcols = c('surv', 'upper','lower','time'), by='strata']
+  ret <- list()
+  for(da.name in names(dt)[names(dt) != x.name])
+  {
+    temp <- convertToSteps(x=dt[[x.name]], y=dt[[da.name]], from=from, to=to)
+    if(length(ret) == 0)
+    {
+      ret[[x.name]] <- temp$x
+    }
+    ret[[da.name]] <- temp$y
+  }
+  return(ret)
+}
+
+convertToSteps <- function (x, y, from=min(x), to=max(x)) 
+{
+  k <- order(x)
+  y2 <- y[c(rep(k[-length(k)], each=2), k[length(k)])]
+  x2 <- x[c(k[1], rep(k[-1L], each=2))]
+  valid.x <- x2 >= from & x2 <= to
+  x2 <- x2[valid.x]
+  y2 <- y2[valid.x]
+  x2 <- c(from, x2, to)
+  y2 <- c(y2[1], y2, y2[length(y2)])
+  return(list(x=x2, y=y2))
 }
 
 merge.vectors <- function(vector1, vector2)
