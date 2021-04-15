@@ -1,5 +1,6 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
+library(data.table)
 
 .define.fonts <- function()
 {
@@ -182,6 +183,10 @@
 
 dev.off2 <- function(file)
 {
+     if(startsWith(file, '~'))
+     {
+          stop('Embed fonts must have a fully defined path and cannot start with a tilde. Fully specify the path.')
+     }
 	library(extrafont)
 	dev.off()
 	embed_fonts(file)
@@ -397,13 +402,13 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 	paste.cols(x=x, cols=cols, name=idName, sep=sep)
 }
 
-getUniqueCombos <- function(x, idCols, ordered=T)
+getUniqueCombos <- function(x, by, idCols=by, ordered=T)
 {
-	ret <- unique(x, by=idCols)[, idCols, with=F]
 	if(ordered)
 	{
 		setorderv(x, cols=idCols)
 	}
+	ret <- unique(x, by=idCols)[, idCols, with=F]
 	return(ret)
 }
 
@@ -1002,13 +1007,13 @@ bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.col
 	y <- dt[[y.column]]
 	
 	# Get check the specified color and group columns
-	if(is.null(color.columns) || length(color.columns) == 0 || !all(color.columns %in% names(dt)))
-	{
-		stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
-	}
 	if(!is.null(group.columns) && (length(group.columns) == 0 || !all(group.columns %in% names(dt))))
 	{
 		stop("All group.columns must be specified and must be present in the provided table of data. Aborting.")
+	}
+	if(!is.null(color.columns) && (length(color.columns) == 0 || !all(color.columns %in% names(dt))))
+	{
+	     stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
 	}
 	
 	# Get the matrix needed for barplot
@@ -1034,7 +1039,8 @@ bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.col
 	else
 	{
 	     mat <- y
-	     color.names <- dt[[color.columns]]
+	     color.names <- getUniqueCombosAsStringVector(dt, idCols=color.columns, ordered=F)
+	     # color.names <- dt[[color.columns]]
 	     if(has.upper)
 	     {
 	          upper <- dt[[error.upper.column]]
@@ -1213,10 +1219,22 @@ bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.col
 		errloc <- as.vector(do.call(barplot, args.barplot))
 		
 		# Compile the error bar arguments
-		args.error.final <- list(x=errloc, y=tempDT$value, upper=upper, lower=lower, draw.lower=has.lower)
+		if(!is.null(group.columns))
+		{
+		     args.error.final <- list(x=errloc, y=tempDT$value, upper=upper, lower=lower, draw.lower=has.lower)
+		}
+		else
+		{
+		     args.error.final <- list(x=errloc, y=tempDT[[y.column]], upper=upper, lower=lower, draw.lower=has.lower)
+		}
+		
 		args.error.final <- modifyList(args.error.final, error.bar.args)
 		
 		# Draw the error bars
+		# if(any(args.error.final$upper==0 & args.error.final$lower==0))
+		# {
+		#      stop('Upper and lower error cannot be set to 0.')
+		# }
 		do.call(error.bar, args.error.final)
 	}
 	else
@@ -1553,6 +1571,10 @@ wave2rgb <- function(wavelength, gamma=0.8){
 
 loopingPastels <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
 {
+	if(!is.numeric(k))
+	{
+		k <- as.numeric(as.factor(k))
+	}
 	cols=hsl(h=seq(min.h,max.h, length.out=max.k+1)[-(max.k+1)], s=s, l=l, a=a)
 	n <- length(cols)
 	return(cols[((k-1) %% (n)) + 1])
@@ -1664,7 +1686,6 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 {
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
-	
 	if('grp' %in% names(data))
 	{
 		stop("'grp' is used internally to help plot. Please change the name of this variable.")
@@ -1719,11 +1740,20 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	# }
 	
 	# Create the legend table
-	legend.colors <- getUniqueCombosN(data, idCols=c(plot.by, by))
+	legend.colors <- getUniqueCombosN(data, idCols=c(plot.by, union(by, line.color.by)))
+	legend.colors[, N:=NULL]
 	legend.colors[, plot.by.index:=.GRP, by=plot.by]
 	legend.colors[, by.index:=.GRP, by=by]
 	legend.colors[, line.color.by.index:=.GRP, by=line.color.by]
-	paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
+	
+	if(!is.null(line.color.by))
+	{
+		paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
+	}
+	else
+	{
+		legend.colors[, names:='']
+	}
 	
 	# Set legend colors
 	if(is.null(line.color.by))
@@ -1784,7 +1814,17 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 		legend.colors[, my.color:=adjustColor(my.color, alpha.factor=alpha)]
 	}
 	
-	data <- data[legend.colors, nomatch=0]
+	if(length(intersect(names(data), names(legend.colors))) > 0)
+	{
+		# browser()
+		data <- data[legend.colors, nomatch=0, on=intersect(names(data), names(legend.colors))]
+	}
+	else
+	{
+		data <- copy(data)
+		data[, c(names(legend.colors)):=legend.colors]
+	}
+	
 	setnames(data, 'my.color', 'my.temp.color')
 	if(!is.null(colorcol))
 	{
@@ -1851,7 +1891,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	{
 		if(is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file,'.', save.type), save.width=save.width, save.height=save.height, sample.size=sample.size, sample.seed=sample.seed, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, plot.by.index=plot.by.index, mtext.args=mtext.args, ...)]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=main, by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=paste0(save.file,'.', save.type), save.width=save.width, save.height=save.height, sample.size=sample.size, sample.seed=sample.seed, family=family, res=res, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, plot.by=plot.by.index, mtext.args=mtext.args, ...)]
 		}
 		else
 		{
@@ -2098,12 +2138,12 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		if(type[1] == 'c' || getDefault(legend.args$pch, 21) >= 21)
 		{
 			# Then set color to be the background color of the point
-			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
 		}
 		else
 		{
 			# Then use the col arg to set the color of the point
-			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
 		}
 		
 		# # data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
@@ -2122,12 +2162,12 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			
 			for(i in 1:nrow(cross.data))
 			{
-				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, col='black', pch=cross.pch, cex=cross.cex, lwd=cross.lwd*1.3, add=T, ...)
-				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params, percentile.limits=percentile.limits, col=setColor(cross.data$my.temp.color[i], 1), pch=cross.pch, cex=cross.cex, lwd=cross.lwd*0.65, add=T, ...)
+				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, col='black', pch=cross.pch, cex=cross.cex, lwd=cross.lwd*1.3, add=T, ...)
+				plot.logicle(x=cross.data$x[i], y=cross.data$y[i], type='p', log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, col=setColor(cross.data$my.temp.color[i], 1), pch=cross.pch, cex=cross.cex, lwd=cross.lwd*0.65, add=T, ...)
 			}
 		}
 		
-		finish.logicle(log=log, logicle.params=logicle.params, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, trans.logit=trans.logit, ...)
+		finish.logicle(log=log, logicle.params=logicle.params.plc, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, add=add, trans.logit=trans.logit, ...)
 	}
 	else if(type == 'h' | type == 'd')
 	{
@@ -2299,7 +2339,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	}
 	
 	# Make the legend
-	if(legend.plot & !is.null(by))
+	if(legend.plot & !(is.null(by) & is.null(line.color.by)))
 	{
 		if(sample.size > 0)
 		{
@@ -3104,8 +3144,12 @@ writeLatexWilcoxCombinedTable <- function(x, captionAddition='', includeVals=F, 
 	}
 }
 
-getPSymbol <- function(pval, not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
+getPSymbol <- function(pval, na.val='', not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
 {
+  if(is.na(pval))
+  {
+    return(na.val)
+  }
 	if(is.list(pval))
 	{
 		collapseSymbols <- function(symbols)
@@ -3144,15 +3188,22 @@ getSignSymbol <- function(V1)
 	return(ret)
 }
 
-getFirstSplit <- function(x)
+getFirstSplit <- function(x, sep=' ')
 {
-	return(getNSplit(x=x, n=1))
+	return(getNSplit(x=x, sep=sep, n=1))
 }
 
-getNSplit <- function(x, n=1)
+getNSplit <- function(x, sep, n=1)
 {
-	temp <- strsplit(x, ' ')
-	return(temp[[1]][1])
+	temp <- strsplit(as.character(x), split=sep)
+	ret <- sapply(temp, '[', n)
+	
+	if(length(n) > 1)
+	{
+		temp <- function(n,x2){return(x2[n,])}
+		ret <- lapply(n, x2=ret, FUN=temp)
+	}
+	return(ret)
 }
 
 getPrettySummary <- function(deets, cond.x, cond.y, includeVals=F)
@@ -3692,6 +3743,28 @@ reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCo
 	{
 		data <- data.table(data)
 	}
+	
+	duh <- measurementCols
+	if(!is.null(duh) && length(duh) == 1)
+	{
+		#Split the arg if separated by commas
+		duh <- strsplit(duh, ",", fixed=T)[[1]]
+	}
+	measurementCols <- duh
+	duh <- valueCols
+	if(!is.null(duh) && length(duh) == 1)
+	{
+		#Split the arg if separated by commas
+		duh <- strsplit(duh, ",", fixed=T)[[1]]
+	}
+	valueCols <- duh
+	duh <- idCols
+	if(!is.null(duh) && length(duh) == 1)
+	{
+		#Split the arg if separated by commas
+		duh <- strsplit(duh, ",", fixed=T)[[1]]
+	}
+	idCols <- duh
 	
 	if(!is.null(measurementCols))
 	{
@@ -4330,11 +4403,165 @@ multi.mixedorder <- function(..., na.last = TRUE, decreasing = FALSE){
 
 merge.lists <- function(list1, list2)
 {
+	# Default values in list1
+	# Overriding values in list2
 	for(name in names(list2))
 	{
 		list1[[name]] <- list2[[name]]
 	}
 	return(list1)
+}
+
+interdigitate <- function(a, b)
+{
+  len <- length(c(a, b))
+  x <- vector(class(a), len)
+  
+  a.l <- rep(length(a) >= length(b), len)
+  b.l <- rep(length(b) >= length(a), len)
+  len.min <- min(length(a), length(b))
+  a.l[1:(2*len.min)] <- rep(c(T,F), len.min)
+  b.l[1:(2*len.min)] <- rep(c(F,T), len.min)
+  x[a.l] <- a
+  x[b.l] <- b
+  return(x)
+}
+
+getNameValue <- function(string, sep='=')
+{
+  vals <- strsplit(string, split=sep, fixed=T)[[1]]
+  ret <- data.table()
+  ret[[vals[1]]] <- vals[2]
+  return(data.table())
+}
+
+getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.time', ecol='LD.status', na.val=as.character(NA))
+{
+  library('reader')
+  # Get rid of cells that started with a positive event status
+  temp <- events[!(get(tcol)==min(get(tcol)) & get(ecol)==1)]
+  # Get survival curves
+  rhs <- if(is.null(by)){names(events)[!names(events) %in% c(idcol, tcol, ecol)]}else{by}
+  setkeyv(temp, rhs)
+  my.f <- makeBasicFormula(paste('Surv(', tcol, ', ', ecol, ')', sep=''), rhs)
+  fit <- do.call(survfit, args=list(formula=my.f, data=temp))
+  my.surv <- data.table()
+  for(name in rhs)
+  {
+    my.surv[, c(name):=as.character(sapply(sapply(names(fit$strata), function(x){strsplit(x, split=', ', fixed=T)[[1]][which(rhs==name)]}), function(y){strsplit(y, split='=', fixed=T)[[1]][2]}))]
+    if(is.factor(temp[[name]]))
+    {
+      my.surv[, c(name):=factor(get(name), levels=levels(temp[[name]]))]
+    }
+  }
+  my.surv <- my.surv[rep(1:.N, fit$strata)]
+  my.surv[, c(tcol, 'n.risk', 'n.censor', 'surv', 'std.err', 'cumhaz', 'chaz', 'conf.int', 'lower', 'upper'):=list(time=fit$time, n.risk=fit$n.risk, n.censor=fit$n.censor, surv=fit$surv, std.err=fit$std.err, cumhaz=fit$cumhaz, chaz=fit$std.chaz, conf.int=fit$conf.int, lower=fit$surv-fit$lower, upper=fit$upper-fit$surv)]
+  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name=tcol, from=0, to=40), .SDcols = c('surv', 'upper','lower',tcol), by=c(rhs)]
+  if(flip)
+  {
+    my.surv[, surv:=1-surv]
+    my.surv.s[, surv:=1-surv]
+  }
+  stats <- as.data.table(pairwise_survdiff(my.f, data = temp)$p.value, keep.rownames=T)
+  stats.sym <- lapply.data.table(stats, getPSymbol, cols=getAllColNamesExcept(stats, 'rn'), by=c('rn'), na.val=na.val)
+  
+  ## Create a printable fixed width table of the stats information
+  # Create a lookup table betwen the by columns and the fixed width printable version of the by grouping labels called 'temp'
+  stats.sym2 <- copy(stats.sym)
+  for(name in by)
+  {
+    names(stats.sym2) <- gsub(paste(name,'=',sep=''), '', names(stats.sym2), fixed=T)
+    replaceSubStringInAllRowsOfCol(stats.sym2, old=paste(name,'=',sep=''), new='', col='rn')
+  }
+  names(stats.sym2) <- gsub(',', ':', names(stats.sym2), fixed=T)
+  replaceSubStringInAllRowsOfCol(stats.sym2, old=',', new=':', col='rn')
+  # setnames(stats.sym2, old='rn', new=' ')
+  temp <- conv.fixed.width(getUniqueCombos(events, by=by))
+  paste.cols(temp, cols=by, name='Combo.fw', sep=':')
+  lapply.data.table(temp, trimws, cols=by, in.place=T)
+  # Use the stats.sym table to create a table that can be formatted for printing
+  # Make it long form, taking just the unique combos by including both the group1 vs group2 but also group2 vs group1 (which are equivalent)
+  fw.table <- melt.data.table(stats.sym2, id.vars='rn')
+  fw.table <- rbind(fw.table[, c('rn','variable','value'):=list(variable, rn, value)],  melt.data.table(stats.sym2, id.vars='rn'))[rn != variable]
+  fw.table <- fw.table[order(value)]
+  fw.table <- unique(fw.table, by=c('rn','variable'))
+  # Create a new by variable for keeping track of group1 vs group2 comparisons and
+  by.v <- paste(by, '.v', sep='')
+  # Stats separates group sublabels by comma. Separate them to create the group1 label columns
+  splitColumnAtString(fw.table, colToSplit = 'rn', newColNames = by, sep=': ', keep=1L:length(by))
+  # Do the same to crewate the group2 label columns
+  splitColumnAtString(fw.table, colToSplit = 'variable', newColNames = by.v, sep=': ', keep=1L:length(by))
+  # Trim any potential whitespace characters from the group labels provided by stats.sym
+  lapply.data.table(fw.table, trimws, cols=c(by, by.v), in.place=T)
+  # Reset names incase rerunning this section of code multiple times
+  names(by) <-  by
+  by <- as.character(by)
+  # Use our lookup table to get the fixed width printable version for each group1 labeling
+  fw.table[temp, text:=Combo.fw, on=by]
+  # Use our lookup table to get the fixed width printable version for each group1 labeling, using by.v to associate names of group1 (by) and group2 (by.v)
+  names(by) <- by.v
+  fw.table[temp, text2:=Combo.fw, on=by]
+  # Make sure the by groupings have the same levels/ordering as the original events table
+  for(by.n in by)
+  {
+    if(is.factor(events[[by.n]]))
+    {
+      fw.table[, c(by.n):=factor(get(by.n), levels=levels(events[[by.n]]))]
+    }
+  }
+  for(by.n in by)
+  {
+    by.n.v <- paste(by.n, '.v', sep='')
+    if(is.factor(events[[by.n]]))
+    {
+      fw.table[, c(by.n.v):=factor(get(by.n.v), levels=levels(events[[by.n]]))]
+    }
+  }
+  setorderv(fw.table, c(by, by.v))
+  # Apply that ordering to the combined text
+  fw.table[, text:=factor(text, levels=unique(text))]
+  fw.table[, text2:=factor(text2, levels=levels(text))]
+  # Reorganize the table for printing
+  fw.table <- reorganize(fw.table, idCols='text', measurementCols = 'text2', valueCols = 'value')[, 1:(length(unique(fw.table$text)))]
+  # Replace NA values with ''
+  lapply.data.table(fw.table, FUN=function(x){x[is.na(x)] <- ''; return(x)}, cols=names(fw.table)[-1L], in.place=T)
+  # Replace the 'text' col name with a new name of '|' for printing
+  setnames(fw.table, old='text', new=' ')
+  # Add the header label
+  fw.table <- rbind(data.table()[, c(names(fw.table)):=as.list(names(fw.table))], fw.table)
+  fw.table <- conv.fixed.width(fw.table)
+  
+  paste.cols(fw.table, names(fw.table), name='final', sep=' ')
+  return(list(events=temp, sc=my.surv, sc.step=my.surv.s, stats=stats, symbols=stats.sym, fw.table=fw.table, fit=fit, p.val=surv_pvalue(fit=fit), p.val.trend=surv_pvalue(fit=fit, test.for.trend = T), formula=my.f, rhs=rhs))
+}
+
+convertMultipleToSteps <- function(dt, x.name, from=min(dt[[x.name]]), to=max(dt[[x.name]]))
+{
+  # e.g.,  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name='time', from=0, to=40), .SDcols = c('surv', 'upper','lower','time'), by='strata']
+  ret <- list()
+  for(da.name in names(dt)[names(dt) != x.name])
+  {
+    temp <- convertToSteps(x=dt[[x.name]], y=dt[[da.name]], from=from, to=to)
+    if(length(ret) == 0)
+    {
+      ret[[x.name]] <- temp$x
+    }
+    ret[[da.name]] <- temp$y
+  }
+  return(ret)
+}
+
+convertToSteps <- function (x, y, from=min(x), to=max(x)) 
+{
+  k <- order(x)
+  y2 <- y[c(rep(k[-length(k)], each=2), k[length(k)])]
+  x2 <- x[c(k[1], rep(k[-1L], each=2))]
+  valid.x <- x2 >= from & x2 <= to
+  x2 <- x2[valid.x]
+  y2 <- y2[valid.x]
+  x2 <- c(from, x2, to)
+  y2 <- c(y2[1], y2, y2[length(y2)])
+  return(list(x=x2, y=y2))
 }
 
 merge.vectors <- function(vector1, vector2)
@@ -4690,9 +4917,16 @@ finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col=
 	# Plot h and v lines
 	if(!is.null(h))
 	{
-		if(logY & !is.null(logicle.params))
+		if(logY)
 		{
-			abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[2]), col=h.col, lty=h.lty, lwd=h.lwd)
+			if(is.null(logicle.params))
+			{
+				abline(h=log10(h), col=h.col, lty=h.lty, lwd=h.lwd)
+			}
+			else
+			{
+				abline(h=logicle(h, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[2]), col=h.col, lty=h.lty, lwd=h.lwd)
+			}
 		}
 		else
 		{
@@ -4703,7 +4937,14 @@ finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col=
 	{
 		if(logX & !is.null(logicle.params))
 		{
-			abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[1]), col=v.col, lty=v.lty, lwd=v.lwd)
+			if(is.null(logicle.params))
+			{
+				abline(v=log10(v), col=v.col, lty=v.lty, lwd=v.lwd)
+			}
+			else
+			{
+				abline(v=logicle(v, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, neg.rm=F, trans.logit=trans.logit[1]), col=v.col, lty=v.lty, lwd=v.lwd)
+			}
 		}
 		else
 		{
@@ -4712,9 +4953,20 @@ finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col=
 	}
 }
 
-getPrettyNum <- function(x, sigFigs=3)
+getPrettyNum <- function(x, sigFigs=3, dropTrailingZeros=F)
 {
-	return(formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = T))
+	ret <- formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = dropTrailingZeros)
+	if(any(endsWith(ret, '.')))
+	{
+	     for(i in 1:length(ret))
+	     {
+	          if(endsWith(ret[i], '.'))
+	          {
+	               ret[i] <- substr(ret[i], 1, nchar(ret[i])-1)
+	          }
+	     }
+	}
+	return(ret)
 }
 
 fillDefaultLogicleParams <- function(x, y, logicle.params)
@@ -5333,7 +5585,7 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 		linSidePrettyNums <- linSidePrettyNums[order(linSidePrettyNums)]
 		linSidePrettyNums <- linSidePrettyNums[linSidePrettyNums <= transition]
 		linSidePrettyLabels <- c(as.character(linSidePrettyNums))
-		linSidePrettyLabels[length(linSidePrettyLabels)] <- as.character(getPrettyNum(linSidePrettyNums[length(linSidePrettyNums)]))
+		linSidePrettyLabels[length(linSidePrettyLabels)] <- as.character(getPrettyNum(linSidePrettyNums[length(linSidePrettyNums)], dropTrailingZeros = T))
 		
 		# Aggregate list of nums
 		prettyNums <- c(linSidePrettyNums, logSideNums)
@@ -6177,6 +6429,20 @@ roll.mean <- function(x, win.width=2, na.rm=T, ...)
 	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align='center'))
 }
 
+.roll.rank <- function(x)
+{
+	ret <- rank(x)
+	return(ret[length(x) %/% 2])
+}
+
+roll.rank <- function(x, win.width=3, ...)
+{
+	library(zoo)
+	
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=.roll.rank, ..., partial=T, align='center'))
+}
+
 roll.min <- function(x, win.width=2, na.rm=T, ...)
 {
 	library(zoo)
@@ -6383,8 +6649,8 @@ getDerivative <- function(x, t)
 	return(v)
 }
 
-#' Get the derivative of a vector
-#' @param x A numeric vector on which to calculate the deltas (t+1) - (t)
+#' Get the differences between adjacent values in a vector
+#' @param x A numeric vector on which to calculate the deltas (x+1) - (x)
 getDeltas <- function(x)
 {
 	if(length(x) < 2)
@@ -6399,6 +6665,39 @@ getDeltas <- function(x)
 getPaddedDeltas <- function(x, pad=NA)
 {
 	return(c(pad, x[2:length(x)] - x[1:(length(x)-1)]))
+}
+
+findFirstUpCrossing <- function(x, y, thresh, undetectedValue)
+{
+	ret <- undetectedValue
+	first <- which(y >= thresh)[1]
+	if(!is.na(first))
+	{
+		if(first > 0)
+		{
+			# Linearly interpolate the ascending threshold crossing point.
+			crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
+			ret <- crossing
+		}
+	}
+	return(ret)
+}
+
+findFirstDownCrossing <- function(x, y, thresh, undetected.value)
+{
+	ret <- undetected.value
+	last <- which(y <= thresh)[1]
+	# browser()
+	if(!is.na(last))
+	{
+		if(last > 0)
+		{
+			# Linearly interpolate the threshold crossing point.
+			crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
+			ret <- crossing
+		}
+	}
+	return(ret)
 }
 
 #' Get the local derivative around a point in a vector accounding for boundary scenarios at the start and end of the vector
@@ -6481,15 +6780,16 @@ clear.warnings <- function()
 
 sig.digits <- function(x, nSig=2, trim.spaces=T, trim.zeros=F)
 {
-	ret <- signif(x,digits=nSig)
-	ret <- format(ret, scientific=F)
-	
-	if(trim.zeros)
-	{
-		# Trim zeros and whitespace and trailing decimal points
-		ret <- gsub('0+$', '', ret)
-		ret[substr(ret, nchar(ret), nchar(ret))=='.'] <- substr(ret[substr(ret, nchar(ret), nchar(ret))=='.'], 1, nchar(ret[substr(ret, nchar(ret), nchar(ret))=='.'])-1)
-	}
+     ret <- getPrettyNum(x, sigFigs = nSig, dropTrailingZeros = trim.zeros)
+	# ret <- signif(x,digits=nSig)
+	# ret <- format(ret, scientific=F)
+	# 
+	# if(trim.zeros)
+	# {
+	# 	# Trim zeros and whitespace and trailing decimal points
+	# 	ret <- gsub('0+$', '', ret)
+	# 	ret[substr(ret, nchar(ret), nchar(ret))=='.'] <- substr(ret[substr(ret, nchar(ret), nchar(ret))=='.'], 1, nchar(ret[substr(ret, nchar(ret), nchar(ret))=='.'])-1)
+	# }
 	
 	if(trim.spaces)
 	{
@@ -6644,7 +6944,7 @@ getNeighborsInRadius <- function(dt, cIdCol, xcol, ycol, keep=c(), searchRadius,
 			temp <- thingsToDo[i]
 			setkeyv(temp, by)
 			dt2 <- dt[temp]
-			browser()
+			# browser()
 			dt[temp, neighbors:=list(list(getNeighborsInRadius_(dt2, xcol=xcol, ycol=ycol, cIdCol=cIdCol, theId=.BY[[1]], keep=keep, searchRadius=searchRadius))), by=cIdCol][]
 		}
 	}
@@ -6975,12 +7275,29 @@ replaceAllNonAlphaNum <- function(strVec, newToken=' ')
 }
 
 # For use with box plot graphing function
-drawRects <- function(at, width=3, col=setColor('lightblue', alpha=0.2))
+drawRects <- function(at, width=3, col=setColor('lightblue', alpha=0.2), adj='center')
 {
+	# adj can equal 'center', 'left', and 'right'
 	lim <- par('usr')
-	for(x in at)
+	if(length(adj) == 1)
 	{
-		rect(x-width/2, lim[3], x+width/2, lim[4], border=NA, col=col)
+		adj <- rep(adj, length(at))
+	}
+	
+	for(i in seq_along(at))
+	{
+		if(adj[i] == 'center')
+		{
+			rect(at[i]-width/2, lim[3], at[i]+width/2, lim[4], border=NA, col=col)
+		}
+		else if(adj[i] == 'left')
+		{
+			rect(at[i], lim[3], at[i]+width, lim[4], border=NA, col=col)
+		}
+		else
+		{
+			rect(at[i]-width, lim[3], at[i], lim[4], border=NA, col=col)
+		}
 	}
 }
 
@@ -7334,11 +7651,27 @@ fitHill2 <- function(x, y, ...)
 	return(daFit$par)
 }
 
-data.table.expand.grid <- function(..., KEEP.OUT.ATTRS=T, stringsAsFactors = T)
+data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFactors = T)
 {
-	ret <- data.table(expand.grid(..., KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors))
+     if(is.null(pt))
+     {
+          ret <- data.table(expand.grid(..., KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors))
+     }
+	else
+	{
+	     ret <- my.data.table.expand.pt(..., pt=pt, KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors)
+	}
 	return(ret)
 }
+
+# my.data.table.expand.point <- function(..., pt, KEEP.OUT.ATTRS=T, stringsAsFactors = T)
+# {
+#      dts <- list()
+#      for(item in pt)
+#      {
+#           
+#      }
+# }
 
 # Fitting the distribution
 LL <- function(lambda, avg.size, x)
