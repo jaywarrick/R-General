@@ -1002,7 +1002,7 @@ bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.col
 	y <- dt[[y.column]]
 	
 	# Get check the specified color and group columns
-	if(is.null(color.columns) || length(group.columns) == 0 || !all(color.columns %in% names(dt)))
+	if(is.null(color.columns) || length(color.columns) == 0 || !all(color.columns %in% names(dt)))
 	{
 		stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
 	}
@@ -1034,7 +1034,7 @@ bar <- function(dt, y.column, color.columns, group.columns=NULL, error.upper.col
 	else
 	{
 	     mat <- y
-	     color.names <- dt[[color.column]]
+	     color.names <- dt[[color.columns]]
 	     if(has.upper)
 	     {
 	          upper <- dt[[error.upper.column]]
