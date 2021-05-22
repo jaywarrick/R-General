@@ -4460,7 +4460,7 @@ getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.ti
   }
   my.surv <- my.surv[rep(1:.N, fit$strata)]
   my.surv[, c(tcol, 'n.risk', 'n.censor', 'surv', 'std.err', 'cumhaz', 'chaz', 'conf.int', 'lower', 'upper'):=list(time=fit$time, n.risk=fit$n.risk, n.censor=fit$n.censor, surv=fit$surv, std.err=fit$std.err, cumhaz=fit$cumhaz, chaz=fit$std.chaz, conf.int=fit$conf.int, lower=fit$surv-fit$lower, upper=fit$upper-fit$surv)]
-  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name=tcol, from=0, to=40), .SDcols = c('surv', 'upper','lower',tcol), by=c(rhs)]
+  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name=tcol), .SDcols = c('surv', 'upper','lower',tcol), by=c(rhs)]
   if(flip)
   {
     my.surv[, surv:=1-surv]
