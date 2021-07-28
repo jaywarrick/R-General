@@ -2970,8 +2970,9 @@ my.test <- function(x, y, test=c('wilcox','t.test'), adjust.p=F, adjust.method='
 	return(list(p=ret1))
 }
 
-data.table.wilcox.stats <- function(dt, val.col, grp.by, for.each, ...)
+data.table.wilcox.pairwise.stats <- function(dt, val.col, grp.by, for.each, compare.to.filter.fun=NULL, ...)
 {
+	
 	ret <- dt[, getWilcoxStatForEachGroup(.SD, val.col=val.col, by=grp.by), by=for.each]
 	ret[, Wmin:=0]
 	ret[, Wmax:=n.x*n.y]
@@ -2980,11 +2981,27 @@ data.table.wilcox.stats <- function(dt, val.col, grp.by, for.each, ...)
 	return(ret[])
 }
 
+data.table.wilcox.stats <- function(dt, val.col, grp.by, for.each, ...)
+{
+	ret <- dt[, getWilcoxStatForEachGroup(.SD, val.col=val.col, by=grp.by), by=for.each]
+	ret[, Wmin:=0]
+	ret[, Wmax:=n.x*n.y]
+	setorderv(ret, c(for.each, 'W'))
+	ret[, W.norm:=(W-Wmin)/(Wmax-Wmin)]
+	
+	# http://core.ecu.edu/psyc/wuenschk/docs30/Nonparametric-EffectSize.pdf
+	# Kirby (2014)
+	# 1-2*U/(n1*n2) Rank Biserial Correlation
+	# Result is 0-1 being the chance that a random sample from one sample will exceed that of a sample from the other population
+	ret[, W.rankbiserial:=-1*as.numeric(1-2*(W-Wmin)/(Wmax-Wmin))]
+	return(ret[])
+}
+
 getWilcoxStatForEachGroup <- function(dt, val.col, by, ...)
 {
-	dt2 <- copy(dt)
-	ret <- dt2[, getWilcoxStats(get(val.col),dt[[val.col]], ...), by=by]
-	return(ret)
+		dt2 <- copy(dt)
+		ret <- dt2[, getWilcoxStats(get(val.col),dt[[val.col]], ...), by=by]
+		return(ret)
 }
 
 getWilcoxStats <- function(x, y, ...)
@@ -3035,6 +3052,11 @@ getCombnEffectSize_ <- function(dt, valCol, combn.by, rank.biserial)
 getCombnEffectSize <- function(dt, valCol, group.by, combn.by, rank.biserial=F)
 {
 	ret <- dt[, getCombnEffectSize_(.SD, valCol=valCol, combn.by=combn.by, rank.biserial=rank.biserial), by=group.by][]
+	if(is.factor(dt[[combn.by]]))
+	{
+		ret$V1 <- levels(dt[[combn.by]])[as.numeric(ret$V1)]
+		ret$V2 <- levels(dt[[combn.by]])[as.numeric(ret$V2)]
+	}
 	setnames(ret, c('V1','V2'), gsub('V', paste0(paste(combn.by, collapse='.'), '.'), c('V1','V2'), fixed=T))
 	return(ret)
 }
@@ -4435,11 +4457,20 @@ getNameValue <- function(string, sep='=')
   return(data.table())
 }
 
-getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.time', ecol='LD.status', na.val=as.character(NA))
+getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.time', ecol='LD.status', na.val=as.character(NA), ignore.first=T)
 {
   library('reader')
   # Get rid of cells that started with a positive event status
-  temp <- events[!(get(tcol)==min(get(tcol)) & get(ecol)==1)]
+  if(ignore.first)
+  {
+  	temp <- events[!(get(tcol)==min(get(tcol)) & get(ecol)==1)]
+  }
+  else
+  {
+  	temp <- copy(events)
+  }
+		
+  
   # Get survival curves
   rhs <- if(is.null(by)){names(events)[!names(events) %in% c(idcol, tcol, ecol)]}else{by}
   setkeyv(temp, rhs)
@@ -4454,7 +4485,21 @@ getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.ti
       my.surv[, c(name):=factor(get(name), levels=levels(temp[[name]]))]
     }
   }
-  my.surv <- my.surv[rep(1:.N, fit$strata)]
+  
+  if(is.null(fit$strata))
+  {
+  	# If there is only one condition to plot, survminer doesn't return a fit$strata object
+  	# So we fake one here
+  	my.surv <- data.table(x=as.factor(levels(temp[[name]])))
+  	setnames(my.surv, 'x', name)
+  	my.surv <- my.surv[rep(1:.N, length(fit$surv))]
+  }
+  else
+  {
+  	# Otherwise there are more than one conditions to plot and this should work like normal
+  	my.surv <- my.surv[rep(1:.N, fit$strata)]
+  }
+  
   my.surv[, c(tcol, 'n.risk', 'n.censor', 'surv', 'std.err', 'cumhaz', 'chaz', 'conf.int', 'lower', 'upper'):=list(time=fit$time, n.risk=fit$n.risk, n.censor=fit$n.censor, surv=fit$surv, std.err=fit$std.err, cumhaz=fit$cumhaz, chaz=fit$std.chaz, conf.int=fit$conf.int, lower=fit$surv-fit$lower, upper=fit$upper-fit$surv)]
   my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name=tcol), .SDcols = c('surv', 'upper','lower',tcol), by=c(rhs)]
   if(flip)
