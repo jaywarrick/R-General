@@ -3989,11 +3989,11 @@ getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=N
 	p.max <- max(y)
 	if(valleys)
 	{
-		peaks <- peakpick(matrix(y.i, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
+		peaks <- peakpick(matrix(y.i, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim, ...)
 	}
 	else
 	{
-		peaks <- peakpick(matrix(y, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim)
+		peaks <- peakpick(matrix(y, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim, ...)
 	}
 	peaks <- peaks & (y >= min.h*p.max)
 	if(sum(peaks)==0)
