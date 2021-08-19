@@ -3483,7 +3483,7 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 
 readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, times=NULL, time.completeness=0, cellIdString=c('Id'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
-	if(time.completeness <= 0)
+	if(time.completeness < 0)
 	{
 		time.completeness <- 1
 	}
