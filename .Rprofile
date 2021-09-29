@@ -1404,6 +1404,27 @@ convertColsToNumeric <- function(x, specifically=c(), exceptions=c())
 	}
 }
 
+convertColsToCharacter <- function(x, specifically=c(), exceptions=c())
+{
+	for(col in names(x))
+	{
+		if(length(specifically) > 0)
+		{
+			if(col %in% specifically && !is.numeric(x))
+			{
+				x[, (col):=as.character(get(col))]
+			}
+		}
+		else
+		{
+			if(!(col %in% exceptions) && !is.numeric(x))
+			{
+				x[, (col):=as.character(get(col))]
+			}
+		}
+	}
+}
+
 adjustIntensity <- function(x, oldMin, oldMax, newMin, newMax)
 {
 	ratio = (newMax - newMin) / (oldMax - oldMin);
@@ -1427,7 +1448,7 @@ colorize <- function(x, min.h=0.666, max.h=0, s=0.7, l=0.5, a=1)
 		nr <- nrow(x)
 		x <- as.vector(x)
 	}
-	lims <- range(x, na.rm=T)
+	lims <- range(x[is.finite(x)], na.rm=T)
 	x <- adjustIntensity(x, lims[1], lims[2], min.h, max.h)
 	ret <- hsl(h=x, s=s, l=l, a=a)
 	if(is.mat)
@@ -1940,7 +1961,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n,  mtext.args=mtext.args, mtext.text=getDefault(mtext.args$text, paste0(time.stamp.prefix, time.stamp.conversion(.BY[[1]]), time.stamp.suffix)), ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse=':'), ' = ', paste(lapply(.BY, as.character), collapse=':')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n,  mtext.args=mtext.args, mtext.text=getDefault(mtext.args$text, paste0(time.stamp.prefix, time.stamp.conversion(.BY[[1]]), time.stamp.suffix)), ...), by=plot.by]
 		}
 		else
 		{
@@ -2603,6 +2624,91 @@ if.else <- function(condition, if.true, if.false)
 	{
 		return(if.false)
 	}
+}
+
+splitColumnAtString <- function(x, colToSplit, newColNames, sep='.', keep=NULL)
+{
+	x[, (newColNames) := tstrsplit(get(colToSplit), sep, fixed=T, keep=keep)]
+}
+
+#' convertAlphaNumericToIndex
+#'
+#' @param x description
+#' @param rows description
+#' @param cols description
+#' @param capital description
+#' @param horizontalNumbering description
+convertAlphaNumericToIndex <- function(x, rows=8, cols=12, capital=T, horizontalNumbering=T)
+{
+	let <- if(capital){LETTERS[1:rows]}else{letters[1:rows]}
+	num <- if(horizontalNumbering){paste(rep(let, each=cols), 1:cols, sep='')}else{paste(let, rep(1:cols, each=rows), sep='')}
+	return(match(x, num))
+}
+
+#' convertAlphaNumericToRowCol
+#'
+#' @param x description
+#' @param rows description
+#' @param cols description
+#' @param capital description
+convertAlphaNumericToRowCol <- function(x, rows=8, cols=12, capital=T)
+{
+	return(convertIndexToRowCol(convertAlphaNumericToIndex(x, rows=rows, cols=cols, capital=capital, horizontalNumbering=T),
+						   rows=rows, cols=cols, horizontalNumbering=T))
+}
+
+#' convertIndexToRowCol
+#'
+#' @param n description
+#' @param horizontalNumbering description
+#' @param rows description
+#' @param cols description
+convertIndexToRowCol <- function(n, horizontalNumbering=T, rows=8, cols=12)
+{
+	if(horizontalNumbering)
+	{
+		row <- ((n-1) %/% cols) + 1
+		col <- ((n-1) %% cols)+1
+	}
+	else
+	{
+		col <- ((n-1) %/% rows) + 1
+		row <- ((n-1) %% rows)+1
+	}
+
+	return(list(row=row, col=col))
+}
+
+#' convertIndexToAlphaNumeric
+#'
+#' @param n description
+#' @param horizontalNumbering description
+#' @param rows description
+#' @param cols description
+#' @param capital description
+#'
+#' @export
+convertIndexToAlphaNumeric <- function(n, horizontalNumbering=T, rows=8, cols=12, capital=T)
+{
+	let <- if(capital){LETTERS[1:rows]}else{letters[1:rows]}
+	num <- if(horizontalNumbering){paste(rep(let, each=cols), 1:cols, sep='')}else{paste(let, rep(1:cols, each=rows), sep='')}
+	return(num[n])
+}
+
+#' splitAlphaNumeric
+#'
+#' @param x description
+#' @param convertToNumeric description
+splitAlphaNumeric <- function(x, convertToNumeric=F)
+{
+	pieces <- strsplit(x, split="[^A-Z0-9]+|(?<=[A-Z])(?=[0-9])|(?<=[0-9])(?=[A-Z])", perl=T)
+	alphas <- sapply(pieces, FUN='[', 1)
+	numerics <- sapply(pieces, FUN='[', 2)
+	if(convertToNumeric)
+	{
+		numerics <- as.numeric(numerics)
+	}
+	return(list(alphas=alphas, numerics=numerics))
 }
 
 getAllColNamesExcept <- function(x, names)
@@ -3666,6 +3772,21 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 	setkeyv(x, idCols)
 	setkeyv(filterTable, idCols)
 	return(x[unique(filterTable, by=idCols)[, idCols, with=F], nomatch=0])
+}
+
+#' Utilizes in2csv from csvkit (pip3 install csvkit)
+#'
+fread.csv <- function(path, stringArgs="-d ',' --no-header-row --blanks", in2csvPath="/Library/Frameworks/Python.framework/Versions/Current/bin", ...)
+{
+	library(data.table)
+	oldPath <- Sys.getenv("PATH")
+	if(!grepl(in2csvPath, Sys.getenv("PATH")))
+	{
+		Sys.setenv(PATH=paste((Sys.getenv("PATH")), ":", in2csvPath, sep=''))
+	}
+	ret <- fread(cmd=paste("in2csv", stringArgs, paste("'", path, "'", sep='')), ...)
+	Sys.setenv(PATH=oldPath)
+	return(ret)
 }
 
 #' sample.size is how many will try to be samples PER FILE.
@@ -8144,6 +8265,7 @@ data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFact
 #' rbind.results
 #'
 #' @param dt.expression
+#' @param grpColName leave blank to avoid adding a column to keep an index for each unique combination
 #' @param ...
 #'
 #' @return the aggregated results of the dt expression for each possible
@@ -8154,12 +8276,16 @@ data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFact
 #' duh <- data.table(a=1:4, b=c(1,2,1,2), c=(1,1,2,2))
 #' rbind.results(duh[, c('d','e','f'):=.(a+alpha, a+beta, a+zeta), by=c('a')], alpha=c(1,2,3), beta=c(1))
 #'
-rbind.results <- function(dt.expression, ...)
+rbind.results <- function(dt.expression, grpColName=NULL, ...)
 {
 	# Example:
 	#
 	args <- list(...)
 	args.table <- data.table.expand.grid(args)
+	if(!is.null(grpColName))
+	{
+		args.table[, c(grpColName):=1:.N]
+	}
 	rets <- list()
 	for(i in 1:nrow(args.table))
 	{
@@ -8169,6 +8295,18 @@ rbind.results <- function(dt.expression, ...)
 		rets[[i]][, names(args.table):=args.list]
 	}
 	return(rbindlist(rets))
+}
+
+calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
+{
+	confusion_table <- table(factor(predicted, levels=predicted.vals), factor(actual, levels=actual.vals))
+	TP <- confusion_table[2,2]
+	TN <- confusion_table[1,1]
+	FN <- confusion_table[1,2]
+	FP <- confusion_table[2,1]
+	TPR <- TP/(TP+FN)
+	FPR <- FP/(FP+TN)
+	return(list(TP=TP, TN=TN, FN=FN, FP=FP, TPR=TPR, FPR=FPR))
 }
 
 #' make.vars
