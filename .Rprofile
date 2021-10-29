@@ -1621,6 +1621,12 @@ wave2rgb <- function(wavelength, gamma=0.8){
 	return (rgb(floor(R), floor(G), floor(B), max=255))
 }
 
+tryColors <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
+{
+	temp <- seq_along(k)
+	plot(temp, temp, pch=21, cex=4, bg=loopingPastels(k=k, min.h=min.h, max.h=max.h, max.k=max.k, s=s, l=l, a=a))
+}
+
 loopingPastels <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
 {
 	if(!is.numeric(k))
@@ -2616,14 +2622,38 @@ pairwise.cor.test.internal <- function(x, id.cols=c(), ...)
 
 if.else <- function(condition, if.true, if.false)
 {
-	if(condition)
+	temp <- unique(c(length(condition), length(if.true), length(if.false)))
+	if(length(temp) > 1)
 	{
-		return(if.true)
+		if(length(unique(temp))>2)
+		{
+			stop('lengths of arguments do not match sufficiently')
+		}
+		if(min(temp)!=1)
+		{
+			stop('lengths of arguments to not match sufficiently')
+		}
 	}
-	else
+	if(any(is.na(condition)))
 	{
-		return(if.false)
+		stop("Condition can't be NA")
 	}
+	if(length(if.true)==1)
+	{
+		if.true <- rep(if.true, max(temp))
+	}
+	if(length(if.false)==1)
+	{
+		if.false <- rep(if.false, max(temp))
+	}
+	if(length(condition)==1)
+	{
+		condition <- rep(condition, max(temp))
+	}
+	# Now all the args are the same length
+	ret <- if.false
+	ret[condition] <- if.true[condition]
+	return(ret)
 }
 
 splitColumnAtString <- function(x, colToSplit, newColNames, sep='.', keep=NULL)
@@ -8249,6 +8279,25 @@ fitHill2 <- function(x, y, ...)
 	return(daFit$par)
 }
 
+#' expand.grids
+#'
+#' @param dt1 table of possible parameter set combinations
+#' @param dt2 table of possible parameter set combinations
+#'
+#' @return data.table of all possible combinations of parameter groups choosing 1 parameters set from each group
+expand.grids <- function(dt1, dt2)
+{
+	grp1 <- copy(dt1)
+	grp2 <- copy(dt2)
+	grp1[, i:=1:.N]
+	grp2[, j:=1:.N]
+	ret <- data.table.expand.grid(i=1:nrow(grp1), j=1:nrow(grp1))
+	ret <- grp2[ret, on=c('j')]
+	ret <- grp1[ret, on=c('i')]
+	ret[, ':='(i=NULL, j=NULL)]
+	return(ret[])
+}
+
 data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFactors = T)
 {
      if(is.null(pt))
@@ -8264,34 +8313,32 @@ data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFact
 
 #' rbind.results
 #'
-#' @param dt.expression
-#' @param grpColName leave blank to avoid adding a column to keep an index for each unique combination
-#' @param ...
+#' @param dt We have to have a separate parameter for the table to be worked on
+#' @param dt.expression unquoted data.table expression that uses 'dt' as the table to operate on
+#' @param ... parameters to expand.grid on and run the data.table expression
 #'
 #' @return the aggregated results of the dt expression for each possible
 #' value combination of the arguments. rbindlist is used to aggregate the
 #' results. Argument values are added as new columns to the results table.
 #'
 #' @examples
-#' duh <- data.table(a=1:4, b=c(1,2,1,2), c=(1,1,2,2))
-#' rbind.results(duh[, c('d','e','f'):=.(a+alpha, a+beta, a+zeta), by=c('a')], alpha=c(1,2,3), beta=c(1))
+#' duh <- data.table(a=1:4, b=c(1,2,1,2), c=c(1,1,2,2))
+#' zeta <- 25
+#' rbind.results(duh, duh[, c('d','e','f'):=.(a+alpha, a+beta, a+zeta), by=c('a')], alpha=c(1,2,3), beta=c(1))
 #'
-rbind.results <- function(dt.expression, grpColName=NULL, ...)
+rbind.results <- function(dt.expression, ...)
 {
-	# Example:
-	#
 	args <- list(...)
 	args.table <- data.table.expand.grid(args)
-	if(!is.null(grpColName))
-	{
-		args.table[, c(grpColName):=1:.N]
-	}
 	rets <- list()
+	# copy the table to the current environment to perform the calculation
+	table.name <- strsplit(deparse(match.call()$dt.expression, width.cutoff = 500), '[', fixed=T)[[1]][1]
+	assign(table.name, get(table.name, envir=parent.frame()), envir=environment())
 	for(i in 1:nrow(args.table))
 	{
 		args.list <- as.list(args.table[i])
-		make.vars(args.list)
-		rets[[i]] <- copy(eval(match.call()$dt.expression))
+		make.vars(args.list, env=environment())
+		rets[[i]] <- copy(eval(match.call()$dt.expression, envir=environment()))
 		rets[[i]][, names(args.table):=args.list]
 	}
 	return(rbindlist(rets))
@@ -8313,12 +8360,13 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 #'
 #' Make/assign variables in the parent environment using list args
 #'
-#' @param item.list
-make.vars <- function(item.list)
+#' @param item.list list of items
+#' @param env environment in which to temporarily make variables for expression calls (defaults to this function's parent)
+make.vars <- function(item.list, env=parent.frame())
 {
 	for(item.name in names(item.list))
 	{
-		assign(item.name, item.list[[item.name]], env=parent.frame())
+		assign(item.name, item.list[[item.name]], env=env)
 	}
 }
 
