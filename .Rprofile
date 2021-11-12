@@ -3806,13 +3806,13 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 
 #' Utilizes in2csv from csvkit (pip3 install csvkit)
 #'
-fread.csv <- function(path, stringArgs="-d ',' --no-header-row --blanks", in2csvPath="/Library/Frameworks/Python.framework/Versions/Current/bin", ...)
+fread.csv <- function(path, stringArgs="-d ',' --no-header-row --blanks", in2csvPath=c("/opt/homebrew/bin","/Library/Frameworks/Python.framework/Versions/Current/bin"), ...)
 {
 	library(data.table)
 	oldPath <- Sys.getenv("PATH")
-	if(!grepl(in2csvPath, Sys.getenv("PATH")))
+	if(!grepl(in2csvPath[1], Sys.getenv("PATH")))
 	{
-		Sys.setenv(PATH=paste((Sys.getenv("PATH")), ":", in2csvPath, sep=''))
+		Sys.setenv(PATH=paste((Sys.getenv("PATH")), ":", in2csvPath[1], sep=''))
 	}
 	ret <- fread(cmd=paste("in2csv", stringArgs, paste("'", path, "'", sep='')), ...)
 	Sys.setenv(PATH=oldPath)
@@ -6886,6 +6886,46 @@ setGating <- function(x, ..., op='intersect')
 
 ##### Plotting General #####
 
+convertImage <- function(files=NULL, dir=NULL, in.ext.filter=NULL, out.ext='png', overwrite=F, imagemagick.bin="/opt/homebrew/bin/magick", res=300)
+{
+	library(animation)
+
+	if(is.null(files))
+	{
+		daFiles <- file.path(dir, list.files(dir))
+	}
+	else
+	{
+		daFiles <- files
+	}
+
+	for(daFile in daFiles)
+	{
+		splitname <- strsplit(basename(daFile),  '.', fixed=T)[[1]]
+		if(!is.null(in.ext.filter) && splitname[length(splitname)] == in.ext.filter)
+		{
+			# fout <- file.path(dir, paste(sub('\\..*$', '', basename(daFile)), '.png', sep=''))
+			# im.convert(file.path(dir, daFile), fout, extra.opts = 'density 600')
+			fout <- file.path(dirname(daFile), paste(sub('\\..[^\\.]*$', '', basename(daFile)), ".", out.ext, sep=''))
+			if(!overwrite)
+			{
+				if(file.exists(fout))
+				{
+					warning(paste(fout, ' already exists. Skipping.'))
+				}
+			}
+			if(.Platform$OS.type=='unix')
+			{
+				system(paste(imagemagick.bin, " convert -density ", res, " '", daFile, "' '", fout, "'", sep=''))
+			}
+			else
+			{
+				shell(paste(imagemagick.bin, " convert -density ", res, " '", daFile, "' '", fout, "'", sep=''))
+			}
+		}
+	}
+}
+
 getIntensityColors <- function(x, hue=T, hueStart=0.15, hueEnd=0, sat=T, satStart=0.1, satEnd=1, val=F, valStart=0, valEnd=1, alpha=1)
 {
 	minMax <- range(x[is.finite(x)])
@@ -8326,7 +8366,7 @@ data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFact
 #' zeta <- 25
 #' rbind.results(duh, duh[, c('d','e','f'):=.(a+alpha, a+beta, a+zeta), by=c('a')], alpha=c(1,2,3), beta=c(1))
 #'
-rbind.results <- function(dt.expression, ...)
+rbind.results <- function(dt.expression, grpColName='paramSet', ...)
 {
 	args <- list(...)
 	args.table <- data.table.expand.grid(args)
@@ -8340,6 +8380,7 @@ rbind.results <- function(dt.expression, ...)
 		make.vars(args.list, env=environment())
 		rets[[i]] <- copy(eval(match.call()$dt.expression, envir=environment()))
 		rets[[i]][, names(args.table):=args.list]
+		rets[[i]][[grpColName]] <- i
 	}
 	return(rbindlist(rets))
 }
@@ -8884,7 +8925,16 @@ alignDistributions <- function(x,
 	}
 	x.d[, temp.grp:=1]
 	setkeyv(x.d, c(norm.by))
-	x[, .w:=approx(x=getDefault(x.d[.BY][[newName]], seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2), test=function(x){length(x) == 1 && is.na(x[1])}), y=getDefault(x.d[.BY][['w']], rep(1, 2), test=function(x){length(x) == 1 && is.na(x[1])}), xout=get(newName), yleft=if(bias<0){1}else{0}, yright=if(bias<0){0}else{1})$y, by=c(norm.by)]
+	x[, .w:=approx(x=getDefault(x.d[.BY][[newName]],
+	                            seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2),
+	                            test=function(x){length(x) == 1 && is.na(x[1])}),
+	               y=getDefault(x.d[.BY][['w']],
+	                            rep(1, 2),
+	                            test=function(x){length(x) == 1 && is.na(x[1])}),
+	               xout=get(newName),
+	               yleft=if(bias<0){1}else{0},
+	               yright=if(bias<0){0}else{1})$y,
+	  by=c(norm.by)]
 	if(substr(norm.method[1],1,1)=='s')
 	{
 		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) - weighted.percentile(get(newName), percentile=norm.percentile, w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
