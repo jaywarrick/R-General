@@ -533,6 +533,8 @@ fillMissingRows <- function(x, cols, fill=NULL, tempIdColName='tempId')
 	UseMethod('%=%')
 }
 
+'%!in%' <- function(x,y)!('%in%'(x,y))
+
 #' \%=\%.lbunch
 #'
 #' Internal function will be used to enable
@@ -1402,6 +1404,27 @@ convertColsToNumeric <- function(x, specifically=c(), exceptions=c())
 	}
 }
 
+convertColsToCharacter <- function(x, specifically=c(), exceptions=c())
+{
+	for(col in names(x))
+	{
+		if(length(specifically) > 0)
+		{
+			if(col %in% specifically && !is.numeric(x))
+			{
+				x[, (col):=as.character(get(col))]
+			}
+		}
+		else
+		{
+			if(!(col %in% exceptions) && !is.numeric(x))
+			{
+				x[, (col):=as.character(get(col))]
+			}
+		}
+	}
+}
+
 adjustIntensity <- function(x, oldMin, oldMax, newMin, newMax)
 {
 	ratio = (newMax - newMin) / (oldMax - oldMin);
@@ -1425,7 +1448,7 @@ colorize <- function(x, min.h=0.666, max.h=0, s=0.7, l=0.5, a=1)
 		nr <- nrow(x)
 		x <- as.vector(x)
 	}
-	lims <- range(x, na.rm=T)
+	lims <- range(x[is.finite(x)], na.rm=T)
 	x <- adjustIntensity(x, lims[1], lims[2], min.h, max.h)
 	ret <- hsl(h=x, s=s, l=l, a=a)
 	if(is.mat)
@@ -1596,6 +1619,12 @@ wave2rgb <- function(wavelength, gamma=0.8){
 	G = G * 255
 	B = B * 255
 	return (rgb(floor(R), floor(G), floor(B), max=255))
+}
+
+tryColors <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
+{
+	temp <- seq_along(k)
+	plot(temp, temp, pch=21, cex=4, bg=loopingPastels(k=k, min.h=min.h, max.h=max.h, max.k=max.k, s=s, l=l, a=a))
 }
 
 loopingPastels <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10), s=0.7, l=0.5, a=0.4)
@@ -1938,7 +1967,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	{
 		if(!is.null(plot.by))
 		{
-			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse='.'), ' = ', paste(lapply(.BY, as.character), collapse='.')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n,  mtext.args=mtext.args, mtext.text=getDefault(mtext.args$text, paste0(time.stamp.prefix, time.stamp.conversion(.BY[[1]]), time.stamp.suffix)), ...), by=plot.by]
+			data[, plot.wrapper(data=.SD, xcol=xcol, ycol=ycol, mar=mar, main=if (!main.show) '' else paste0(paste(as.character(plot.by), collapse=':'), ' = ', paste(lapply(.BY, as.character), collapse=':')), by=my.by, line.color.by=line.color.by, errcol.upper=errcol.upper, errcol.lower=errcol.lower, env.err=env.err, env.args=env.args, log=log, logicle.params=logicle.params, trans.logit=trans.logit, xlim=xlim, ylim=ylim, xlab=xlab, ylab=ylab, type=type, density.args=density.args, cumulative=cumulative, breaks=breaks, percentile.limits=percentile.limits, h=h, h.col=h.col, h.lty=h.lty, h.lwd=h.lwd, v=v, v.col=v.col, v.lty=v.lty, v.lwd=v.lwd, legend.plot=legend.plot, legend.args=legend.args, legend.colors=legend.colors[plot.by.index==.GRP], save.file=NULL, family=family, res=res, sample.size=sample.size, sample.seed=sample.seed, alpha.backgated=alpha, polygons=polygons, cross.fun=cross.fun, cross.cex=cross.cex, cross.pch=cross.pch, cross.lwd=cross.lwd, cross.args=cross.args, cross.plot=cross.plot, contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, randomize=randomize, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n,  mtext.args=mtext.args, mtext.text=getDefault(mtext.args$text, paste0(time.stamp.prefix, time.stamp.conversion(.BY[[1]]), time.stamp.suffix)), ...), by=plot.by]
 		}
 		else
 		{
@@ -2591,9 +2620,283 @@ pairwise.cor.test.internal <- function(x, id.cols=c(), ...)
 	return(corr.test(temp))
 }
 
+if.else <- function(condition, if.true, if.false)
+{
+	temp <- unique(c(length(condition), length(if.true), length(if.false)))
+	if(length(temp) > 1)
+	{
+		if(length(unique(temp))>2)
+		{
+			stop('lengths of arguments do not match sufficiently')
+		}
+		if(min(temp)!=1)
+		{
+			stop('lengths of arguments to not match sufficiently')
+		}
+	}
+	if(any(is.na(condition)))
+	{
+		stop("Condition can't be NA")
+	}
+	if(length(if.true)==1)
+	{
+		if.true <- rep(if.true, max(temp))
+	}
+	if(length(if.false)==1)
+	{
+		if.false <- rep(if.false, max(temp))
+	}
+	if(length(condition)==1)
+	{
+		condition <- rep(condition, max(temp))
+	}
+	# Now all the args are the same length
+	ret <- if.false
+	ret[condition] <- if.true[condition]
+	return(ret)
+}
+
+splitColumnAtString <- function(x, colToSplit, newColNames, sep='.', keep=NULL)
+{
+	x[, (newColNames) := tstrsplit(get(colToSplit), sep, fixed=T, keep=keep)]
+}
+
+#' convertAlphaNumericToIndex
+#'
+#' @param x description
+#' @param rows description
+#' @param cols description
+#' @param capital description
+#' @param horizontalNumbering description
+convertAlphaNumericToIndex <- function(x, rows=8, cols=12, capital=T, horizontalNumbering=T)
+{
+	let <- if(capital){LETTERS[1:rows]}else{letters[1:rows]}
+	num <- if(horizontalNumbering){paste(rep(let, each=cols), 1:cols, sep='')}else{paste(let, rep(1:cols, each=rows), sep='')}
+	return(match(x, num))
+}
+
+#' convertAlphaNumericToRowCol
+#'
+#' @param x description
+#' @param rows description
+#' @param cols description
+#' @param capital description
+convertAlphaNumericToRowCol <- function(x, rows=8, cols=12, capital=T)
+{
+	return(convertIndexToRowCol(convertAlphaNumericToIndex(x, rows=rows, cols=cols, capital=capital, horizontalNumbering=T),
+						   rows=rows, cols=cols, horizontalNumbering=T))
+}
+
+#' convertIndexToRowCol
+#'
+#' @param n description
+#' @param horizontalNumbering description
+#' @param rows description
+#' @param cols description
+convertIndexToRowCol <- function(n, horizontalNumbering=T, rows=8, cols=12)
+{
+	if(horizontalNumbering)
+	{
+		row <- ((n-1) %/% cols) + 1
+		col <- ((n-1) %% cols)+1
+	}
+	else
+	{
+		col <- ((n-1) %/% rows) + 1
+		row <- ((n-1) %% rows)+1
+	}
+
+	return(list(row=row, col=col))
+}
+
+#' convertIndexToAlphaNumeric
+#'
+#' @param n description
+#' @param horizontalNumbering description
+#' @param rows description
+#' @param cols description
+#' @param capital description
+#'
+#' @export
+convertIndexToAlphaNumeric <- function(n, horizontalNumbering=T, rows=8, cols=12, capital=T)
+{
+	let <- if(capital){LETTERS[1:rows]}else{letters[1:rows]}
+	num <- if(horizontalNumbering){paste(rep(let, each=cols), 1:cols, sep='')}else{paste(let, rep(1:cols, each=rows), sep='')}
+	return(num[n])
+}
+
+#' splitAlphaNumeric
+#'
+#' @param x description
+#' @param convertToNumeric description
+splitAlphaNumeric <- function(x, convertToNumeric=F)
+{
+	pieces <- strsplit(x, split="[^A-Z0-9]+|(?<=[A-Z])(?=[0-9])|(?<=[0-9])(?=[A-Z])", perl=T)
+	alphas <- sapply(pieces, FUN='[', 1)
+	numerics <- sapply(pieces, FUN='[', 2)
+	if(convertToNumeric)
+	{
+		numerics <- as.numeric(numerics)
+	}
+	return(list(alphas=alphas, numerics=numerics))
+}
+
 getAllColNamesExcept <- function(x, names)
 {
-  return(names(x)[!(names(x) %in% names)])
+	return(names(x)[!(names(x) %in% names)])
+}
+
+removeColsWithAnyNonFiniteVals <- function(x, cols=NULL)
+{
+	removeColsMatching(x, cols=cols, col.test=function(n){any(!is.finite(n))})
+}
+
+removeColsWithAllNonFiniteVals <- function(x, cols=NULL)
+{
+	removeColsMatching(x, cols=cols, col.test=function(n){all(!is.finite(n))})
+}
+
+removeColsMatching <- function(x, cols=NULL, col.test=function(n){all(!is.finite(n))}, ...)
+{
+	# Remove rows and columns of data contining non-finite data (typically inverses etc.)
+	temp.names <- copy(names(x))
+	lapply.data.table(x, FUN=function(a){if(col.test(a, ...)){return(NULL)}else{return(a)}}, cols=cols, in.place=T)
+	print('Removed the following columns.')
+	temp.names <- temp.names[!(temp.names %in% names(x))]
+	print(temp.names)
+}
+
+getColNamesContaining <- function(x, names, and=T)
+{
+	return(getNamesContaining(names(x), names=names, and=and))
+}
+
+getNamesContaining <- function(x, names, and=T)
+{
+	if(and==T)
+	{
+		matchingCols <- rep(T, length(x))
+	}
+	else
+	{
+		matchingCols <- rep(F, length(x))
+	}
+
+	for(stringToMatch in names)
+	{
+		if(and)
+		{
+			matchingCols <- matchingCols & grepl(stringToMatch,x,fixed=TRUE)
+		}
+		else
+		{
+			matchingCols <- matchingCols | grepl(stringToMatch,x,fixed=TRUE)
+		}
+	}
+	matchingNames <- x[matchingCols]
+	if(length(matchingNames) == 0)
+	{
+		warning("Didn't find any matching names!!!")
+		return(matchingNames)
+	}
+	else
+	{
+		return(matchingNames)
+	}
+}
+
+removeCols <- function(x, colsToRemove)
+{
+
+	colsToRemove <- colsToRemove[colsToRemove %in% names(x)]
+	if(length(colsToRemove) == 0)
+	{
+		print(paste0("Didn't find any columns to remove."))
+	}
+	else
+	{
+		print(paste0("Removing columns"))
+		for(colToRemove in colsToRemove)
+		{
+			print(colToRemove)
+			x[,(colToRemove):=NULL]
+		}
+	}
+	return(x)
+}
+
+removeColsContaining <- function(x, stringsToMatch)
+{
+	print(paste0("Removing colums with names containing..."))
+	colsToRemove <- c()
+	for(stringToMatch in stringsToMatch)
+	{
+		print(stringToMatch)
+		colsToRemove <- c(colsToRemove, getColNamesContaining(x, stringToMatch))
+	}
+	colsToRemove <- unique(colsToRemove[colsToRemove %in% names(x)])
+	if(length(colsToRemove) == 0)
+	{
+		print(paste0("Didn't find any columns to remove."))
+	}
+	else
+	{
+		print(paste0(""))
+		print(paste0("Removing colums..."))
+		for(colToRemove in colsToRemove)
+		{
+			print(colToRemove)
+			x[,(colToRemove):=NULL]
+		}
+	}
+	return(x)
+}
+
+fixColNames <- function(x)
+{
+	replaceSubstringInColNames(x,'_Order_','')
+	replaceSubstringInColNames(x,'_Rep_','')
+	replaceSubstringInColNames(x,'$','.')
+	replaceSubstringInColNames(x,'net.imagej.ops.Ops.','')
+	replaceSubstringInColNames(x,'function.ops.JEXOps.','')
+	replaceSubstringInColNames(x,' ','')
+	replaceSubstringInColNames(x,':','_')
+}
+
+getNumericCols <- function(x)
+{
+	return(names(x)[unlist(x[,lapply(.SD, is.numeric)])])
+}
+
+getNumericColsOfInterest <- function(x, data.cols=NULL, data.cols.contains=NULL)
+{
+	ret <- getNumericCols(x)
+	if(!is.null(data.cols))
+	{
+		ret <- intersect(data.cols, ret)
+	}
+	else if(is.null(data.cols) & !is.null(data.cols.contains))
+	{
+		ret <- intersect(getColNamesContaining(x, data.cols.contains), ret)
+	}
+	return(ret)
+}
+
+getNonNumericCols <- function(x)
+{
+	return(names(x)[!unlist(x[,lapply(.SD, is.numeric)])])
+}
+
+replaceSubstringInColNames <- function(x, old, new)
+{
+	oldNames <- names(x)
+	newNames <- gsub(old, new, names(x), fixed=T)
+	setnames(x, oldNames, newNames)
+}
+
+sortColsByName <- function(x)
+{
+	setcolorder(x, sort(names(x)))
 }
 
 getSortedCorrelations <- function(cor.result)
@@ -3001,7 +3304,7 @@ my.test <- function(x, y, test=c('wilcox','t.test'), adjust.p=F, adjust.method='
 
 data.table.wilcox.pairwise.stats <- function(dt, val.col, grp.by, for.each, compare.to.filter.fun=NULL, ...)
 {
-	
+
 	ret <- dt[, getWilcoxStatForEachGroup(.SD, val.col=val.col, by=grp.by), by=for.each]
 	ret[, Wmin:=0]
 	ret[, Wmax:=n.x*n.y]
@@ -3017,7 +3320,7 @@ data.table.wilcox.stats <- function(dt, val.col, grp.by, for.each, ...)
 	ret[, Wmax:=n.x*n.y]
 	setorderv(ret, c(for.each, 'W'))
 	ret[, W.norm:=(W-Wmin)/(Wmax-Wmin)]
-	
+
 	# http://core.ecu.edu/psyc/wuenschk/docs30/Nonparametric-EffectSize.pdf
 	# Kirby (2014)
 	# 1-2*U/(n1*n2) Rank Biserial Correlation
@@ -3501,11 +3804,26 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 	return(x[unique(filterTable, by=idCols)[, idCols, with=F], nomatch=0])
 }
 
+#' Utilizes in2csv from csvkit (pip3 install csvkit)
+#'
+fread.csv <- function(path, stringArgs="-d ',' --no-header-row --blanks", in2csvPath=c("/opt/homebrew/bin","/Library/Frameworks/Python.framework/Versions/Current/bin"), ...)
+{
+	library(data.table)
+	oldPath <- Sys.getenv("PATH")
+	if(!grepl(in2csvPath[1], Sys.getenv("PATH")))
+	{
+		Sys.setenv(PATH=paste((Sys.getenv("PATH")), ":", in2csvPath[1], sep=''))
+	}
+	ret <- fread(cmd=paste("in2csv", stringArgs, paste("'", path, "'", sep='')), ...)
+	Sys.setenv(PATH=oldPath)
+	return(ret)
+}
+
 #' sample.size is how many will try to be samples PER FILE.
 
 readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, samples.to.match.and.append=NULL, time.col=NULL, times=NULL, time.completeness=0, cellIdString=c('Id'), lines.without=NULL, lines.with=NULL, header=T, order.all.cols=T, ...)
 {
-	if(time.completeness <= 0)
+	if(time.completeness < 0)
 	{
 		time.completeness <- 1
 	}
@@ -3983,10 +4301,222 @@ last <- function(x)
 	return(x[numel(x)])
 }
 
+
+calculate.baseline <- function(x, lambda=3, p=0.002, maxit=30, presmooth.sd=NULL, postsmooth.sd=NULL)
+{
+	if(is.null(x) || !is.numeric(x))
+	{
+		stop("x must be numeric")
+	}
+	#''
+	#'One sd is equal to the win.width/2 and extends +/- 5 sigma
+	roll.gaussian <- function(x2, win.width=2, pad=T, ...)
+	{
+		library(smoother)
+		temp <- x2
+		n <- length(x2)
+		if(pad)
+		{
+			temp <- c(rep(x2[1], win.width), x2, rep(x2[n], win.width))
+		}
+		temp <- smth(temp, method='gaussian', window=win.width, ...)
+		if(pad)
+		{
+			temp <- temp[(win.width + 1):(win.width + n)]
+		}
+		return(temp)
+	}
+
+	library(baseline)
+	if(!is.null(presmooth.sd))
+	{
+		x <- roll.gaussian(x, win.width=presmooth.sd)
+	}
+	ret <- baseline.als(spectra=t(as.matrix(x)),
+					lambda=lambda,
+					p=p,
+					maxit = maxit)
+	sig <- as.numeric(t(ret$corrected))
+	bg <- as.numeric(t(ret$baseline))
+	if(!is.null(postsmooth.sd))
+	{
+		sig <- roll.gaussian(sig, win.width=postsmooth.sd)
+		bg <- x-sig
+	}
+	return(data.table(sig=sig, bg=bg, wgts=as.numeric(t(ret$wgts))))
+}
+
+calculate.peak.AUCs <- function(x, y, nearestTo=NULL, peak.neighlim, valley.neighlim=peak.neighlim, deriv.lim=1, n=NULL, min.h=0.1, in.data=T, plot.peaks=F, plot.valleys=F, plot.polygons=F)
+{
+	peaks <- getPeaks(x, y, valleys=F, neighlim = peak.neighlim, nearestTo=nearestTo, deriv.lim = deriv.lim, n=n, min.h=min.h, in.data=T)
+	valleys <- getPeaks(x, y, valleys=T, neighlim = valley.neighlim, nearestTo=NULL, deriv.lim = deriv.lim, n=NULL, min.h=-min.h, in.data=T)
+	peaks[, c('left.i','left','right.i','right'):=get.left.right(x, y, peak.i=.BY[[1]], valleys.i=valleys$peak.i, thresh=max(y)*min.h, in.data=in.data), by='peak.i']
+	peaks[, c('auc','total'):=get.auc(x=c(left, x, right), y=c(min.h*max(y, na.rm=T), y, min.h*max(y, na.rm=T)), left=left, right=right), by='peak.i']
+	peaks[, temp.color:=loopingPastels(1:.N)]
+	if(plot.polygons)
+	{
+		peaks[, polygon(x=c(left, left, x[!is.na(x) & !is.na(y) & x>=left & x<=right], right, right), y=c(0, min.h*max(y, na.rm=T), y[!is.na(x) & !is.na(y) & x>=left & x<=right], min.h*max(y, na.rm=T), 0), col=peaks$temp.color[.I], border=rgb(0,0,0,0)), by='peak.i']
+		abline(h=min.h*max(y), col='gray70')
+	}
+	if(plot.valleys)
+	{
+		points(valleys$peak.x, valleys$peak.y, pch=17)
+	}
+	if(plot.peaks)
+	{
+		points(peaks$peak.x, peaks$peak.y)
+	}
+	if(!is.null(peaks$temp.color))
+	{
+		peaks[, temp.color:=NULL]
+	}
+	return(peaks[])
+}
+
+calculate.AUCs <- function(x, y, left, right, peak, plot.polygons=F, colors=NULL)
+{
+	peaks <- data.table(peak.i=1:length(left), left=left, right=right)
+	peaks[, c('auc','total'):=get.auc(x=x, y=y, left=left, right=right), by='peak.i']
+	peaks[, temp.color:=loopingPastels(1:.N)]
+	if(plot.polygons)
+	{
+		peaks[, polygon(x=c(left, x[!is.na(x) & !is.na(y) & x>=left & x<=right], right), y=c(0, y[!is.na(x) & !is.na(y) & x>=left & x<=right], 0), col=ifelse(is.null(colors), peaks$temp.color[.GRP], colors[.GRP]), border=rgb(0,0,0,0)), by='peak.i']
+	}
+	if(!is.null(peaks$temp.color))
+	{
+		peaks[, temp.color:=NULL]
+	}
+	return(peaks[])
+}
+
+get.left.right <- function(x, y, peak.i, thresh, valleys.i, in.data=T)
+{
+	# first look for thresh crossings left and right
+	left <- 1
+	lefts <- which(seq_along(x) < peak.i & y <= thresh)
+	if(length(lefts) > 0)
+	{
+		left <- lefts[length(lefts)]
+		if(y[left] < thresh)
+		{
+			if(in.data)
+			{
+				left <- left + 1
+			}
+			else
+			{
+				# Interpolate
+				left <- ((thresh-y[left])/(y[left+1]-y[left])) + left
+			}
+		}
+	}
+	right <- length(x)
+	rights <- which(seq_along(x) > peak.i & y <= thresh)
+	if(length(rights) > 0)
+	{
+		right <- rights[1]
+		if(y[right] < thresh)
+		{
+			if(in.data)
+			{
+				right <- right - 1
+			}
+			else
+			{
+				# Interpolate
+				right <- ((thresh-y[right-1])/(y[right]-y[right-1])) + (right-1)
+			}
+		}
+	}
+
+	# Now find lefts and rights based upon valleys
+	left.valleys <- valleys.i[which(valleys.i < peak.i)]
+	if(length(left.valleys) > 0)
+	{
+		left.valley <- left.valleys[length(left.valleys)]
+		if(left.valley > left)
+		{
+			left <- left.valley
+		}
+	}
+	right.valleys <- valleys.i[which(valleys.i > peak.i)]
+	if(length(right.valleys) > 0)
+	{
+		right.valley <- right.valleys[1]
+		if(right.valley < right)
+		{
+			right <- right.valley
+		}
+	}
+
+	return(list(left.i=left, left=approx(seq_along(x), x, xout=left)$y, right.i=right, right=approx(seq_along(x), x, xout=right)$y))
+}
+
+get.auc <- function(x, y, left, right)
+{
+	library(pracma)
+	ret <- trapz(x[!is.na(x) & !is.na(y) & x >= left & x <= right], y[!is.na(x) & !is.na(y) & x >= left & x <= right])
+	return(list(auc=ret, total=trapz(x[!is.na(x) & !is.na(y)], y[!is.na(x) & !is.na(y)])))
+}
+
+weightedMeanSubtraction <- function(x, weights=NULL, width, return.bg=F, bins=max(c(30, floor(length(x/25)))), pow=2, plot.hist=F, reflect=F)
+{
+	if(reflect)
+	{
+		n <- length(x)
+		x <- c(rep(x[1], n),x,rep(x[n],n))
+	}
+	# If no weights provided, use variance weighting
+	if(is.null(weights))
+	{
+		blah <- roll.gaussian.uneven(x=seq_along(x), y=x)
+		weights <- 1/(pow^(x-blah$y))
+		# x.w.mad <- mad(x.w)
+		# x.w.mode <- hist(x.w, breaks=bins, plot=plot.hist)
+		# x.w.mode <- x.w.mode$mids[which.max(x.w.mode$counts)]
+		# weights <- 1/(1+(abs(x.w-x.w.mode))^pow)
+	}
+
+	sig <- roll.gaussian(weights*x, win.width = 5.0*width)
+	new.weights <- roll.gaussian(weights, win.width = 5.0*width)
+	temp <- sig/new.weights
+	ret <- x-temp
+	if(reflect)
+	{
+		ret <- ret[(n+1):(2*n)]
+		temp <- temp[(n+1):(2*n)]
+	}
+	if(return.bg)
+	{
+		return(list(sig=ret, bg=temp))
+	}
+	return(ret)
+}
+
+markCrossing <- function(x, thresh, direction=c('up','down'))
+{
+	if(is.na(thresh))
+	{
+		stop('Value of thresh cannot be NA. Aborting')
+	}
+	temp <- rep(F, length(x))
+	temp[is.finite(x)] <- x[is.finite(x)] > thresh
+	if(direction=='up')
+	{
+		ret <- rollapply(temp, width=2, FUN=function(x){!x[1] & x[2]}, fill=F, align='left')
+	}
+	else
+	{
+		ret <- rollapply(temp, width=2, FUN=function(x){x[1] & !x[2]}, fill=F, align='left')
+	}
+	return(ret)
+}
+
 getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
 {
-	y.i <- max(y)-y
-	p.max <- max(y)
+	library(peakPick)
+	y.i <- max(y, na.rm=T)-y
+	p.max <- max(y, na.rm=T)
 	if(valleys)
 	{
 		peaks <- peakpick(matrix(y.i, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim, ...)
@@ -3995,8 +4525,15 @@ getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=N
 	{
 		peaks <- peakpick(matrix(y, ncol=1), deriv.lim=deriv.lim, neighlim=neighlim, ...)
 	}
-	peaks <- peaks & (y >= min.h*p.max)
-	if(sum(peaks)==0)
+	if(valleys)
+	{
+		peaks <- peaks & (max(y, na.rm=T)-y >= min.h*p.max)
+	}
+	else
+	{
+		peaks <- peaks & (y >= min.h*p.max)
+	}
+	if(sum(peaks, na.rm=T)==0)
 	{
 		stop("Couldn't find any peaks. Aborting.")
 	}
@@ -4018,7 +4555,7 @@ getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=N
 		{
 			plot.args$ylab <- 'Prob. Density'
 		}
-		plot.args <- merge.lists(plot.args, list(x=x, y=y))
+		plot.args <- merge.lists(plot.args, list(x=copy(x), y=copy(y)))
 		do.call(plot, plot.args)
 		plot.args$x <- ret$peak.x
 		plot.args$y <- y[ret$peak.i]
@@ -4032,7 +4569,7 @@ getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=N
 	else if(all(is.na(n)))
 	{
 		# Just return the max peak
-		ret <- ret[peak.y == max(peak.y)]
+		ret <- ret[peak.y == max(peak.y, na.rm=T)]
 	}
 	else
 	{
@@ -4050,7 +4587,8 @@ getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=N
 
 	if(!is.null(nearestTo))
 	{
-		ret <- ret[which.min(abs(peak.x-nearestTo))]
+		ret <- ret[sapply(nearestTo, function(r){which.min(abs(peak.x-r))})]
+		ret <- unique(ret)
 	}
 
 	# Plot chosen peaks
@@ -4498,8 +5036,8 @@ getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.ti
   {
   	temp <- copy(events)
   }
-		
-  
+
+
   # Get survival curves
   rhs <- if(is.null(by)){names(events)[!names(events) %in% c(idcol, tcol, ecol)]}else{by}
   setkeyv(temp, rhs)
@@ -4514,7 +5052,7 @@ getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.ti
       my.surv[, c(name):=factor(get(name), levels=levels(temp[[name]]))]
     }
   }
-  
+
   if(is.null(fit$strata))
   {
   	# If there is only one condition to plot, survminer doesn't return a fit$strata object
@@ -4528,7 +5066,7 @@ getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.ti
   	# Otherwise there are more than one conditions to plot and this should work like normal
   	my.surv <- my.surv[rep(1:.N, fit$strata)]
   }
-  
+
   my.surv[, c(tcol, 'n.risk', 'n.censor', 'surv', 'std.err', 'cumhaz', 'chaz', 'conf.int', 'lower', 'upper'):=list(time=fit$time, n.risk=fit$n.risk, n.censor=fit$n.censor, surv=fit$surv, std.err=fit$std.err, cumhaz=fit$cumhaz, chaz=fit$std.chaz, conf.int=fit$conf.int, lower=fit$surv-fit$lower, upper=fit$upper-fit$surv)]
   my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name=tcol), .SDcols = c('surv', 'upper','lower',tcol), by=c(rhs)]
   if(flip)
@@ -6349,6 +6887,46 @@ setGating <- function(x, ..., op='intersect')
 
 ##### Plotting General #####
 
+convertImage <- function(files=NULL, dir=NULL, in.ext.filter=NULL, out.ext='png', overwrite=F, imagemagick.bin="/opt/homebrew/bin/magick", res=300)
+{
+	library(animation)
+
+	if(is.null(files))
+	{
+		daFiles <- file.path(dir, list.files(dir))
+	}
+	else
+	{
+		daFiles <- files
+	}
+
+	for(daFile in daFiles)
+	{
+		splitname <- strsplit(basename(daFile),  '.', fixed=T)[[1]]
+		if(!is.null(in.ext.filter) && splitname[length(splitname)] == in.ext.filter)
+		{
+			# fout <- file.path(dir, paste(sub('\\..*$', '', basename(daFile)), '.png', sep=''))
+			# im.convert(file.path(dir, daFile), fout, extra.opts = 'density 600')
+			fout <- file.path(dirname(daFile), paste(sub('\\..[^\\.]*$', '', basename(daFile)), ".", out.ext, sep=''))
+			if(!overwrite)
+			{
+				if(file.exists(fout))
+				{
+					warning(paste(fout, ' already exists. Skipping.'))
+				}
+			}
+			if(.Platform$OS.type=='unix')
+			{
+				system(paste(imagemagick.bin, " convert -density ", res, " '", daFile, "' '", fout, "'", sep=''))
+			}
+			else
+			{
+				shell(paste(imagemagick.bin, " convert -density ", res, " '", daFile, "' '", fout, "'", sep=''))
+			}
+		}
+	}
+}
+
 getIntensityColors <- function(x, hue=T, hueStart=0.15, hueEnd=0, sat=T, satStart=0.1, satEnd=1, val=F, valStart=0, valEnd=1, alpha=1)
 {
 	minMax <- range(x[is.finite(x)])
@@ -6523,6 +7101,13 @@ roll.min <- function(x, win.width=2, na.rm=T, ...)
 	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
 	return(rollapply(x, width=win.width, FUN=min, na.rm=na.rm, ..., partial=T, align='center'))
+}
+
+roll.sd <- function(x, win.width=3, na.rm=T, ...)
+{
+	library(zoo)
+	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
+	return(rollapply(x, width=win.width, FUN=sd, na.rm=na.rm, ..., partial=T, align='center'))
 }
 
 roll.max <- function(x, win.width=2, na.rm=T, ...)
@@ -6742,35 +7327,44 @@ getPaddedDeltas <- function(x, pad=NA)
 	return(c(pad, x[2:length(x)] - x[1:(length(x)-1)]))
 }
 
-findFirstUpCrossing <- function(x, y, thresh, undetectedValue)
+#' findFirstUpCrossing
+#'
+#' @param x description
+#' @param y description
+#' @param thresh description
+#' @param undetected.value description
+#'
+#' @import data.table
+findFirstUpCrossing <- function(x, y, thresh, undetected.value)
 {
-	ret <- undetectedValue
-	first <- which(y >= thresh)[1]
-	if(!is.na(first))
+	ret <- undetected.value
+	index <- which(y >= thresh)[1]
+	if(!is.na(index) && index > 1)
 	{
-		if(first > 0)
-		{
-			# Linearly interpolate the ascending threshold crossing point.
-			crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
-			ret <- crossing
-		}
+		# Linearly interpolate the ascending threshold crossing point.
+		crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
+		ret <- crossing
 	}
 	return(ret)
 }
 
+#' findFirstDownCrossing
+#'
+#' @param x description
+#' @param y description
+#' @param thresh description
+#' @param undetected.value description
+#'
+#' @import data.table
 findFirstDownCrossing <- function(x, y, thresh, undetected.value)
 {
 	ret <- undetected.value
-	last <- which(y <= thresh)[1]
-	
-	if(!is.na(last))
+	index <- which(y <= thresh)[1]
+	if(!is.na(index) && index > 1)
 	{
-		if(last > 0)
-		{
-			# Linearly interpolate the threshold crossing point.
-			crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
-			ret <- crossing
-		}
+		# Linearly interpolate the descending threshold crossing point.
+		crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
+		ret <- crossing
 	}
 	return(ret)
 }
@@ -7726,6 +8320,25 @@ fitHill2 <- function(x, y, ...)
 	return(daFit$par)
 }
 
+#' expand.grids
+#'
+#' @param dt1 table of possible parameter set combinations
+#' @param dt2 table of possible parameter set combinations
+#'
+#' @return data.table of all possible combinations of parameter groups choosing 1 parameters set from each group
+expand.grids <- function(dt1, dt2)
+{
+	grp1 <- copy(dt1)
+	grp2 <- copy(dt2)
+	grp1[, i:=1:.N]
+	grp2[, j:=1:.N]
+	ret <- data.table.expand.grid(i=1:nrow(grp1), j=1:nrow(grp1))
+	ret <- grp2[ret, on=c('j')]
+	ret <- grp1[ret, on=c('i')]
+	ret[, ':='(i=NULL, j=NULL)]
+	return(ret[])
+}
+
 data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFactors = T)
 {
      if(is.null(pt))
@@ -7741,44 +8354,61 @@ data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFact
 
 #' rbind.results
 #'
-#' @param dt.expression
-#' @param ...
+#' @param dt We have to have a separate parameter for the table to be worked on
+#' @param dt.expression unquoted data.table expression that uses 'dt' as the table to operate on
+#' @param ... parameters to expand.grid on and run the data.table expression
 #'
 #' @return the aggregated results of the dt expression for each possible
 #' value combination of the arguments. rbindlist is used to aggregate the
 #' results. Argument values are added as new columns to the results table.
 #'
 #' @examples
-#' duh <- data.table(a=1:4, b=c(1,2,1,2), c=(1,1,2,2))
-#' rbind.results(duh[, c('d','e','f'):=.(a+alpha, a+beta, a+zeta), by=c('a')], alpha=c(1,2,3), beta=c(1))
+#' duh <- data.table(a=1:4, b=c(1,2,1,2), c=c(1,1,2,2))
+#' zeta <- 25
+#' rbind.results(duh, duh[, c('d','e','f'):=.(a+alpha, a+beta, a+zeta), by=c('a')], alpha=c(1,2,3), beta=c(1))
 #'
-rbind.results <- function(dt.expression, ...)
+rbind.results <- function(dt.expression, grpColName='paramSet', ...)
 {
-	# Example:
-	#
 	args <- list(...)
 	args.table <- data.table.expand.grid(args)
 	rets <- list()
+	# copy the table to the current environment to perform the calculation
+	table.name <- strsplit(deparse(match.call()$dt.expression, width.cutoff = 500), '[', fixed=T)[[1]][1]
+	assign(table.name, get(table.name, envir=parent.frame()), envir=environment())
 	for(i in 1:nrow(args.table))
 	{
 		args.list <- as.list(args.table[i])
-		make.vars(args.list)
-		rets[[i]] <- copy(eval(match.call()$dt.expression))
+		make.vars(args.list, env=environment())
+		rets[[i]] <- copy(eval(match.call()$dt.expression, envir=environment()))
 		rets[[i]][, names(args.table):=args.list]
+		rets[[i]][[grpColName]] <- i
 	}
 	return(rbindlist(rets))
+}
+
+calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
+{
+	confusion_table <- table(factor(predicted, levels=predicted.vals), factor(actual, levels=actual.vals))
+	TP <- confusion_table[2,2]
+	TN <- confusion_table[1,1]
+	FN <- confusion_table[1,2]
+	FP <- confusion_table[2,1]
+	TPR <- TP/(TP+FN)
+	FPR <- FP/(FP+TN)
+	return(list(TP=TP, TN=TN, FN=FN, FP=FP, TPR=TPR, FPR=FPR))
 }
 
 #' make.vars
 #'
 #' Make/assign variables in the parent environment using list args
 #'
-#' @param item.list
-make.vars <- function(item.list)
+#' @param item.list list of items
+#' @param env environment in which to temporarily make variables for expression calls (defaults to this function's parent)
+make.vars <- function(item.list, env=parent.frame())
 {
 	for(item.name in names(item.list))
 	{
-		assign(item.name, item.list[[item.name]], env=parent.frame())
+		assign(item.name, item.list[[item.name]], env=env)
 	}
 }
 
@@ -8122,6 +8752,14 @@ getDistShifts <- function(x, xcol, data.filter.fun=function(x){T}, newcol='shift
 	return(list(x.d=x.d, shifts=shifts))
 }
 
+getGelShifts <- function(x, xcol, ycol, data.filter.fun=function(x){T}, newcol='shift', by, span=0.5, adj=c(1,1), bias=0, ...)
+{
+	shifts <- calculateShifts(x.d, xcol=xcol, ycol=ycol, by=by, adj=adj, span=span, bias=bias)
+	x.d[, c(paste0(xcol, '.adj')):=get(xcol)+shifts[.BY]$adj, by=by][]
+	x[, c(newcol):=shifts[.BY]$adj, by=by][]
+	return(list(x.d=x.d, shifts=shifts))
+}
+
 getDistributions <- function(x, xcol, ycol='density', by, ...)
 {
 	getDensityXY <- function(x, xcol, ycol, ...)
@@ -8230,7 +8868,7 @@ alignDistributions <- function(x,
 	# two.pass = runs the algorithm twice to minimize influence of initial shift, refining alignment to 1/5 of the point spacing in the distribution curve
 	# bias = numeric, align the left (bias < 0) or right (bias > 0) side of the distributions over time. Use bias = 0 (default) to align without bias.
 	# x.lim.percentiles = default c(0.01,0.99), in terms of area under the density distribution curve (i.e., cumulative probability distribution values between 0 and 1), when should plotting start and end
-	# norm.method = how should the data be normalized. If 'subtraction', then x = (x-median) for each norm.by grp and divided by global MAD. If 'division', then x = (x/median) for each norm.by grouping.
+	# norm.method = how should the data be normalized. If 'subtraction', then x = (x-median) for each norm.by grp and divided by globaslbal MAD. If 'division', then x = (x/median) for each norm.by grouping.
 
 	# Gather parameters
 	x[, temp.grp:=1]
@@ -8288,7 +8926,16 @@ alignDistributions <- function(x,
 	}
 	x.d[, temp.grp:=1]
 	setkeyv(x.d, c(norm.by))
-	x[, .w:=approx(x=getDefault(x.d[.BY][[newName]], seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2), test=function(x){length(x) == 1 && is.na(x[1])}), y=getDefault(x.d[.BY][['w']], rep(1, 2), test=function(x){length(x) == 1 && is.na(x[1])}), xout=get(newName), yleft=if(bias<0){1}else{0}, yright=if(bias<0){0}else{1})$y, by=c(norm.by)]
+	x[, .w:=approx(x=getDefault(x.d[.BY][[newName]],
+	                            seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2),
+	                            test=function(x){length(x) == 1 && is.na(x[1])}),
+	               y=getDefault(x.d[.BY][['w']],
+	                            rep(1, 2),
+	                            test=function(x){length(x) == 1 && is.na(x[1])}),
+	               xout=get(newName),
+	               yleft=if(bias<0){1}else{0},
+	               yright=if(bias<0){0}else{1})$y,
+	  by=c(norm.by)]
 	if(substr(norm.method[1],1,1)=='s')
 	{
 		x[is.finite(get(newName)), c(paste0(col, '.norm')):=(get(newName) - weighted.percentile(get(newName), percentile=norm.percentile, w=if(bias==0){rep(1,length(.w))}else{.w})), by=c(norm.by)]
