@@ -136,6 +136,7 @@ library(data.table)
 {
 	.define.fonts()
 
+	# First try to set the specific font
 	if(!is.null(font) && any(.hasFont(font)))
 	{
 		font <- font[which(.hasFont(font))[1]]
@@ -143,30 +144,36 @@ library(data.table)
 		par(family=font)
 		return()
 	}
-	else if(!is.null(font))
-	{
-		warning("Couldn't find the desired font. Substituting another light font instead.")
-	}
 
-	if(getOS()=='osx')
+	# If it is in the fonttable(), then at least we can set a font instead of a font family
+	if(!is.null(font) && any(.tableHasFont(font)))
 	{
-		font <- c('Open','Roboto','Quicksand','Muli','Montserrat')
+		par(family=font)
+		warning(paste("Couldn't find the desired family of fonts so we set individual font to", font))
 	}
 	else
 	{
-		font <- c('Open Sans Light','Roboto Light','Quicksand Light','Muli Light','Montserrat Light')
-	}
+		# Else try to find a next best font.
+		if(getOS()=='osx')
+		{
+			font <- c('Open','Roboto','Quicksand','Muli','Montserrat')
+		}
+		else
+		{
+			font <- c('Open Sans Light','Roboto Light','Quicksand Light','Muli Light','Montserrat Light')
+		}
 
-	if(any(.hasFont(font)))
-	{
-		font <- font[which(.hasFont(font))[1]]
-		print(paste0("Setting font to ", font))
-		par(family=font)
-		return()
-	}
-	else if(!is.null(font))
-	{
-		warning("Couldn't find our favorite light fonts. Giving up and using default.")
+		if(any(.hasFont(font)))
+		{
+			font <- font[which(.hasFont(font))[1]]
+			print(paste0("Setting font to ", font))
+			par(family=font)
+			return()
+		}
+		else if(!is.null(font))
+		{
+			warning("Couldn't find our favorite light fonts. Giving up and using default.")
+		}
 	}
 
 	# Windows needs help finding ghostscript for embedding fonts
@@ -2894,6 +2901,11 @@ replaceSubstringInColNames <- function(x, old, new)
 	setnames(x, oldNames, newNames)
 }
 
+replaceSubStringInAllRowsOfCol <- function(x, old, new, col)
+{
+	x[,c(col):=gsub(old,new,get(col),fixed=TRUE)]
+}
+
 sortColsByName <- function(x)
 {
 	setcolorder(x, sort(names(x)))
@@ -4343,20 +4355,36 @@ calculate.baseline <- function(x, lambda=3, p=0.002, maxit=30, presmooth.sd=NULL
 		sig <- roll.gaussian(sig, win.width=postsmooth.sd)
 		bg <- x-sig
 	}
-	return(data.table(sig=sig, bg=bg, wgts=as.numeric(t(ret$wgts))))
+	return(data.table(sig=sig, bg=bg, wgts=as.numeric(t(ret$wgts)), x.smooth=x))
 }
 
-calculate.peak.AUCs <- function(x, y, nearestTo=NULL, peak.neighlim, valley.neighlim=peak.neighlim, deriv.lim=1, n=NULL, min.h=0.1, in.data=T, plot.peaks=F, plot.valleys=F, plot.polygons=F)
+calculate.peak.AUCs <- function(x, y, nearestTo=NULL, peak.neighlim, valley.neighlim=peak.neighlim, deriv.lim=1, n=NULL, min.h=0.1, in.data=T, plot.peaks=F, plot.valleys=F, plot.polygons=F, min.h.rel=T)
 {
-	peaks <- getPeaks(x, y, valleys=F, neighlim = peak.neighlim, nearestTo=nearestTo, deriv.lim = deriv.lim, n=n, min.h=min.h, in.data=T)
-	valleys <- getPeaks(x, y, valleys=T, neighlim = valley.neighlim, nearestTo=NULL, deriv.lim = deriv.lim, n=NULL, min.h=-min.h, in.data=T)
-	peaks[, c('left.i','left','right.i','right'):=get.left.right(x, y, peak.i=.BY[[1]], valleys.i=valleys$peak.i, thresh=max(y)*min.h, in.data=in.data), by='peak.i']
-	peaks[, c('auc','total'):=get.auc(x=c(left, x, right), y=c(min.h*max(y, na.rm=T), y, min.h*max(y, na.rm=T)), left=left, right=right), by='peak.i']
+	peaks <- getPeaks(x, y, valleys=F, neighlim = peak.neighlim, nearestTo=nearestTo, deriv.lim = deriv.lim, n=n, min.h=min.h, in.data=T, min.h.rel=min.h.rel)
+	valleys <- getPeaks(x, y, valleys=T, neighlim = valley.neighlim, nearestTo=NULL, deriv.lim = deriv.lim, n=NULL, min.h=-min.h, in.data=T, min.h.rel=min.h.rel)
+	if(min.h.rel)
+	{
+		peaks[, c('left.i','left','right.i','right'):=get.left.right(x, y, peak.i=.BY[[1]], valleys.i=valleys$peak.i, thresh=max(y, na.rm = T)*min.h, in.data=in.data), by='peak.i']
+		peaks[, c('auc','total'):=get.auc(x=c(left, x, right), y=c(min.h*max(y, na.rm=T), y, min.h*max(y, na.rm=T)), left=left, right=right), by='peak.i']
+	}
+	else
+	{
+		peaks[, c('left.i','left','right.i','right'):=get.left.right(x, y, peak.i=.BY[[1]], valleys.i=valleys$peak.i, thresh=min.h, in.data=in.data), by='peak.i']
+		peaks[, c('auc','total'):=get.auc(x=c(left, x, right), y=c(min.h, y, min.h), left=left, right=right), by='peak.i']
+	}
 	peaks[, temp.color:=loopingPastels(1:.N)]
 	if(plot.polygons)
 	{
-		peaks[, polygon(x=c(left, left, x[!is.na(x) & !is.na(y) & x>=left & x<=right], right, right), y=c(0, min.h*max(y, na.rm=T), y[!is.na(x) & !is.na(y) & x>=left & x<=right], min.h*max(y, na.rm=T), 0), col=peaks$temp.color[.I], border=rgb(0,0,0,0)), by='peak.i']
-		abline(h=min.h*max(y), col='gray70')
+		if(min.h.rel)
+		{
+			peaks[, polygon(x=c(left, left, x[!is.na(x) & !is.na(y) & x>=left & x<=right], right, right), y=c(0, min.h*max(y, na.rm=T), y[!is.na(x) & !is.na(y) & x>=left & x<=right], min.h*max(y, na.rm=T), 0), col=peaks$temp.color[.I], border=rgb(0,0,0,0)), by='peak.i']
+			abline(h=min.h*max(y), col='gray70')
+		}
+		else
+		{
+			peaks[, polygon(x=c(left, left, x[!is.na(x) & !is.na(y) & x>=left & x<=right], right, right), y=c(0, min.h, y[!is.na(x) & !is.na(y) & x>=left & x<=right], min.h, 0), col=peaks$temp.color[.I], border=rgb(0,0,0,0)), by='peak.i']
+			abline(h=min.h, col='gray70')
+		}
 	}
 	if(plot.valleys)
 	{
@@ -4512,7 +4540,7 @@ markCrossing <- function(x, thresh, direction=c('up','down'))
 	return(ret)
 }
 
-getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), min.h.rel=T, ...)
 {
 	library(peakPick)
 	y.i <- max(y, na.rm=T)-y
@@ -4527,11 +4555,26 @@ getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=N
 	}
 	if(valleys)
 	{
-		peaks <- peaks & (max(y, na.rm=T)-y >= min.h*p.max)
+		if(min.h.rel)
+		{
+			peaks <- peaks & (max(y, na.rm=T)-y >= min.h*p.max)
+		}
+		else
+		{
+			peaks <- peaks & (max(y, na.rm=T)-y >= min.h)
+		}
 	}
 	else
 	{
-		peaks <- peaks & (y >= min.h*p.max)
+		if(min.h.rel)
+		{
+			peaks <- peaks & (y >= min.h*p.max)
+		}
+		else
+		{
+			peaks <- peaks & (y >= min.h)
+		}
+
 	}
 	if(sum(peaks, na.rm=T)==0)
 	{
@@ -4611,7 +4654,7 @@ getPeaks <- function(x, y, valleys=F, nearestTo=NULL, neighlim, deriv.lim=1, n=N
 	return(ret[])
 }
 
-getDensityPeaks <- function(x, neighlim, valleys=F, nearestTo=NULL, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), ...)
+getDensityPeaks <- function(x, neighlim, valleys=F, nearestTo=NULL, deriv.lim=1, n=NULL, min.h=0.1, density.args=list(), make.plot=F, in.data=T, plot.args=list(), min.h.rel=T, ...)
 {
 	# min.frac.peak.h is the minimum height of a peak in terms of the fractional range of the data.
 	# Use n=-1 to get last peak
@@ -4623,7 +4666,7 @@ getDensityPeaks <- function(x, neighlim, valleys=F, nearestTo=NULL, deriv.lim=1,
 	library(peakPick)
 	density.args <- merge.lists(list(x=x[is.finite(x)]), density.args)
 	blah <- do.call(density, density.args)
-	return(getPeaks(x=blah$x, y=blah$y, valleys=valleys, nearestTo=nearestTo, neighlim=neighlim, deriv.lim=deriv.lim, n=n, min.h=min.h, density.args=density.args, make.plot=make.plot, in.data=in.data, plot.args=plot.args, ...))
+	return(getPeaks(x=blah$x, y=blah$y, valleys=valleys, nearestTo=nearestTo, neighlim=neighlim, deriv.lim=deriv.lim, n=n, min.h=min.h, density.args=density.args, make.plot=make.plot, in.data=in.data, plot.args=plot.args, min.h.rel=min.h.rel, ...))
 
 }
 
@@ -4990,15 +5033,15 @@ multi.mixedorder <- function(..., na.last = TRUE, decreasing = FALSE){
 	))
 }
 
-merge.lists <- function(list1, list2)
+merge.lists <- function(list1, list2, items=list1, items.to.put=list2)
 {
 	# Default values in list1
 	# Overriding values in list2
-	for(name in names(list2))
+	for(name in names(items.to.put))
 	{
-		list1[[name]] <- list2[[name]]
+		items[[name]] <- items.to.put[[name]]
 	}
-	return(list1)
+	return(items)
 }
 
 interdigitate <- function(a, b)
@@ -8385,6 +8428,15 @@ rbind.results <- function(dt.expression, grpColName='paramSet', ...)
 	return(rbindlist(rets))
 }
 
+
+#' calculateTprFpr
+#'
+#' @param predicted vector of values
+#' @param actual vector of values
+#' @param predicted.vals tuple representing False/Neg, True/Pos (in that order)
+#' @param actual.vals tuple representing False/Neg, True/Pos (in that order)
+#'
+#' @return list of TP, TN, FN, FP, TPR, and FPR
 calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 {
 	confusion_table <- table(factor(predicted, levels=predicted.vals), factor(actual, levels=actual.vals))
@@ -8395,6 +8447,129 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 	TPR <- TP/(TP+FN)
 	FPR <- FP/(FP+TN)
 	return(list(TP=TP, TN=TN, FN=FN, FP=FP, TPR=TPR, FPR=FPR))
+}
+
+plot.roc <- function (score,
+				  class,
+				  method = c('Empirical','Binormal','Non-parametric'),
+				  col = c("#2F4F4F", "#BEBEBE"),
+				  legend = FALSE,
+				  legend.args = list(x='bottomright',
+				  			    bty='n',
+				  			    lty = c(1, 2),
+				  			    lwd = 2,
+				  			    col = c("#2F4F4F", "#BEBEBE"),
+				  			    legend=c(paste(method[1], "ROC curve"),"Chance line"),
+				  			    cex=0.8),
+				  stats = TRUE,
+				  stats.args = list(x=.62,
+				  			   y=0.35,
+				  			   vals=c(3,2,4),
+				  			   names=c('Sens.', 'Spec.', 'Thresh.'),
+				  			   cex=legend.args$cex*1.8),
+				  YIndex = TRUE,
+				  YIndex.args = list(x=0.2,
+				  			    y=-0.1,
+				  			    adj=c(0,1),
+				  			    label='Youden Optima'),
+				  par.args = list(mar=c(4,4,1,1), mgp=c(2.7,1,0)),
+				  family = 'Arial',
+				  grid = TRUE,
+				  return.vals = c("method","AUC","thresh","TPR","FPR","YI.value","YI.FPR","YI.TPR","YI.thresh"),
+				  ylab = "Sensitivity (TPR)",
+				  xlab = "1-Specificity (FPR)",
+				  ... = NULL)
+{
+	legend.args2 = list(x='bottomright',
+					bty='n',
+					lty = c(1, 2),
+					lwd = 2,
+					col = c("#2F4F4F", "#BEBEBE"),
+					legend=c(paste(method[1], "ROC curve"),"Chance line"),
+					cex=0.8)
+	YIndex.args2 = list(x=0.025,
+					y=-0.05,
+					adj=c(0,1),
+					label='Youden Optima')
+	par.args2 = list(mar=c(4,4,1,1),
+				  mgp=c(2.7,1,0))
+	stats.args2 = list(x=.62,
+				   y=0.35,
+				   vals=c(3,2,4),
+				   names=c('Sens.', 'Spec.', 'Thresh.'),
+				   cex=legend.args$cex*1.8)
+
+	merge.lists(items=legend.args2, items.to.put = legend.args)
+	merge.lists(items=YIndex.args2, items.to.put = YIndex.args)
+	merge.lists(items=par.args2, items.to.put = par.args)
+	merge.lists(items=stats.args2, items.to.put = stats.args)
+
+	library(ROCit)
+	# Copy current par.args
+	par.args.copy <- par(names(par.args2))
+
+	# Set new par.args
+	do.call(par, par.args2)
+
+	# old Font
+	old.font <- par('family')
+	.use.lightFont(family)
+
+	x <- rocit(score=score,class=class, method=c('emp','bin','non')[which(method[1]==c('Empirical','Binormal','Non-parametric'))])
+	col <- rep(col, 2)
+	y1 <- x$TPR
+	x1 <- x$FPR
+	graphics::plot(x1, y1, type = "l", ylab = ylab,
+				xlab = xlab, col = col[1], lwd = 2)
+	# axis(1, at=c(0,0.2,0.4,0.6,0.8,1.0), labels=1-c(0,0.2,0.4,0.6,0.8,1.0))
+
+	if(grid)
+	{
+		graphics::grid(col = "gray60")
+	}
+	graphics::abline(0, 1, lwd = 2, col = col[2], lty = 2)
+	diff <- y1 - x1
+	maxIndex <- which.max(diff)
+	xYI <- x1[maxIndex]
+	yYI <- y1[maxIndex]
+	cYI <- x$Cutoff[maxIndex]
+	if (YIndex) {
+		graphics::points(x = xYI, y = yYI, pch = 16, cex = 1)
+		graphics::points(x = xYI, y = yYI, pch = 3, cex = 3)
+		graphics::text(x = (xYI + YIndex.args2$x),
+					y = (yYI + YIndex.args2$y), YIndex.args2$label,
+					adj=YIndex.args2$adj,
+					font = 3)
+	}
+
+	if (legend) {
+		do.call(graphics::legend, legend.args2)
+	}
+
+	ret <- list(method = x$method,
+			  AUC = x$AUC,
+			  thresh = x$Cutoff,
+			  TPR = x$TPR,
+			  FPR = x$FPR,
+			  YI.value = max(diff),
+			  YI.FPR = xYI,
+			  YI.TPR = yYI,
+			  YI.thresh = cYI)
+
+	if(stats)
+	{
+		stats.vals <- ret[6:9]
+		stats.vals[[2]] <- 1-stats.vals[[2]]
+		stats.nums <- sig.digits(as.numeric(stats.vals[stats.args2$vals]), nSig=2, trim.spaces = T, trim.zeros = F)
+		txt <- paste(stats.args2$names, ' = ', stats.nums, ' ', sep='', collapse='\n')
+		text(stats.args2$x, stats.args2$y, txt, adj=c(0,1), cex=stats.args2$cex)
+	}
+
+	# Restore par.args and font
+	suppressWarnings(do.call(par, par.args.copy))
+	par(family=old.font)
+
+	return(ret[names(ret) %in% return.vals])
 }
 
 #' make.vars
@@ -8459,7 +8634,7 @@ sd.robust <- function(x, na.rm=T)
 	da.sd <- sd(x, na.rm=na.rm)
 	da.iqr <- IQR(x, na.rm=na.rm)/1.34
 	temp <- c(da.mad, da.sd, da.iqr)
-	if(all(temp == 0))
+	if(all(temp[is.finite(temp)] == 0))
 	{
 		return(0)
 	}
