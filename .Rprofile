@@ -1881,7 +1881,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 
 	if(length(intersect(names(data), names(legend.colors))) > 0)
 	{
-		# browser()
+		
 		data <- data[legend.colors, nomatch=0, on=intersect(names(data), names(legend.colors))]
 	}
 	else
@@ -5187,7 +5187,8 @@ getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.ti
   fw.table <- conv.fixed.width(fw.table)
 
   paste.cols(fw.table, names(fw.table), name='final', sep=' ')
-  return(list(events=temp, sc=my.surv, sc.step=my.surv.s, stats=stats, symbols=stats.sym, fw.table=fw.table, fit=fit, p.val=surv_pvalue(fit=fit), p.val.trend=surv_pvalue(fit=fit, test.for.trend = T), formula=my.f, rhs=rhs))
+  #surv_pvalue(fit=fit, test.for.trend = T)
+  return(list(events=temp, sc=my.surv, sc.step=my.surv.s, stats=stats, symbols=stats.sym, fw.table=fw.table, fit=fit, p.val=surv_pvalue(fit=fit), p.val.trend=as.numeric(1), formula=my.f, rhs=rhs))
 }
 
 convertMultipleToSteps <- function(dt, x.name, from=min(dt[[x.name]]), to=max(dt[[x.name]]))
@@ -7655,7 +7656,7 @@ getNeighborsInRadius <- function(dt, cIdCol, xcol, ycol, keep=c(), searchRadius,
 			temp <- thingsToDo[i]
 			setkeyv(temp, by)
 			dt2 <- dt[temp]
-			# browser()
+			
 			dt[temp, neighbors:=list(list(getNeighborsInRadius_(dt2, xcol=xcol, ycol=ycol, cIdCol=cIdCol, theId=.BY[[1]], keep=keep, searchRadius=searchRadius))), by=cIdCol][]
 		}
 	}
@@ -9008,7 +9009,7 @@ getDistErr <- function(shift, test.x, test.y, ref.x, ref.y, adj=c(1,1), bias=0)
 			w <- 1-w
 		}
 	}
-	err <- adj[1]*(shift[1]/dx/l)^2 + adj[2]*sum((w*(rel.y/y.max))^2)/length(ref.y)
+	err <- adj[1]*(shift[1]/dx/l)^2 + adj[2]*sum((w*(rel.y/y.max))^2)/length(rel.y)
 	return(err)
 }
 
@@ -9058,14 +9059,14 @@ alignDistributions <- function(x,
 	# Do Pre-Plotting
 	x.d <- getDistributions(x, xcol=col, by=c(line.color.by,plot.by))
 	xlim <- range(x.d[cpd > xlim.percentiles[1] & cpd < xlim.percentiles[2]][[col]])
-	if(length(by) == 1)
-	{
-		data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
-	}
-	else
-	{
-		data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
-	}
+	# if(length(by) == 1)
+	# {
+	# 	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
+	# }
+	# else
+	# {
+	# 	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=col, ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
+	# }
 
 	# Do Alignments
 	if(align.by != 'temp.grp')
@@ -9125,15 +9126,15 @@ alignDistributions <- function(x,
 	x.d <- getDistributions(x, xcol=paste0(col, '.norm'), by=c(line.color.by,plot.by))
 	suppressWarnings(x[, c('Nuc.adj1','Nuc.adj1.adj2','adj1','adj2','.w','temp.grp'):=NULL])
 	xlim <- range(x.d[cpd > xlim.percentiles[1] & cpd < xlim.percentiles[2]][[paste0(col, '.norm')]])
-	if(length(align.by)==1)
-	{
-		data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
-	}
-	else
-	{
-		data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
-	}
-
+	# if(length(align.by)==1)
+	# {
+	# 	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
+	# }
+	# else
+	# {
+	# 	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
+	# }
+  return(x.d)
 }
 
 getFirstIndexOfCharInString <- function(x, char='\\.')
