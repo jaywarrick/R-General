@@ -190,13 +190,13 @@ library(data.table)
 
 dev.off2 <- function(file)
 {
-     if(startsWith(file, '~'))
-     {
-          stop('Embed fonts must have a fully defined path and cannot start with a tilde. Fully specify the path.')
-     }
+     # if(startsWith(file, '~'))
+     # {
+     #      stop('Embed fonts must have a fully defined path and cannot start with a tilde. Fully specify the path.')
+     # }
 	library(extrafont)
 	dev.off()
-	embed_fonts(file)
+	embed_fonts(normalizePath(file))
 }
 
 View2 <- function(x, show.n=1000)
@@ -1881,7 +1881,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 
 	if(length(intersect(names(data), names(legend.colors))) > 0)
 	{
-		
+
 		data <- data[legend.colors, nomatch=0, on=intersect(names(data), names(legend.colors))]
 	}
 	else
@@ -2084,7 +2084,7 @@ tempFunc <- function(x, y, upper, lower, log, logicle.params, trans.logit, line.
 {
 	# Elipses is taken from calling environment (i.e., plot.wrapper)
 	data.table.lines(x=x, y=y, log=log, logicle.params=logicle.params, trans.logit=trans.logit, lty=lty, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, ...)
-	if(!is.null(upper))
+	if(!is.null(upper) | !is.null(lower))
 	{
 		data.table.error.bar(x=x, y=y, upper=upper, lower=lower, env.err=env.err, env.color=adjustColor(list(...)$col, env.args$env.alpha), env.args=env.args, length=0.05, draw.lower=TRUE, log=log, logicle.params=logicle.params, trans.logit=trans.logit, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n)
 	}
@@ -2170,7 +2170,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		{
 			# Call data.table.lines, only plotting the line if the .GRP is one of the randomly sampled numbers
 			# Index colors according to their index in the randomly sampled list, that way you actually loop through the pallet as normal (i.e., "red", "green3", "blue", ...)
-			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, log=log, logicle.params=logicle.params.plc, trans.logit=trans.logit, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
+			temp[, tempFunc(x=get(xcol), y=get(ycol), upper=NULL, lower=NULL, log=log, logicle.params=logicle.params.plc, trans.logit=trans.logit, col=my.temp.color[1], lwd=lwd[1], lty=lty[1], env.alpha=env.alpha, spline.smooth=spline.smooth, spline.spar=spline.spar, spline.n=spline.n, env.err=env.err, env.args=env.args, ...), by='grp']
 		}
 		else
 		{
@@ -2211,12 +2211,18 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
 		}
 
-		# # data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
-		# if(!is.null(errcol))
-		# {
-		# 	# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10))
-		# 	data[, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol), length=0.05, draw.lower=TRUE, log=log, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY), by=by]
-		# }
+		# data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
+		if(!is.null(errcol.upper))
+		{
+			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10))
+			data[, data.table.error.bar(x=get(xcol), y=get(ycol), upper=get(errcol.upper), lower=NULL, length=0.05, draw.upper=TRUE, draw.lower=FALSE, log=log, logicle.params=logicle.params.plc), by=by]
+		}
+		# data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
+		if(!is.null(errcol.lower))
+		{
+			# (x, y, upper=NULL, lower=upper, length=0.1, draw.lower=TRUE, log='', transX=1, transY=1, tickSepX=10, tickSepY=10))
+			data[, data.table.error.bar(x=get(xcol), y=get(ycol), lower=get(errcol.lower), upper=NULL, length=0.05, draw.upper=FALSE, draw.lower=TRUE, log=log, logicle.params=logicle.params.plc), by=by]
+		}
 
 		# Plot populations cross hairs if desired
 		if(cross.plot)
@@ -2569,7 +2575,7 @@ data.table.points <- function(x, y, log='', plot.logicle=F, logicle.params, h=NU
 # Copying the data eliminates this issue. HOWEVER WATCH OUT FOR SENDING data.table
 # variables as arguments in '...' as this problem will again arise for that parameter
 # (e.g., col=variable, the color will be wrong at times)
-data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), length=0.1, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, trans.logit=c(F,F), spline.smooth=F, spline.spar=0.2, spline.n=length(x), ...)
+data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), length=0.1, draw.upper=TRUE, draw.lower=TRUE, log='', plot.logicle=F, logicle.params, trans.logit=c(F,F), spline.smooth=F, spline.spar=0.2, spline.n=length(x), ...)
 {
 	if(length(which(is.finite(x))) > 0)
 	{
@@ -2613,7 +2619,7 @@ data.table.error.bar <- function(x, y, upper=NULL, lower=upper, env.err=F, env.c
 			lower1 <- NULL
 		}
 
-		error.bar(x=x1, y=y1, upper=upper1, lower=lower1, env.err=env.err, env.color=env.color, length=length, draw.lower=draw.lower, env.args=env.args, ...)
+		error.bar(x=x1, y=y1, upper=upper1, lower=lower1, env.err=env.err, env.color=env.color, length=length, draw.upper=draw.upper, draw.lower=draw.lower, env.args=env.args, ...)
 		print('Added error bars to a plot')
 	}
 }
@@ -3630,7 +3636,7 @@ getEnvelope <- function(x, y, upper, lower=upper, logicle.params=NULL)
 #' @export
 error.bar <- function(x, y, upper=NULL, lower=upper, length=0.1, draw.upper=TRUE, draw.lower=TRUE, logicle.params=NULL, env.err=F, env.color=rgb(0,0,0,0.2), env.args=list(env.alpha=0.5, env.smooth=F, env.spar=0.2), ...)
 {
-	if(is.null(upper))
+	if(is.null(upper) & draw.upper)
 	{
 		upper <- lower
 	}
@@ -6776,14 +6782,9 @@ plot.hist <- function(x, type=c('d','h'), log='', trans.logit=F, neg.rm=T, logic
 
 getDefault <- function(x, default, test=is.null)
 {
-	if(test(x))
-	{
-		return(default)
-	}
-	else
-	{
-		return(x)
-	}
+	ret <- copy(x)
+	ret[test(x)] <- default
+	return(ret)
 }
 
 getPercentilesForValues <- function(x, vals, finite=T, na.rm=T)
@@ -7656,7 +7657,7 @@ getNeighborsInRadius <- function(dt, cIdCol, xcol, ycol, keep=c(), searchRadius,
 			temp <- thingsToDo[i]
 			setkeyv(temp, by)
 			dt2 <- dt[temp]
-			
+
 			dt[temp, neighbors:=list(list(getNeighborsInRadius_(dt2, xcol=xcol, ycol=ycol, cIdCol=cIdCol, theId=.BY[[1]], keep=keep, searchRadius=searchRadius))), by=cIdCol][]
 		}
 	}
@@ -8451,7 +8452,7 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 }
 
 plot.roc <- function (score,
-				  class,
+				  actualClass,
 				  method = c('Empirical','Binormal','Non-parametric'),
 				  col = c("#2F4F4F", "#BEBEBE"),
 				  legend = FALSE,
@@ -8468,6 +8469,11 @@ plot.roc <- function (score,
 				  			   vals=c(3,2,4),
 				  			   names=c('Sens.', 'Spec.', 'Thresh.'),
 				  			   cex=legend.args$cex*1.8),
+				  text.args = list(x=0.62,
+				  			  y=0.1,
+				  			  cex=legend.args$cex*1.8,
+				  			  adj=c(0,1),
+				  			  labels=''),
 				  YIndex = TRUE,
 				  YIndex.args = list(x=0.2,
 				  			    y=-0.1,
@@ -8499,11 +8505,16 @@ plot.roc <- function (score,
 				   vals=c(3,2,4),
 				   names=c('Sens.', 'Spec.', 'Thresh.'),
 				   cex=legend.args$cex*1.8)
-
-	merge.lists(items=legend.args2, items.to.put = legend.args)
-	merge.lists(items=YIndex.args2, items.to.put = YIndex.args)
-	merge.lists(items=par.args2, items.to.put = par.args)
-	merge.lists(items=stats.args2, items.to.put = stats.args)
+	text.args2 = list(x=0.62,
+				  y=0.1,
+				  cex=legend.args$cex*1.8,
+				  adj=c(0,1),
+				  labels='')
+	legend.args2 <- merge.lists(items=legend.args2, items.to.put = legend.args)
+	YIndex.args2 <- merge.lists(items=YIndex.args2, items.to.put = YIndex.args)
+	par.args2 <- merge.lists(items=par.args2, items.to.put = par.args)
+	stats.args2 <- merge.lists(items=stats.args2, items.to.put = stats.args)
+	text.args2 <- merge.lists(items=text.args2, items.to.put = text.args)
 
 	library(ROCit)
 	# Copy current par.args
@@ -8512,11 +8523,16 @@ plot.roc <- function (score,
 	# Set new par.args
 	do.call(par, par.args2)
 
-	# old Font
-	old.font <- par('family')
-	.use.lightFont(family)
+	# # old Font
+	# old.font <- par('family')
+	# .use.lightFont(family)
 
-	x <- rocit(score=score,class=class, method=c('emp','bin','non')[which(method[1]==c('Empirical','Binormal','Non-parametric'))])
+	if(length(unique(actualClass))!=2)
+	{
+		warning("2 unique classes must exist in the data to create and ROC curve")
+		return()
+	}
+	x <- rocit(score=score,class=actualClass, method=c('emp','bin','non')[which(method[1]==c('Empirical','Binormal','Non-parametric'))])
 	col <- rep(col, 2)
 	y1 <- x$TPR
 	x1 <- x$FPR
@@ -8562,13 +8578,14 @@ plot.roc <- function (score,
 		stats.vals <- ret[6:9]
 		stats.vals[[2]] <- 1-stats.vals[[2]]
 		stats.nums <- sig.digits(as.numeric(stats.vals[stats.args2$vals]), nSig=2, trim.spaces = T, trim.zeros = F)
-		txt <- paste(stats.args2$names, ' = ', stats.nums, ' ', sep='', collapse='\n')
+		txt <- paste(stats.args2$names[1:2], ' = ', stats.nums[1:2], ' ', sep='', collapse='\n')
 		text(stats.args2$x, stats.args2$y, txt, adj=c(0,1), cex=stats.args2$cex)
 	}
 
+	do.call(text, text.args2)
 	# Restore par.args and font
 	suppressWarnings(do.call(par, par.args.copy))
-	par(family=old.font)
+	# par(family=old.font)
 
 	return(ret[names(ret) %in% return.vals])
 }
