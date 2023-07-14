@@ -1645,6 +1645,7 @@ loopingPastels <- function(k, min.h=0.666, max.h=min.h + 1, max.k=min(max(k),10)
 	return(cols[((k-1) %% (n)) + 1])
 }
 
+# Generate palette of colors
 loopingPalette <- function(k, cols=palette()[-1])
 {
 	n <- length(cols)
@@ -1766,7 +1767,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 		warning('Data is empty. Nothing to plot.')
 		return()
 	}
-	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, lwd=2, lty=1, inset=0, ncol=1), legend.args)
+	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=paste(line.color.by, collapse=':'), lwd=2, lty=1, inset=0, ncol=1), legend.args)
 
 	env.args <- merge.lists(list(env.alpha=0.5, env.smooth=F, env.spar=0.2), env.args)
 
@@ -2748,6 +2749,28 @@ splitAlphaNumeric <- function(x, convertToNumeric=F)
 	return(list(alphas=alphas, numerics=numerics))
 }
 
+
+#' xContainsY
+#'
+#' @param x string vector
+#' @param y string
+#'
+#' @return whether or not each of the values in x contains the fixed string patter y 
+xContainsY <- function(x, y){
+     return(grepl(y,x,fixed=T))
+}
+
+#' xContainsAnyY
+#'
+#' @param x string vector
+#' @param y string
+#'
+#' @return whether or not each of the values in x contains any of the fixed string patterns in y 
+xContainsAnyY <- function(x, y){
+     ret <- sapply(y, xContainsY, x=x)
+     return(as.logical(rowSums(ret)))
+}
+
 getAllColNamesExcept <- function(x, names)
 {
 	return(names(x)[!(names(x) %in% names)])
@@ -3314,15 +3337,23 @@ my.test <- function(x, y, test=c('wilcox','t.test'), adjust.p=F, adjust.method='
 	return(list(p=ret1))
 }
 
-data.table.wilcox.pairwise.stats <- function(dt, val.col, grp.by, for.each, compare.to.filter.fun=NULL, ...)
+data.table.wilcox.stats.multiple.experiments <- function(dt, val.col, grp.by, for.each.expt, two.tailed=T, ...)
 {
 
-	ret <- dt[, getWilcoxStatForEachGroup(.SD, val.col=val.col, by=grp.by), by=for.each]
+	ret <- dt[, getWilcoxStatForEachGroup(.SD, val.col=val.col, by=grp.by), by=for.each.expt]
 	ret[, Wmin:=0]
 	ret[, Wmax:=n.x*n.y]
-	setorderv(ret, c(for.each, 'W'))
+	setorderv(ret, c(for.each.expt, 'W'))
 	ret[, W.norm:=(W-Wmin)/(Wmax-Wmin)]
-	return(ret[])
+	
+	x2 <- copy(ret)
+	x2[, ':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=grp.by]
+	x2.s <- x2[, list(N=sum(N), n.x=sum(n.x), n.y=sum(n.y), n.expt=.N, Wtot=sum(Wi), Etot=sum(Ei), Vtot=sum(Vi)), by=grp.by]
+	x2.s[, effect.size:=(Wtot-Etot)/(sqrt(Vtot))]
+	x2.s[, p.overall:=if.else(two.tailed, 2*pnorm(-abs(effect.size)), pnorm(-abs(effect.size)))]
+	setorder(x2.s, -effect.size)
+	setorder(ret, -effect.size)
+	return(list(ret=ret[], summary=x2.s))
 }
 
 data.table.wilcox.stats <- function(dt, val.col, grp.by, for.each, ...)
@@ -3344,7 +3375,8 @@ data.table.wilcox.stats <- function(dt, val.col, grp.by, for.each, ...)
 getWilcoxStatForEachGroup <- function(dt, val.col, by, ...)
 {
 		dt2 <- copy(dt)
-		ret <- dt2[, getWilcoxStats(get(val.col),dt[[val.col]], ...), by=by]
+		ret <- dt2[, getWilcoxStats(get(val.col),dt[-.I][[val.col]], ...), by=by]
+		lapply.data.table(ret, as.double, cols=c('W','p.value','median.x','median.y','V','z.score','effect.size'), in.place = T)
 		return(ret)
 }
 
@@ -5044,6 +5076,22 @@ merge.lists <- function(list1, list2, items=list1, items.to.put=list2)
 	return(items)
 }
 
+merge.all.lists <- function(...)
+{
+     lists <- list(...)
+     # Default values in list1
+     # Overriding values in list2
+     items <- list()
+     for(l in list(...))
+     {
+          for(name in names(l))
+          {
+               items[[name]] <- l[[name]]
+          }
+     }
+     return(items)
+}
+
 interdigitate <- function(a, b)
 {
   len <- length(c(a, b))
@@ -5693,7 +5741,7 @@ fillDefaultLogicleParams <- function(x, y, logicle.params)
 	# 	}
 	# }
 
-	logicle.params$tickSepX <- getDefault(logicle.params$tickSepX, calcTickSep(x=x, transition=logicle.params$transX, base=logicle.params$base, frac=logicle.params$fracX))
+	logicle.params$tickSepX <- getDefault(logicle.params$tickSepX, getDefault(logicle.params$tickSep, calcTickSep(x=x, transition=logicle.params$transX, base=logicle.params$base, frac=logicle.params$fracX)))
 
 	logicle.params$tickSep <- logicle.params$tickSepX
 
@@ -6133,7 +6181,7 @@ logticks <- function (ax = 1, n.minor = 9, t.lims, t.ratio = 0.5, major.ticks = 
 	return(invisible(base))
 }
 
-drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, overwrite.log.base=NULL, ...)
+drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, overwrite.log.base=NULL, frac=NULL, ...)
 {
 	if(is.null(base))
 	{
