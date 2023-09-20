@@ -2761,7 +2761,7 @@ splitAlphaNumeric <- function(x, convertToNumeric=F)
 #' @param x string vector
 #' @param y string
 #'
-#' @return whether or not each of the values in x contains the fixed string patter y 
+#' @return whether or not each of the values in x contains the fixed string patter y
 xContainsY <- function(x, y){
      return(grepl(y,x,fixed=T))
 }
@@ -2771,7 +2771,7 @@ xContainsY <- function(x, y){
 #' @param x string vector
 #' @param y string
 #'
-#' @return whether or not each of the values in x contains any of the fixed string patterns in y 
+#' @return whether or not each of the values in x contains any of the fixed string patterns in y
 xContainsAnyY <- function(x, y){
      ret <- sapply(y, xContainsY, x=x)
      return(as.logical(rowSums(ret)))
@@ -2952,6 +2952,25 @@ getSortedCorrelations <- function(cor.result)
 	setorder(ret, -toSort)
 	ret[, toSort:=NULL]
 	return(ret[])
+}
+
+t.test.2sample <- function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
+{
+     if( equal.variance==FALSE ) 
+     {
+          se <- sqrt( (s1^2/n1) + (s2^2/n2) )
+          # welch-satterthwaite df
+          df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
+     } else
+     {
+          # pooled standard deviation, scaled by the sample sizes
+          se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) ) 
+          df <- n1+n2-2
+     }      
+     t <- (m1-m2-m0)/se 
+     dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))    
+     names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
+     return(dat) 
 }
 
 pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
@@ -3351,7 +3370,7 @@ data.table.wilcox.stats.multiple.experiments <- function(dt, val.col, grp.by, fo
 	ret[, Wmax:=n.x*n.y]
 	setorderv(ret, c(for.each.expt, 'W'))
 	ret[, W.norm:=(W-Wmin)/(Wmax-Wmin)]
-	
+
 	x2 <- copy(ret)
 	x2[, ':='(Wi=W/(N+1), Ei=E/(N+1), Vi=V/((N+1)^2)), by=grp.by]
 	x2.s <- x2[, list(N=sum(N), n.x=sum(n.x), n.y=sum(n.y), n.expt=.N, Wtot=sum(Wi), Etot=sum(Ei), Vtot=sum(Vi)), by=grp.by]
@@ -3607,6 +3626,25 @@ getNSplit <- function(x, sep, n=1)
 		temp <- function(n,x2){return(x2[n,])}
 		ret <- lapply(n, x2=ret, FUN=temp)
 	}
+	return(ret)
+}
+
+returnMatching <- function(words, token, firstMatchOnly=T, ...)
+{
+	if(firstMatchOnly)
+	{
+		return(words[grep(pattern=token, x=words, ...)][1])
+	}
+	else
+	{
+		return(words[grep(pattern=token, x=words, ...)])
+	}
+}
+
+getMatchingSplit <- function(x, sep=' ', token, fixed=T, ...)
+{
+	temp <- strsplit(as.character(x), split=sep)
+	ret <- sapply(temp, returnMatching, token=token, firstMatchOnly=T, fixed=fixed, ...)
 	return(ret)
 }
 
@@ -6345,6 +6383,10 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 	}
 	else
 	{
+		if(!is.null(otherParams[['labels']]))
+		{
+			prettyLabels[1:min(c(length(prettyLabels), length(otherParams[['labels']])))] <- otherParams[['labels']]
+		}
 		if(is.null(overwrite.log.base))
 		{
 			otherParams2 <- merge.lists(otherParams, list(side=axisNum, at=ticks, labels=prettyLabels, las=las))
