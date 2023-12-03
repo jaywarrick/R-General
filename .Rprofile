@@ -2988,6 +2988,28 @@ pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
 	return(ret)
 }
 
+power.sensitivity <- function(h0, h1, alpha, beta, prev)
+{
+	npos <- 4
+	alpha_actual <- 1
+	beta_actual <- 0
+	while(alpha_actual > alpha)
+	{
+		npos <- npos + 1
+		npostests <- seq(0,npos)
+		alpha_vec <- 1-pbinom(npostests, size=npos, p=h0)
+		beta_vec <- 1-pbinom(npostests, size=npos, p=h1)
+		beta_actual <- beta_vec[which(beta_vec < beta)[1]-1]
+		alpha_actual <- alpha_vec[beta_vec == beta_actual][1]
+		plot(npostests, beta_vec)
+		lines(npostests, alpha_vec)
+		# browser()
+	}
+	plot(npostests, beta_vec)
+	lines(npostests, alpha_vec)
+	return(list(n=npos/prev, npos=npos, alpha=alpha_actual, beta=beta_actual, prev=prev, h0=h0, h1=h1, beta_vec=beta_vec, alpha_vec=alpha_vec))
+}
+
 data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=NULL, test=c('wilcox','t.test'), p.adjust.method='BH', p.adjust.by=NULL, calc.summary.by=NULL, summary.func=median, debug.mode=F, nSig=1, ...)
 {
 	my.test.1 <- function(x, y, test=c('wilcox','t.test'), ...)
@@ -3215,10 +3237,16 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 		}
 	}
 
-	setkeyv(daGlobal, for.each)
-	setkeyv(ret, for.each)
-
-	ret <- ret[daGlobal]
+	if(!is.null(for.each))
+	{
+	     setkeyv(daGlobal, for.each)
+	     setkeyv(ret, for.each)
+	     ret <- ret[daGlobal]
+	}
+	else
+	{
+	     ret[['p.value.global']] <- daGlobal[1][[1]]
+	}
 
 	return(ret)
 }
@@ -3568,6 +3596,11 @@ writeLatexWilcoxCombinedTable <- function(x, captionAddition='', includeVals=F, 
 }
 
 getPSymbol <- function(pval, na.val='', not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
+{
+     sapply(pval, getPSymbol_, na.val=na.val, not.sig=not.sig, sym.1=sym.1, sym.05=sym.05, sym.01=sym.01, sym.001=sym.001, sym.0001=sym.0001)
+}
+
+getPSymbol_ <- function(pval, na.val='', not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
 {
   if(is.na(pval))
   {
@@ -8668,7 +8701,7 @@ plot.roc <- function (score,
 		stats.vals <- ret[6:9]
 		stats.vals[[2]] <- 1-stats.vals[[2]]
 		stats.nums <- sig.digits(as.numeric(stats.vals[stats.args2$vals]), nSig=2, trim.spaces = T, trim.zeros = F)
-		txt <- paste(stats.args2$names[1:2], ' = ', stats.nums[1:2], ' ', sep='', collapse='\n')
+		txt <- paste(stats.args2$names[1:3], ' = ', stats.nums[1:3], ' ', sep='', collapse='\n')
 		text(stats.args2$x, stats.args2$y, txt, adj=c(0,1), cex=stats.args2$cex)
 	}
 
