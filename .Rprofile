@@ -1390,20 +1390,20 @@ makeNumeric <- function(x)
 	}
 }
 
-convertColsToNumeric <- function(x, specifically=c(), exceptions=c())
+convertColsToNumeric <- function(x, specifically=c(), exceptions=c(), guess=F)
 {
 	for(col in names(x))
 	{
 		if(length(specifically) > 0)
 		{
-			if(col %in% specifically && !is.numeric(x))
+			if(col %in% specifically && !(col %in% exceptions) && !is.numeric(x[[col]]) && (!is.na(suppressWarnings(as.numeric(x[[col]][1])))))
 			{
 				x[, (col):=makeNumeric(get(col))]
 			}
 		}
 		else
 		{
-			if(!(col %in% exceptions) && !is.numeric(x))
+			if(!(col %in% exceptions) && !is.numeric(x[[col]]) && (guess==T && !is.na(suppressWarnings(as.numeric(x[[col]][1])))))
 			{
 				x[, (col):=makeNumeric(get(col))]
 			}
@@ -2330,7 +2330,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 					else
 					{
 						# This way we can provide defaults but override some things like 'lwd'
-						axes.args <- list(axisNum=1, transition=logicle.params2$transX, tickSep=logicle.params2$tickSepX, base=logicle.params2$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- list(axisNum=1, transition=logicle.params2$transX, tickSep=logicle.params2$tickSepX, base=logicle.params2$base, drawTransition=logicle.params$drawTransX, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
 						axes.args <- merge.lists(list(...), axes.args)
 						do.call(drawLogicleAxis, axes.args)
 						# drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
@@ -2381,7 +2381,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 					else
 					{
 						# This way we can provide defaults but override some things like 'lwd'
-						axes.args <- list(axisNum=2, transition=logicle.params3$transY, tickSep=logicle.params3$tickSepY, base=logicle.params3$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
+						axes.args <- list(axisNum=2, transition=logicle.params3$transY, tickSep=logicle.params3$tickSepY, base=logicle.params3$base, drawTransition=logicle.params$drawTransY, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), lwd=1)
 						axes.args <- merge.lists(list(...), axes.args)
 						do.call(drawLogicleAxis, axes.args)
 						# drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
@@ -2670,9 +2670,9 @@ if.else <- function(condition, if.true, if.false)
 	return(ret)
 }
 
-splitColumnAtString <- function(x, colToSplit, newColNames, sep='.', keep=NULL)
+splitColumnAtString <- function(x, colToSplit, newColNames, fixed=T, sep='.', keep=NULL)
 {
-	x[, (newColNames) := tstrsplit(get(colToSplit), sep, fixed=T, keep=keep)]
+	x[, (newColNames) := tstrsplit(get(colToSplit), sep, fixed=fixed, keep=keep)]
 }
 
 #' convertAlphaNumericToIndex
@@ -2930,9 +2930,85 @@ replaceSubstringInColNames <- function(x, old, new)
 	setnames(x, oldNames, newNames)
 }
 
+normalizeNames <- function(names, case=c('title','lower','upper','none'), sep=" ", split=NULL, fixed=F, n=1, removeNumbers=T, charsToRemove=c('\\.','/','-',','))
+{
+	library(stringr)
+	
+	# Get the part of the string that is desired after splitting (if needed)
+	if(!is.null(split))
+	{
+		names <- getNSplit(names, sep=split, fixed=fixed, n=n)
+	}
+	
+	# Remove numbers if desired
+	if(removeNumbers)
+	{
+		names <- gsub("[[:digit:]]+", "", names)
+	}
+	
+	# Remove chars if desired
+	if(!is.null(charsToRemove) && length(charsToRemove) > 0)
+	{
+		names <- gsub(paste0("([", 
+									paste0(charsToRemove, collapse=']|['),
+									"]+)"),
+						  " ", 
+						  names)
+	}
+	
+	# Normalize Case and Separator
+	if(case[1]=='title')
+	{
+		names <- gsub("[[:space:]]+", replacement=sep, str_to_title(trimws(names)))
+	}
+	else if(case[1] == 'lower')
+	{
+		names <- gsub("[[:space:]]+", replacement=sep, str_to_lower(trimws(names)))
+	}
+	else if(case[1] == 'upper')
+	{
+		names <- gsub("[[:space:]]+", replacement=sep, str_to_upper(trimws(names)))
+	}
+	else
+	{
+		names <- gsub("[[:space:]]+", replacement=sep, trimws(names))
+	}
+	
+	if(any(duplicated(names)))
+	{
+		warning("Found duplicate names after normalization")
+	}
+	
+	return(names)
+}
+
 replaceSubStringInAllRowsOfCol <- function(x, old, new, col)
 {
 	x[,c(col):=gsub(old,new,get(col),fixed=TRUE)]
+}
+
+replaceValsInVector <- function(x, old, new)
+{
+
+	if(length(old) != length(new))
+	{
+		stop("Arguments for 'old' and 'new' must be the same length.")
+	}
+	i <- 0
+	while(i <= length(old))
+	{
+		if(is.factor(x))
+		{
+			levels(x)[match(old[i],levels(x))] <- new[i]
+			i <- i + 1
+		}
+		else
+		{
+			x[x==old[i]] <- new[i]
+			i <- i + 1
+		}
+	}
+	return(x)
 }
 
 sortColsByName <- function(x)
@@ -2956,7 +3032,7 @@ getSortedCorrelations <- function(cor.result)
 
 t.test.2sample <- function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
 {
-     if( equal.variance==FALSE ) 
+     if( equal.variance==FALSE )
      {
           se <- sqrt( (s1^2/n1) + (s2^2/n2) )
           # welch-satterthwaite df
@@ -2964,13 +3040,13 @@ t.test.2sample <- function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
      } else
      {
           # pooled standard deviation, scaled by the sample sizes
-          se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) ) 
+          se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) )
           df <- n1+n2-2
-     }      
-     t <- (m1-m2-m0)/se 
-     dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))    
+     }
+     t <- (m1-m2-m0)/se
+     dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))
      names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
-     return(dat) 
+     return(dat)
 }
 
 pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
@@ -2988,25 +3064,32 @@ pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
 	return(ret)
 }
 
-power.sensitivity <- function(h0, h1, alpha, beta, prev)
+power.sensitivity <- function(h0, h1, alpha, beta, prev, plot=F)
 {
 	npos <- 4
 	alpha_actual <- 1
 	beta_actual <- 0
-	while(alpha_actual > alpha)
+	while(is.na(alpha_actual) || (alpha_actual > alpha))
 	{
+		# browser()
 		npos <- npos + 1
 		npostests <- seq(0,npos)
 		alpha_vec <- 1-pbinom(npostests, size=npos, p=h0)
 		beta_vec <- 1-pbinom(npostests, size=npos, p=h1)
 		beta_actual <- beta_vec[which(beta_vec < beta)[1]-1]
 		alpha_actual <- alpha_vec[beta_vec == beta_actual][1]
-		plot(npostests, beta_vec)
-		lines(npostests, alpha_vec)
+		if(plot == T)
+		{
+			plot(npostests, beta_vec)
+			lines(npostests, alpha_vec)
+		}
 		# browser()
 	}
-	plot(npostests, beta_vec)
-	lines(npostests, alpha_vec)
+	if(plot == T)
+	{
+		plot(npostests, beta_vec)
+		lines(npostests, alpha_vec)
+	}
 	return(list(n=npos/prev, npos=npos, alpha=alpha_actual, beta=beta_actual, prev=prev, h0=h0, h1=h1, beta_vec=beta_vec, alpha_vec=alpha_vec))
 }
 
@@ -3649,9 +3732,9 @@ getFirstSplit <- function(x, sep=' ')
 	return(getNSplit(x=x, sep=sep, n=1))
 }
 
-getNSplit <- function(x, sep, n=1)
+getNSplit <- function(x, sep, fixed=T, n=1)
 {
-	temp <- strsplit(as.character(x), split=sep)
+	temp <- strsplit(as.character(x), fixed=fixed, split=sep)
 	ret <- sapply(temp, '[', n)
 
 	if(length(n) > 1)
@@ -5641,7 +5724,7 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 		# Draw axes if logicle.params was provided and the particular axis is logicle-scaled
 		if(logX == 1)
 		{
-			drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			drawLogicleAxis(axisNum=1, transition=logicle.params$transX, tickSep=logicle.params$tickSepX, base=logicle.params$base, drawTransition=logicle.params$drawTransX, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 		}
 		else
 		{
@@ -5658,7 +5741,7 @@ finish.logicle <- function(log, logicle.params, h, h.col, h.lty, h.lwd, v, v.col
 		}
 		if(logY == 1)
 		{
-			drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+			drawLogicleAxis(axisNum=2, transition=logicle.params$transY, tickSep=logicle.params$tickSepY, base=logicle.params$base, drawTransition=logicle.params$drawTransY, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 		}
 		else
 		{
@@ -5785,10 +5868,15 @@ fillDefaultLogicleParams <- function(x, y, logicle.params)
 
 	logicle.params$transition <- logicle.params$transX
 
+	logicle.params$drawTransition <- getDefault(logicle.params$drawTransition, T)
+
+	logicle.params$drawTransX <- getDefault(logicle.params$drawTransX, logicle.params$drawTransition)
 
 	if(!is.null(y))
 	{
 		logicle.params$transY <- getDefault(logicle.params$transY, calcTransition(y, base=logicle.params$base, frac=logicle.params$fracY))
+
+		logicle.params$drawTransY <- getDefault(logicle.params$drawTransY, logicle.params$drawTransition)
 	}
 
 	# if(is.null(y))
@@ -6258,7 +6346,7 @@ logticks <- function (ax = 1, n.minor = 9, t.lims, t.ratio = 0.5, major.ticks = 
 	return(invisible(base))
 }
 
-drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, overwrite.log.base=NULL, frac=NULL, ...)
+drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL, n.minor.ticks= if (is.null(base)) 9 else (round(base-1, digits=0)-1), las=0, rgl=F, rgl.side='+', lwd=1, overwrite.log.base=NULL, frac=NULL, drawTransition=T, ...)
 {
 	if(is.null(base))
 	{
@@ -6373,13 +6461,16 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 		prettyLabels <- c(linSidePrettyLabels, logSidePrettyLables)
 
 		# Add the transition point so it is clear where this is
-		if(axisNum == 1)
+		if(drawTransition==T)
 		{
-			abline(v=transition/tickSep, lty=2, col=rgb(0,0,0,0.6))
-		}
-		if(axisNum == 2)
-		{
-			abline(h=transition/tickSep, lty=2, col=rgb(0,0,0,0.6))
+			if(axisNum == 1)
+			{
+				abline(v=transition/tickSep, lty=2, col=rgb(0,0,0,0.6))
+			}
+			if(axisNum == 2)
+			{
+				abline(h=transition/tickSep, lty=2, col=rgb(0,0,0,0.6))
+			}
 		}
 	}
 
@@ -6858,7 +6949,7 @@ plot.hist <- function(x, type=c('d','h'), log='', trans.logit=F, neg.rm=T, logic
 				}
 				else
 				{
-					drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					drawLogicleAxis(axisNum=1, transition=logicle.params$transition, tickSep=logicle.params$tickSep, base=logicle.params$base, las=las[1], drawTransition=logicle.params$drawTransX, cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 			}
 			else
@@ -6883,7 +6974,7 @@ plot.hist <- function(x, type=c('d','h'), log='', trans.logit=F, neg.rm=T, logic
 				}
 				else
 				{
-					drawLogicleAxis(axisNum=2, transition=logicle.params.y$transition, tickSep=logicle.params.y$tickSep, base=logicle.params.y$base, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
+					drawLogicleAxis(axisNum=2, transition=logicle.params.y$transition, tickSep=logicle.params.y$tickSep, base=logicle.params.y$base, drawTransition=logicle.params$drawTransY, las=las[1], cex.lab=getDefault(list(...)$cex.lab, 1), cex.axis=getDefault(list(...)$cex.axis,1), ...)
 				}
 			}
 			else
@@ -6906,7 +6997,19 @@ plot.hist <- function(x, type=c('d','h'), log='', trans.logit=F, neg.rm=T, logic
 getDefault <- function(x, default, test=is.null)
 {
 	ret <- copy(x)
-	ret[test(x)] <- default
+	result <- test(x)
+	if(length(result) > 1)
+	{
+		ret[result] <- default
+	}
+	else
+	{
+		if(result)
+		{
+			ret <- default
+		}
+	}
+	# ret[test(x)] <- default
 	return(ret)
 }
 
@@ -7995,6 +8098,11 @@ calcCRatio2 <- function(RL, RLMin, RLMax, s)
 	return(ret)
 }
 
+calcRatio <- function(x, groupnames, num, den)
+{
+	return(x[groupnames==num]/x[groupnames==den])
+}
+
 #' ARatio is the Nuclear:Cytoplasmic Amount Ratio
 #' RL is the Radial Localization
 #' RLMax is the max RL for the cell / imaging setup
@@ -8411,6 +8519,151 @@ makeMovie <- function(full.dir.path='Y:/Jay/R Projects/20181023 - Pt823', in.fil
 # }
 # dev.off()
 
+##### Dose Response Functions #####
+
+# 4 parameter Log-Logistic Function
+LL4.SqError.Par <- function(x, y, par, w=NULL, fixed=c(NA,NA,NA,NA), transform=c('asinh','log','none'), asinh.cofactor=1)
+{
+	if(!is.null(w))
+	{
+		if(length(w) != length(x))
+		{
+			stop('Length of the data must be same as the length of the weights')
+		}
+	}
+	res <- LL4.Residuals.Par(x, y, par=par, fixed=fixed, transform=transform, asinh.cofactor=asinh.cofactor)
+	if(is.null(w))
+	{
+		return(sum(res))
+	}
+	else
+	{
+		# Using this method to be consistent with drc:drm
+		return(sum((w*res)^2))
+	}
+}
+
+LL4.Residuals.Par <- function(x, y, par, fixed=c(NA,NA,NA,NA), transform=c('asinh','log','none'), asinh.cofactor=1)
+{
+	newPar <- fixed
+	j <- 1
+	for(i in 1:4)
+	{
+		if(is.na(fixed[i]))
+		{
+			newPar[i] <- par[j]
+			j <- j + 1
+		}
+	}
+	return(LL4.Residuals(x, y, SLOPE=newPar[1], LL=newPar[2], UL=newPar[3], logED50=newPar[4], fixed=fixed, transform=transform, asinh.cofactor=asinh.cofactor))
+}
+
+LL4.Residuals <- function(x, y, SLOPE, LL, UL, logED50, fixed=c(NA,NA,NA,NA), transform=c('asinh','log','none'), asinh.cofactor=1)
+{
+	pred <- LL + (UL-LL)/(1+exp(SLOPE*(log(x)-logED50)))
+	if(transform[1]=='log')
+	{
+		tempp <- pred
+		tempp[tempp==0] <- 0.0001*min(y[y>0], na.rm=T)
+		tempy <- y
+		tempy[tempy==0] <- 0.0001*min(y[y>0], na.rm=T)
+		if(any(is.nan(log(tempp))))
+		{
+			browser()
+		}
+		return(log(tempp)-log(tempy))
+	}
+	else if(transform[1]=='asinh')
+	{
+		tempp <- pred
+		tempy <- y
+		return(asinh(tempp/asinh.cofactor)-asinh(tempy/asinh.cofactor))
+		# return(asinh.transform(tempp/asinh.cofactor, asinh.cofactor)-asinh.transform(tempy/asinh.cofactor, asinh.cofactor))
+	}
+	else
+	{
+		return(pred-y)
+	}
+}
+
+LL4.InitialGuess <- function(x, y)
+{
+	library(drc)
+	temp <- LL.4()$ssfct(data.frame(x=x, y=y))
+	temp[4] <- log(temp[4]) # Difference between drc and mine are the offset is in logscale not linear.
+	return(temp)
+}
+
+LL4.Inverse.explicit <- function(y, Steepness, LL, UL, logOffset)
+{
+	# f(x) <- LL + (UL-LL)/(1+exp(Steepness*(log(x)-logOffset)))
+	# Inverted
+	suppressWarnings(x <- exp((log((UL-LL)/(y-LL)-1))/Steepness + logOffset))
+	x[y <= LL] <- 0 # If the y value was below the lower limit, assign a value of 0.
+	x[y >= UL] <- Inf # If the y value was above the upper limit, assign a value of Inf.
+	return(x)
+}
+
+LL4.Inverse.fit <- function(y, Steepness, LL, UL, logOffset)
+{
+	# pred <- fit$par[2] + (fit$par[3]-fit$par[2])/(1+exp(fit$par[1]*(log(x)-fit$par[4])))
+	# f(x) <- LL + (UL-LL)/(1+exp(Steepness*(log(x)-logOffset)))
+	return(LL4.Inverse.explicit(y=y, Steepness = fit$par[1], LL=fit$par[2], UL=fit$par[3], logOffset=fit$par[4]))
+}
+
+LL4.Fit <- function(x, y, par.init=NULL, w=NULL, fixed=c(NA,NA,NA,NA), transform=c('asinh','log','none'), asinh.cofactor=0.1*max(abs(y)),
+						  lower=c(-Inf, 0, .Machine$double.eps, 0), 
+						  upper=c(-1*.Machine$double.neg.eps,Inf,Inf,Inf), ...)
+{
+	# Parameter order is {Steepness, LL, UL, logOffset}
+	if(is.null(par.init))
+	{
+		par.init <- LL4.InitialGuess(x, y)
+	}
+	ret <- optim(par=par.init[is.na(fixed)],
+		 fn=LL4.SqError.Par,
+		 method="L-BFGS-B",
+		 lower=lower[is.na(fixed)],
+		 upper=upper[is.na(fixed)],
+		 fixed=fixed,
+		 transform=transform,
+		 asinh.cofactor=asinh.cofactor,
+		 w=w,
+		 x=x,
+		 y=y,
+		 ...)
+	newPar <- fixed
+	j <- 1
+	for(i in 1:4)
+	{
+		if(is.na(fixed[i]))
+		{
+			newPar[i] <- ret$par[j]
+			j <- j + 1
+		}
+	}
+	ret$par <- newPar
+	return(ret)
+}
+
+LL4.Predict.fit <- function(x, fit)
+{
+	pred <- fit$par[2] + (fit$par[3]-fit$par[2])/(1+exp(fit$par[1]*(log(x)-fit$par[4])))
+	return(pred)
+}
+
+LL4.Predict.par <- function(x, par)
+{
+	pred <- par[2] + (par[3]-par[2])/(1+exp(par[1]*(log(x)-par[4])))
+	return(pred)
+}
+
+LL4.Predict.explicit <- function(x, Steepness, LL, UL, logOffset)
+{
+	pred <- LL + (UL-LL)/(1+exp(Steepness*(log(x)-logOffset)))
+	return(pred)
+}
+
 ##### In Vivo Project Functions #####
 
 hill <- function(x, top, bottom, b, xmid, s)
@@ -8506,17 +8759,16 @@ expand.grids <- function(dt1, dt2)
 	return(ret[])
 }
 
-data.table.expand.grid <- function(..., pt=NULL, KEEP.OUT.ATTRS=T, stringsAsFactors = T)
+data.table.expand.grid <- function(..., BaseTable=NULL, KEEP.OUT.ATTRS=T, stringsAsFactors = T)
 {
-     if(is.null(pt))
-     {
-          ret <- data.table(expand.grid(..., KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors))
-     }
+	if(!is.null(BaseTable))
+	{
+		return(BaseTable[, data.table.expand.grid(..., BaseTable=NULL, KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors), by=names(BaseTable)])
+	}
 	else
 	{
-	     ret <- my.data.table.expand.pt(..., pt=pt, KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors)
+		return(data.table(expand.grid(..., KEEP.OUT.ATTRS=KEEP.OUT.ATTRS, stringsAsFactors=stringsAsFactors)))
 	}
-	return(ret)
 }
 
 #' rbind.results
@@ -8574,7 +8826,7 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 	return(list(TP=TP, TN=TN, FN=FN, FP=FP, TPR=TPR, FPR=FPR))
 }
 
-plot.roc <- function (score,
+plot.roc.jay <- function (score,
 				  actualClass,
 				  method = c('Empirical','Binormal','Non-parametric'),
 				  col = c("#2F4F4F", "#BEBEBE"),
@@ -8804,6 +9056,64 @@ cutForMids <- function(x, n, include.lowest=F, ...)
 	mids <- (breaks[1:(length(breaks)-1)]+breaks[2:(length(breaks))])/2
 	breaks0 <- as.numeric(as.character(factor(breaks0, levels=levels(breaks0), labels=mids)))
 	return(list(x=breaks0, breaks=breaks, mids=mids))
+}
+
+cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.lab=2, add.tails=T, ...)
+{
+	library(data.table)
+	# See ?cut for descriptions of parameters
+	if(any(is.na(x)))
+	{
+		warning("Encountered some NA values. Adding NA count to table at index 0.")
+	}
+	if(!add.tails)
+	{
+		if(max(x, na.rm=T) > max(breaks, na.rm=T))
+		{
+			warning("Some values above highest break point. Adding them to NA count in table at index 0.")	
+		}
+		if(min(x, na.rm=T) < min(breaks, na.rm=T))
+		{
+			warning("Some values below lowest break point. Adding them to NA count in table at index 0.")	
+		}
+		if(include.lowest==F)
+		{
+			if(right && any(x==min(breaks, na.rm=T)))
+			{
+				warning("Some values below lowest break point due because 'include.lowest=F'. Adding them to NA count in table at index 0.")
+			}
+			if(!right && any(x==max(breaks, na.rm=T)))
+			{
+				warning("Some values above highest break point due because 'include.lowest=F'. Adding them to NA count in table at index 0.")
+			}
+		}
+	}
+		
+	if(length(breaks)==1)
+	{
+		minmax <- range(x, na.rm=T)
+		breaks <- seq(minmax[1], minmax[2], length.out=breaks+1)
+	}
+	if(add.tails)
+	{
+		breaks <- c(-Inf, breaks, Inf)
+	}
+	myLevels <- levels(cut(breaks, breaks=breaks, labels=labels, right=right, include.lowest=include.lowest, dig.lab, ...))
+	temp <- data.table(x=x, bin=cut(x, breaks=breaks, labels=labels, right=right, include.lowest=include.lowest, dig.lab=dig.lab, ...))
+	ret <- temp[, list(count=.N), by='bin']
+	setkey(ret, bin)
+	if(any(is.na(ret$bin)))
+	{
+		ret <- rbindlist(list(ret[is.na(bin)], ret[!is.na(bin)][myLevels]))
+		ret[, bin:=factor(bin, levels=c(NA, myLevels), exclude=F)]
+	}
+	ret[is.na(count), count:=0]
+	setorder(ret, bin)
+	ret[, ':='(index=if.else(any(is.na(as.character(bin))), as.numeric(bin)-1, as.numeric(bin)))]
+	ret[!is.na(as.character(bin)), ':='(freq=count/sum(count, na.rm=T), min=breaks[as.numeric(index)], max=breaks[as.numeric(index)+1])]
+	ret[, mid_log10:=10^(log10(min)+0.5*(log10(max)-log10(min)))]
+	ret[, mid_lin:=min+0.5*(max-min)]
+	return(ret[])
 }
 
 Cox.SampleSize <- function(formula, data, alpha, beta, HR, frac0=0.5, test=c('all','2-tail','1-tail','equivalence'))
