@@ -5456,9 +5456,16 @@ sourceGitHubFile <- function(user, repo, branch, file)
 	source(destfile)
 }
 
-lseq <- function(from, to, length.out)
+lseq <- function(from, to, length.out=NULL, intervalsPerDecade=2)
 {
-	exp(seq(log(from), log(to), length.out = length.out))
+	if(is.null(length.out))
+	{
+		10^(seq(log10(from), log10(to), by=1/intervalsPerDecade))
+	}
+	else
+	{
+		10^(seq(log10(from), log10(to), length.out = length.out))
+	}
 }
 
 jplot <- function(x, y, text=c())
