@@ -51,7 +51,8 @@ install.packages('plyr')
 install.packages('psych')
 install.packages('EMCluster')
 install.packages('data.table')
-install.packages("Rserve", , "http://rforge.net/", type = "source")
+install.packages("Rserve")
+# install.packages("Rserve", , "http://rforge.net/", type = "source")
 install.packages('TeachingDeoms')
 install.packages('gridExtra')
 install.packages('units')
@@ -77,6 +78,8 @@ install.packages('zip')
 install.packages('R.utils')
 install.packages('httr')
 install.packages('DT')
+
+install.packages('Hmisc')
 
 # devtools::install_github('nstrayer/shinysense')
 
