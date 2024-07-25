@@ -63,6 +63,7 @@ install.packages('varhandle')
 install.packages('VGAM')
 install.packages('NMOF')
 install.packages('openssl')
+install.packages('deSolve')
 
 
 install.packages('qpcR')
