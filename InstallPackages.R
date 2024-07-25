@@ -81,10 +81,8 @@ install.packages('DT')
 
 install.packages('Hmisc')
 
-if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-BiocManager::install("Biostrings")
+
 install.packages('rentrez')
-install.packages('pwalign')
 install.packages('seqinr')
 install.packages('stringr')
 
@@ -98,3 +96,7 @@ library(extrafont)
 # install.packages('extrafontdb') # To reset font table
 font_import()
 y
+
+if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install("pwalign")
+BiocManager::install("Biostrings")
