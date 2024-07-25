@@ -5456,6 +5456,23 @@ sourceGitHubFile <- function(user, repo, branch, file)
 	source(destfile)
 }
 
+fwrite2 <- function(file, x, md=list(), append=T, col.names=T, ...)
+{
+	lines <- as.character(lapply(seq_along(md), function(n){paste('# ', names(md)[n], ': ', md[[n]], sep='')}))
+	writeLines(con=file, text = lines)
+	fwrite(file, x=x, append=append, col.names=col.names, ...)
+}
+
+rep.each <- function(x, times, collapse='')
+{
+	sapply(times, function(x, n){paste(rep(x, n), collapse=collapse)}, x=x)
+}
+
+seq.each <- function(froms, tos)
+{
+	lapply(paste(froms,tos, sep=':'), function(text){eval(parse(text=text))})
+}
+
 lseq <- function(from, to, length.out=NULL, intervalsPerDecade=2)
 {
 	if(is.null(length.out))
