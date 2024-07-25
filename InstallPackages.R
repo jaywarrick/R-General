@@ -81,6 +81,13 @@ install.packages('DT')
 
 install.packages('Hmisc')
 
+if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install("Biostrings")
+install.packages('rentrez')
+install.packages('pwalign')
+install.packages('seqinr')
+install.packages('stringr')
+
 # devtools::install_github('nstrayer/shinysense')
 
 # Enabling bash on Windows for data.table line parsing capabilities...
