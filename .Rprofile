@@ -9149,23 +9149,27 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 	return(list(TP=TP, TN=TN, FN=FN, FP=FP,Sens=Sens,Spec=Spec))
 }
 
-suppressNoise <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1, suppression.factor=1)
+suppressNoise <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1, suppression.factor=1, ...)
 {
+	# Use ... to send arguments to rollapply such as align='right' etc.
 	# Example: 
-	# plot(-200:200, suppressNoise(-200:200, noise.level = 100, suppression.factor = 20), type='l')
+	# plot(-200:200, suppressNoise(-200:200, win.width=7, noise.level = 100, suppression.factor = 20, align='center'), type='l')
 	# abline(a=0, b=1)
 	# abline(h=0)
 	
 	ret <- sign(x)*(abs(x)/noise.level)^pmax(1, ((1-2*(suppression.factor-1)/2)+2*(suppression.factor-1)/(1+(x/noise.level)^2)))
+	if(win.width < 1)
+	{
+		stop('Window width must be > 0')
+	}
+	if(win.width > length(x))
+	{
+		stop('Window width is wider than length of data.')
+	}
 	if(win.width > 1)
 	{
-		if(win.width > length(x))
-		{
-			stop('Window width is wider than length of data.')
-		}
-		ret <- smooth.fun(ret, win.width=win.width)
+		ret <- smooth.fun(ret, win.width=win.width, ...)
 	}
-	
 	ret <- ret*noise.level
 	return(ret)
 }
