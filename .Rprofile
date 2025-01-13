@@ -9149,6 +9149,23 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 	return(list(TP=TP, TN=TN, FN=FN, FP=FP,Sens=Sens,Spec=Spec))
 }
 
+suppressNoise <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1, suppression.factor=1)
+{
+	ret <- sign(x)*(abs(x)/noise.level)^(1+(suppression.factor-1)/(1+(x/noise.level)^2))
+	if(win.width > 1)
+	{
+		if(win.width > length(x))
+		{
+			stop('Window width is wider than length of data.')
+		}
+		ret <- smooth.fun(ret, win.width=win.width)
+	}
+	
+	ret <- ret*noise.level
+	return(ret)
+}
+
+
 plot.roc.jay <- function (score,
 				  actualClass,
 				  method = c('Empirical','Binormal','Non-parametric'),
