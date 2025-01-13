@@ -322,7 +322,7 @@ apply2D <- function(x, col.fun=NULL, by=NULL, row.fun=NULL, ..., mCols=NULL, mCo
 
 #' Apply a function to a subset of columns in a data.table
 #'
-#' This function applyes another function to a subset of the columns
+#' This function applies another function to a subset of the columns
 #' in a data.table. The parameter cols takes precedent over the
 #' parameter col.filter.
 #'
@@ -343,11 +343,19 @@ apply2D <- function(x, col.fun=NULL, by=NULL, row.fun=NULL, ..., mCols=NULL, mCo
 #'
 #' @return the resultant data table is EDITED BY REFERENCE only if in.place=T & ret.unique=F, otherwise a copy is returned ('unique' function to remove duplicate rows returns a copy forcing this behavior when ret.unique=T).
 #' @export
-lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric, in.place=F, ret.unique=F, ...)
+lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.grepl.args=list(), col.filter.func=NULL, col.filter=col.filter.func, in.place=F, ret.unique=F, ...)
 {
+	if(is.function(col.filter.func))
+	{
+		col.filter <- col.filter.func
+	}
 	if(is.null(cols) && is.function(col.filter))
 	{
 		cols <- names(x)[as.logical(as.vector(lapply(x, col.filter)))]
+	}
+	else if(is.null(cols) && length(col.grepl.args)>0)
+	{
+		cols <- names(x)[do.call(grepl, c(list(x=names(x)), col.grepl.args))]
 	}
 
 	if(length(cols) == 0)
@@ -407,6 +415,39 @@ lapply.data.table <- function(x, FUN, by=NULL, cols=NULL, col.filter=is.numeric,
 makeComplexId <- function(x, cols, sep='.', idName='cId')
 {
 	paste.cols(x=x, cols=cols, name=idName, sep=sep)
+}
+
+#' getCombos
+#' 
+#' Unlike combn, this function also includes the combination of each element
+#' with itself. e.g., for a and b, it returs {a,a}, {a,b}, and {b,b} instead
+#' of just {a,b}.
+#'
+#' @param x 
+#' @param colnames 
+#'
+#' @return data.table with column names defined by colnames
+#' @export
+#'
+#' @examples
+#' 
+#' getCombos(x=c('a','b','c'), colnames=c('First','Second'))
+#' 
+getCombos <- function(x, colnames=c('Var1','Var2'))
+{
+	Var1 <- c()
+	Var2 <- c()
+	for(i in seq_along(x))
+	{
+		for(j in i:length(x))
+		{
+			Var1 <- c(Var1, x[i])
+			Var2 <- c(Var2, x[j])
+		}
+	}
+	ret <- data.table(Var1=Var1, Var2=Var2)
+	setnames(ret, old=c('Var1','Var2'), new=colnames)
+	return(ret)
 }
 
 getUniqueCombos <- function(x, by, idCols=by, ordered=T)
@@ -594,16 +635,16 @@ l <- function(...)
 #' This is a cool way to import data using the clipboard. The clipboard table
 #' is typically copied as a tab delimited text 'file' connection
 #'
-#' @param os - c('mac','win'), string value indicating the platform to use
+#' @param os - c('mac','Darwin','win'), string value indicating the platform to use
 #' @param header - TRUE or FALSE, whether the header is included in the copied table
 #' @param sep - text, defining the separator character used between values (needs to be in double quotes)
 #' @param use.data.table - TRUE or FALSE, whether to return a data.table (default)
 #' @param ... - additional variables supplied are passed onto the underlying read.table function (e.g., stringsAsFactors, comment.char, col.names)
 #'
 #' @export
-read.clipboard <- function(os=c('mac','win'), header=T, sep="\t", use.data.table=T, ...)
+read.clipboard <- function(os=c(Sys.info()['sysname']), header=T, sep="\t", use.data.table=T, ...)
 {
-	if(os[1]=='mac')
+	if(os[1] %in% c('Darwin','mac'))
 	{
 		ret <- read.table(pipe('pbpaste'), header=header, sep=sep, ...) # Mac
 	}
@@ -2185,7 +2226,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 	else if(type[1] == 'p' || type[1] == 'c')
 	{
 		temp <- copy(data)
-		temp[, grp:=.GRP, by=by]
+		temp[, grp:=.GRP, by=line.color.by]
 		temp <- temp[grp %in% my.sample(1:max(grp), min(sample.size, max(grp)), seed=sample.seed)]
 		# Get sample
 		if(randomize)
@@ -2201,15 +2242,15 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		# 	temp <- temp[sample(.N,.N)]
 		# }
 
-		if(type[1] == 'c' || getDefault(legend.args$pch, 21) >= 21)
+		if(type[1] == 'c' || any(getDefault(legend.args$pch, 21) >= 21))
 		{
 			# Then set color to be the background color of the point
-			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=pch.outline, bg=temp[['my.temp.color']], pch=getDefault(legend.args$pch[temp[['grp']]], 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
 		}
 		else
 		{
 			# Then use the col arg to set the color of the point
-			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=temp[['my.temp.color']], pch=getDefault(legend.args$pch, 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
+			plot.logicle(x=temp[[xcol]], y=temp[[ycol]], type=type[1], log=log, logicle.params=logicle.params.plc, percentile.limits=percentile.limits, xlim=xlim, ylim=ylim, add=T, col=temp[['my.temp.color']], pch=getDefault(legend.args$pch[temp[['grp']]], 21), contour.levels=contour.levels, contour.ngrid=contour.ngrid, contour.quantiles=contour.quantiles, contour.adj=contour.adj, contour.alphas=contour.alphas,  ...)
 		}
 
 		# data[, data.table.points(x=get(xcol), y=get(ycol), log=log, xlim=xlim, xlab=xlab, ylab=ylab, transX=transX, transY=transY, tickSepX=tickSepX, tickSepY=tickSepY, col=pch.outline, bg=my.temp.color, pch=21, ...), by=by]
@@ -2422,7 +2463,7 @@ plot.wrapper <- function(data, xcol, ycol, errcol.upper=NULL, errcol.lower=errco
 		{
 			legend.args$legend <- final.legend.colors$names
 			legend.args$pch <- getDefault(legend.args$pch, 21)
-			if(type[1] == 'c' || legend.args$pch >= 21)
+			if(type[1] == 'c' || any(getDefault(legend.args$pch, 21) >= 21))
 			{
 				legend.args$col <- getDefault(pch.outline, rgb(0,0,0,0))
 				legend.args$pt.bg <- final.legend.colors$my.color
@@ -2930,6 +2971,18 @@ replaceSubstringInColNames <- function(x, old, new)
 	setnames(x, oldNames, newNames)
 }
 
+toLower <- function(x)
+{
+	# print(x)
+	return(tolower(enc2utf8(x)))
+}
+
+toUpper <- function(x)
+{
+	# print(x)
+	return(toupper(enc2utf8(x)))
+}
+
 normalizeNames <- function(names, case=c('title','lower','upper','none'), sep=" ", split=NULL, fixed=F, n=1, removeNumbers=T, charsToRemove=c('\\.','/','-',','))
 {
 	library(stringr)
@@ -3062,6 +3115,47 @@ pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
 	}
 	ret <- x[, getSortedCorrelations(corr.test(.SD[, ..measurement.cols], ...)$r), by=by]
 	return(ret)
+}
+
+calculate_ci_with_prevalence <- function(N, prevalence, observed_sensitivity, observed_specificity, CI=0.95) {
+	
+	# # Example Calc.
+	# sens <- 0.8
+	# spec <- 0.95
+	# CI <- 0.95
+	# # Calculate confidence intervals
+	# calculate_ci_with_prevalence(N=300, 
+	# 									  prevalence=0, 
+	# 									  observed_sensitivity=sens, 
+	# 									  observed_specificity=spec, 
+	# 									  CI=CI)
+	# z_value <- qnorm(1-(1-CI)/2)
+	
+	# Results match output of website (https://wnarifin.github.io/ssc/sssnsp.html)
+	
+	# Number of true positives and true negatives
+	n_tp <- N * prevalence    # Number of positives
+	n_tn <- N * (1 - prevalence)  # Number of negatives
+	
+	# Standard error for sensitivity
+	se_sensitivity <- ifelse(n_tp > 0, sqrt(observed_sensitivity * (1 - observed_sensitivity) / n_tp), 0)
+	
+	# Standard error for specificity
+	se_specificity <- ifelse(n_tn > 0, sqrt(observed_specificity * (1 - observed_specificity) / n_tn), 0)
+	
+	# Confidence intervals for sensitivity
+	sensitivity_ci_lower <- max(0, observed_sensitivity - z_value * se_sensitivity)
+	sensitivity_ci_upper <- min(1, observed_sensitivity + z_value * se_sensitivity)
+	
+	# Confidence intervals for specificity
+	specificity_ci_lower <- max(0, observed_specificity - z_value * se_specificity)
+	specificity_ci_upper <- min(1, observed_specificity + z_value * se_specificity)
+	
+	# Return as a list
+	list(
+		Sensitivity_CI = c(lower = sensitivity_ci_lower, upper = sensitivity_ci_upper, interval = (sensitivity_ci_upper-sensitivity_ci_lower)/2),
+		Specificity_CI = c(lower = specificity_ci_lower, upper = specificity_ci_upper, interval = (specificity_ci_upper-specificity_ci_lower)/2)
+	)
 }
 
 power.sensitivity <- function(h0, h1, alpha, beta, prev, plot=F)
@@ -3574,7 +3668,7 @@ getCombnEffectSize <- function(dt, valCol, group.by, combn.by, rank.biserial=F)
 }
 
 #' Returns either the Hedge's g (like Cohen's d for unequal variance and sample size)
-#' or the rank biseral coefficien (-1 to +1)
+#' or the rank biseral coefficient (-1 to +1)
 #'
 getEffectSize <- function(x1, x2, rank.biserial=F)
 {
@@ -5204,25 +5298,38 @@ getDensityColors <- function(x, y)
 	return(list(colors=theColors, data=xync))
 }
 
-setorderv.alphanum <- function(x, ...)
+setroworder.data.table <- function(x, neworder)
 {
-	data <- data[with(data, multi.mixedorder(Day, Conc, Sample.ID, relTimeStamp)), ]
+	.Call(data.table:::Creorder, x, as.integer(neworder), PACKAGE = "data.table")
+	invisible(x)
 }
 
-multi.mixedorder <- function(..., na.last = TRUE, decreasing = FALSE){
-	# For example...
-	# data <- data[with(data, multi.mixedorder(Day, Conc, Sample.ID, relTimeStamp)), ]
-	library(gtools)
-	do.call(order, c(
-		lapply(rev(list(...)), function(l){
-			if(is.character(l)){
-				factor(l, levels=mixedsort(unique(l)))
-			} else {
-				l
-			}
-		}),
-		list(na.last = na.last, decreasing = decreasing)
-	))
+sort_col_alphanum <- function(x, col, ascending=T, ...)
+{
+	# Additional arguments ... passed to gtools::mixedorder
+	setroworder.data.table(x=x, neworder=mixedorder(x[[col]], decreasing=!(as.logical(ascending)), ...))
+}
+
+setorderv.alphanum <- function(x, cols, ascending=NULL, ...)
+{
+	# Additional arguments ... passed to gtools::mixedorder
+	# e.g., setorderv.alphanum(x, c('A', 'B', '-C'), ascending=NULL) # order of A and B are increasing and C is decreasing
+	# e.g., setorderv.alphanum(x, c('A', 'B', 'C'), ascending=c(T,T,F)) # order of A and B are increasing and C is decreasing
+	if(is.null(ascending))
+	{
+		ascending <- 1+as.integer(-1*startsWith(as.character(cols), prefix='-'))
+		cols <- gsub('-','',cols)
+	}
+	for(i in length(cols):1)
+	{
+		do.call(sort_col_alphanum, c(list(x=x, col=cols[i], ascending=ascending[i]), list(...)))
+	}
+}
+
+setorder.alphanum <- function(x, ..., ascending=NULL)
+{
+	cols <- sapply(substitute(list(...))[-1], deparse)
+	setorderv.alphanum(x, cols=cols, ascending=ascending)
 }
 
 merge.lists <- function(list1, list2, items=list1, items.to.put=list2)
@@ -5450,10 +5557,20 @@ source_https <- function(url, ...)
 sourceGitHubFile <- function(user, repo, branch, file)
 {
 	library(curl)
-	destfile <- tempfile()
+	destfile <- tempfile(fileext='.R')
 	fileToGet <- paste0("https://raw.githubusercontent.com/", user, "/", repo, "/", branch, "/", file)
 	curl_download(url=fileToGet, destfile)
 	source(destfile)
+}
+
+runGitHubApp <- function(user, repo, branch, file)
+{
+	library(curl)
+	destfile <- tempfile(fileext='.R')
+	fileToGet <- paste0("https://raw.githubusercontent.com/", user, "/", repo, "/", branch, "/", file)
+	curl_download(url=fileToGet, destfile)
+	print(destfile)
+	runApp(destfile)
 }
 
 fwrite2 <- function(file, x, md=list(), append=T, col.names=T, ...)
@@ -5477,7 +5594,7 @@ lseq <- function(from, to, length.out=NULL, intervalsPerDecade=2)
 {
 	if(is.null(length.out))
 	{
-		10^(seq(log10(from), log10(to), by=1/intervalsPerDecade))
+		10^(seq(log10(from), log10(to), by=ifelse(from > to, -1, 1)/intervalsPerDecade))
 	}
 	else
 	{
@@ -5516,6 +5633,38 @@ calcTransition <- function(x, base=10, frac=0.15)
 	# {
 	# 	return(3*mad(negNums, na.rm=T))
 	# }
+}
+
+asinh_ggtrans = function(cofactor) {
+	
+	transform =   function(x,...)
+	{
+		asinh(x/cofactor)
+	}
+	
+	inverse = function(x,...)
+	{
+		sinh(x)*cofactor
+	}
+	
+	breaks = function(x,...)
+	{
+		# use linear marks < abs(cofactor)
+		thresh <- floor(log10(cofactor))-1
+		lin.max <- cofactor/(10^thresh)
+		lin.ticks <- c(seq(0, lin.max, length.out = 8))*10^thresh
+		
+		log.maj <- 10^seq(thresh+2,6)
+		log.min <- rep(10^seq(thresh+2, 10, 1), each = 9)
+		
+		log.ticks.minor <- rep(1:9,length(log.min)/9)*log.min
+		breaks <- c(0, log.maj, -log.maj, cofactor, -cofactor)
+		labels <- c(breaks, rep("", length(linear.ticks)*2), rep("", length(log.ticks.minor)*2))
+		breaks <- c(breaks, lin.ticks, -lin.ticks, log.ticks.minor, -log.ticks.minor)
+		names(breaks) <- labels
+		return(breaks)
+	}
+	scales::trans_new('asinh', transform, inverse, breaks)
 }
 
 get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T, trans.logit=c(F,F))
@@ -6572,6 +6721,7 @@ drawLogicleAxis <- function(axisNum=1, transition=NULL, tickSep=NULL, base=NULL,
 		# 	axis(axisNum, at=minor.ticks, tcl=par("tcl")*0.5, labels=FALSE, las=las)
 		# }
 	}
+	return(list(at=ticks, labels=prettyLabels, params=otherParams))
 }
 
 drawBbox3d <- function()
@@ -7065,9 +7215,24 @@ getPercentileValues <- function(x, levels=c(0,1), finite=T, na.rm=T)
 	{
 		temp <- as.numeric(quantile(x, blah, na.rm=na.rm))
 	}
-	temp[levels < 0] <- temp[levels < 0] - abs(temp[levels < 0]*levels[levels < 0])
-	temp[levels > 1] <- temp[levels > 0] + abs(temp[levels > 0]*(levels[levels > 0]-1))
+	validLevels <- levels[levels >=0 & levels <=1]
+	if(length(validLevels) > 1)
+	{
+		validLevels <- range(validLevels)
+		slope <- (temp[levels==validLevels[2]]-temp[levels==validLevels[1]])/(validLevels[2]-validLevels[1])
+	}
+	else
+	{
+		slope <- (max(x, na.rm=na.rm)-min(x, na.rm=na.rm))/(1-0)
+	}
+	temp[levels < 0] <- temp[levels < 0] + slope*(levels[levels < 0]-0)
+	temp[levels > 1] <- temp[levels > 1] + slope*(levels[levels > 1]-1)
 	return(temp)
+}
+
+normalizeValues <- function(x)
+{
+	return(adjustIntensity(x, oldMin=min(x, na.rm=T), oldMax=max(x, na.rm=T), newMin=0, newMax=1))
 }
 
 ##### Gating #####
@@ -7356,12 +7521,27 @@ logit.untransform <- function(x, base=10)
 uniqueo <- function(x, rev=F)
 {
 	ret <- unique(x)
+	orderfun <- order
+	if(is.character(x))
+	{
+		library(gtools)
+		orderfun <- mixedorder
+	}
 	if(rev)
 	{
-		ret <- ret[order(-ret)]
+		ret <- ret[orderfun(-ret)]
 	}
-	ret <- ret[order(ret)]
+	else
+	{
+		ret <- ret[orderfun(ret)]
+	}
 	return(ret)
+}
+
+sort_alphanum <- function(x)
+{
+	library(gtools)
+	return(mixedsort(x))
 }
 
 Mode <- function(x) {
@@ -7638,6 +7818,39 @@ findFirstUpCrossing <- function(x, y, thresh, undetected.value)
 		# Linearly interpolate the ascending threshold crossing point.
 		crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
 		ret <- crossing
+	}
+	return(ret)
+}
+
+#' findFirstUpCrossing
+#'
+#' @param x description
+#' @param y description
+#' @param thresh description
+#' @param n Number of points above threshold required in a row to call and up crossing
+#' @param undetected.value description
+#'
+#' @import data.table
+findFirstReliableUpCrossing <- function(x, y, thresh, n=1, undetected.value)
+{
+	ret <- undetected.value
+	crossings <- which(c(0,diff(y >=thresh))>0)
+	if(n < 1 & n < (length(x)-2))
+	{
+		stop('n must be > 0 and < (length(x)-2)')
+	}
+	for(index in crossings)
+	{
+		if(!is.na(index) && index > 1 && (index+(n-1)) < length(x))
+		{
+			if(all(y[index:(index+(n-1))] >= thresh))
+			{
+				# Linearly interpolate the ascending threshold crossing point.
+				crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
+				ret <- crossing
+				break
+			}
+		}
 	}
 	return(ret)
 }
@@ -8543,6 +8756,90 @@ makeMovie <- function(full.dir.path='Y:/Jay/R Projects/20181023 - Pt823', in.fil
 # }
 # dev.off()
 
+getError <- function(x, y, fun, par, par.init, w, transform, asinh.cofactor)
+{
+	par.init[names(par)] <- par
+	pred <- fun(x, par.init)
+	if(transform[1]=='log')
+	{
+		tempp <- pred
+		tempp[tempp==0] <- 0.0001*min(y[y>0], na.rm=T)
+		tempy <- y
+		tempy[tempy==0] <- 0.0001*min(y[y>0], na.rm=T)
+		if(any(is.nan(log(tempp))))
+		{
+			browser()
+		}
+		residual <- (log(tempp)-log(tempy))
+	}
+	else if(transform[1]=='asinh')
+	{
+		tempp <- pred
+		tempy <- y
+		residual <- (asinh(tempp/asinh.cofactor)-asinh(tempy/asinh.cofactor))
+		# return(asinh.transform(tempp/asinh.cofactor, asinh.cofactor)-asinh.transform(tempy/asinh.cofactor, asinh.cofactor))
+	}
+	else
+	{
+		residual <- (pred-y)
+	}
+	err <- sum((ifelse(is.null(w), 1, w)*(residual))^2)
+	return(err)
+}
+
+optimizeParams <- function(x, y, fun=NULL, par.init=NULL, 
+									par.init.fun=NULL, 
+									w=NULL, 
+									fixed=null, 
+									transform=c('none','asinh','log'), 
+									asinh.cofactor=0.1*max(abs(y)),
+									lower=-Inf, upper=Inf, ...)
+{
+	if(any(lower > upper))
+	{
+		stop('Some lower limits exceed upper limits.')
+	}
+	if(is.null(fun))
+	{
+		stop('Must have a function to predict y based upon the value of x (i.e., y_pred=fun(x, par)')
+	}
+	if(!is.null(w) && (length(w) != length(x)))
+	{
+		stop('w must be the same length as x.')
+	}
+	# Parameter order is {Steepness, LL, UL, logOffset}
+	if(is.null(par.init))
+	{
+		if(is.null(par.init.fun))
+		{
+			stop('Must provide either initial value for par or init.fun to guess initial values based upon the values of x and y (i.e., par.init=init.fun(x, y))')
+		}
+		par.init <- par.init.fun(x, y)
+	}
+	if(is.null(fixed))
+	{
+		fixed <- rep(F, length(par.init))
+	}
+	ret <- optim(par=par.init[!fixed],
+					 fn=getError,
+					 method="L-BFGS-B",
+					 lower=lower[!fixed],
+					 upper=upper[!fixed],
+					 par.init=par.init,
+					 x=x,
+					 y=y,
+					 fun=fun,
+					 w=w,
+					 transform=transform,
+					 asinh.cofactor=asinh.cofactor,
+					 ...)
+	newPar <- par.init
+	newPar[names(ret$par)] <- ret$par
+	ret$par <- newPar
+	return(ret)
+}
+
+
 ##### Dose Response Functions #####
 
 # 4 parameter Log-Logistic Function
@@ -9138,6 +9435,29 @@ cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.l
 	ret[, mid_log10:=10^(log10(min)+0.5*(log10(max)-log10(min)))]
 	ret[, mid_lin:=min+0.5*(max-min)]
 	return(ret[])
+}
+
+PrevalenceSampleSize.1Stage <- function(p0=0, # Null hypothesis prevalence
+													 p1=0.03, # Alternative hypothesis prevalence (e.g., maximum acceptable prevalence if not 0 null prevelance)
+													 alpha=0.1, # Type I error fraction
+													 beta=0.2, # Type II error fraction, Power = 1-beta
+													 Se=0.93, # Test sensitivity
+													 Sp=0.96, # Test specificity
+													 dist=c('binomial','hypergeometric') # binomial for large pop (with replacement), hypergeom for small pop (without replacement)
+)
+{
+	Zalpha = abs(qnorm(alpha))
+	Zbeta = abs(qnorm(beta))
+	
+	# Apparent Null distribution prevalence p0=0
+	p0.app <- Se * p0 + (1-Sp) * (1-p0)
+	
+	# Apparent Alternative Distribution
+	p1.app <- Se * p1 + (1-Sp) * (1-p1)
+	
+	n <- (Zalpha + Zbeta)^2 * (p0*(1-p0) + p1*(1-p1)) / ((p1.app-p0.app)^2)
+	
+	return(n)
 }
 
 Cox.SampleSize <- function(formula, data, alpha, beta, HR, frac0=0.5, test=c('all','2-tail','1-tail','equivalence'))
