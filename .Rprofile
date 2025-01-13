@@ -9151,6 +9151,11 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 
 suppressNoise <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1, suppression.factor=1)
 {
+	# Example: 
+	# plot(-200:200, suppressNoise(-200:200, noise.level = 100, suppression.factor = 20), type='l')
+	# abline(a=0, b=1)
+	# abline(h=0)
+	
 	ret <- sign(x)*(abs(x)/noise.level)^pmax(1, ((1-2*(suppression.factor-1)/2)+2*(suppression.factor-1)/(1+(x/noise.level)^2)))
 	if(win.width > 1)
 	{
