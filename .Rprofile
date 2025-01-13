@@ -7549,11 +7549,11 @@ Mode <- function(x) {
 	ux[which.max(tabulate(match(x, ux)))]
 }
 
-roll.mean <- function(x, win.width=2, na.rm=T, ...)
+roll.mean <- function(x, win.width=2, na.rm=T, align='center', ...)
 {
 	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
-	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align='center'))
+	return(rollapply(x, width=win.width, FUN=mean, na.rm=na.rm, ..., partial=T, align=align))
 }
 
 .roll.rank <- function(x)
@@ -7562,40 +7562,40 @@ roll.mean <- function(x, win.width=2, na.rm=T, ...)
 	return(ret[length(x) %/% 2])
 }
 
-roll.rank <- function(x, win.width=3, ...)
+roll.rank <- function(x, win.width=3, align='center', ...)
 {
 	library(zoo)
 
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
-	return(rollapply(x, width=win.width, FUN=.roll.rank, ..., partial=T, align='center'))
+	return(rollapply(x, width=win.width, FUN=.roll.rank, ..., partial=T, align=align))
 }
 
-roll.min <- function(x, win.width=2, na.rm=T, ...)
+roll.min <- function(x, win.width=2, na.rm=T, align='center', ...)
 {
 	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
-	return(rollapply(x, width=win.width, FUN=min, na.rm=na.rm, ..., partial=T, align='center'))
+	return(rollapply(x, width=win.width, FUN=min, na.rm=na.rm, ..., partial=T, align=align))
 }
 
-roll.sd <- function(x, win.width=3, na.rm=T, ...)
+roll.sd <- function(x, win.width=3, na.rm=T, align='center', ...)
 {
 	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
-	return(rollapply(x, width=win.width, FUN=sd, na.rm=na.rm, ..., partial=T, align='center'))
+	return(rollapply(x, width=win.width, FUN=sd, na.rm=na.rm, ..., partial=T, align=align))
 }
 
-roll.max <- function(x, win.width=2, na.rm=T, ...)
+roll.max <- function(x, win.width=2, na.rm=T, align='center', ...)
 {
 	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
-	return(rollapply(x, width=win.width, FUN=max, na.rm=na.rm, ..., partial=T, align='center'))
+	return(rollapply(x, width=win.width, FUN=max, na.rm=na.rm, ..., partial=T, align=align))
 }
 
-roll.median <- function(x, win.width=2, na.rm=T, ...)
+roll.median <- function(x, win.width=2, na.rm=T, align='center', ...)
 {
 	library(zoo)
 	# This will return a vector of the same size as original and will deal with NAs and optimize for mean.
-	return(rollapply(x, width=win.width, FUN=median, na.rm=na.rm, ..., partial=T, align='center'))
+	return(rollapply(x, width=win.width, FUN=median, na.rm=na.rm, ..., partial=T, align=align))
 }
 
 #''
