@@ -9144,7 +9144,9 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 	FP <- confusion_table[2,1]
 	TPR <- TP/(TP+FN)
 	FPR <- FP/(FP+TN)
-	return(list(TP=TP, TN=TN, FN=FN, FP=FP, TPR=TPR, FPR=FPR))
+	Sens <- TP/(TP+FN)
+	Spec <- TN/(TN+FP)
+	return(list(TP=TP, TN=TN, FN=FN, FP=FP,Sens=Sens,Spec=Spec))
 }
 
 plot.roc.jay <- function (score,
