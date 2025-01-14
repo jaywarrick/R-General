@@ -9174,6 +9174,33 @@ suppressNoise <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1,
 	return(ret)
 }
 
+suppressNoise2 <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1, suppression.factor=1, ...)
+{
+	# Use ... to send arguments to rollapply such as align='right' etc.
+	# Example: 
+	# plot(-200:200, suppressNoise(-200:200, win.width=7, noise.level = 200, suppression.factor = 2, align='center'), type='l', log='xy')
+	# lines(-200:200, suppressNoise2(-200:200, win.width=7, noise.level = 200, suppression.factor = 2, align='center'), type='l', col='red', lty=2, log='xy')
+	# lines(-200:200, ((-200:200)^2)/200)
+	# abline(a=0, b=1)
+	# abline(h=0)
+	
+	ret <- sign(x)*(abs(x)/noise.level)^pmax(1, (1+(suppression.factor-1)*(1-abs(x/noise.level))))
+	if(win.width < 1)
+	{
+		stop('Window width must be > 0')
+	}
+	if(win.width > length(x))
+	{
+		stop('Window width is wider than length of data.')
+	}
+	if(win.width > 1)
+	{
+		ret <- smooth.fun(ret, win.width=win.width, ...)
+	}
+	ret <- ret*noise.level
+	return(ret)
+}
+
 
 plot.roc.jay <- function (score,
 				  actualClass,
