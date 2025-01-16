@@ -9127,14 +9127,33 @@ rbind.results <- function(dt.expression, grpColName='paramSet', ...)
 }
 
 
-getThresholdsFrom_pROC <- function(roc_object, actual.neg.pos.vals=c('Neg','Pos'))
+getThresholdsFrom_pROC <- function(roc_object, actual.neg.pos.vals=c('Neg','Pos'), thresholds=c('all','Youden','UpperLeftmost'))
 {
+	# To get information for "all" the thresholds, set thresholds='all' (default)
+	# To get the Youden threshold only, set thresholds='Youden'
+	# To get the threshold that brings the ROC curve closest to the 100% Sens. 100% Spec. corner of the graph, set thresholds='UpperLeftMost'
+	
 	ret <- data.table(coords(roc_object, x='all', ret=c('threshold','sensitivity','specificity')))
 	ret[, c('TP','FN','TN','FP'):=calculateTprFpr(ifelse(roc_object$original.predictor < .BY[[1]], 'Neg','Pos'), roc_object$original.response, predicted.vals = c('Neg','Pos'), actual.vals = actual.neg.pos.vals)[c('TP','FN','TN','FP')], by=.(threshold)]
 	ret[, accuracy:=(TP+TN)/(TP+TN+FP+FN)]
 	ret[, cor_incor_ratio:=(TP+TN)/(FP+FN)]
+	ret[, upperleft_dist:=sqrt((100-sensitivity)^2+(100-specificity)^2)]
 	ret[, youden:=sensitivity+specificity]
-	return(ret[])
+	
+	if(thresholds[1]=='all')
+	{
+		return(ret[])
+	}
+	else if(tolower(thresholds[1])=='upperleftmost')
+	{
+		setorder(ret, upperleft_dist, -threshold)
+		return(ret[which.min(upperleft_dist)])
+	}
+	else
+	{
+		setorder(ret, -youden, -threshold)
+		return(ret[which.max(youden)])
+	}
 }
 
 #' calculateTprFpr
