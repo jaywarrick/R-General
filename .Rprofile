@@ -9127,6 +9127,15 @@ rbind.results <- function(dt.expression, grpColName='paramSet', ...)
 }
 
 
+getThresholdsFrom_pROC <- function(roc_object, actual.neg.pos.vals=c('Neg','Pos'))
+{
+	ret <- data.table(coords(roc_object, x='all', ret=c('threshold','sensitivity','specificity')))
+	ret[, c('TP','FN','TN','FP'):=calculateTprFpr(ifelse(roc_object$original.predictor < .BY[[1]], 'Neg','Pos'), roc_object$original.response, predicted.vals = c('Neg','Pos'), actual.vals = actual.neg.pos.vals)[c('TP','FN','TN','FP')], by=.(threshold)]
+	ret[, accuracy:=(TP+TN)/(TP+TN+FP+FN)]
+	ret[, cor_incor_ratio:=(TP+TN)/(FP+FN)]
+	return(ret[])
+}
+
 #' calculateTprFpr
 #'
 #' @param predicted vector of values
