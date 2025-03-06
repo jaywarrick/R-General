@@ -418,21 +418,21 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 }
 
 #' getCombos
-#' 
+#'
 #' Unlike combn, this function also includes the combination of each element
 #' with itself. e.g., for a and b, it returs {a,a}, {a,b}, and {b,b} instead
 #' of just {a,b}.
 #'
-#' @param x 
-#' @param colnames 
+#' @param x
+#' @param colnames
 #'
 #' @return data.table with column names defined by colnames
 #' @export
 #'
 #' @examples
-#' 
+#'
 #' getCombos(x=c('a','b','c'), colnames=c('First','Second'))
-#' 
+#'
 getCombos <- function(x, colnames=c('Var1','Var2'))
 {
 	Var1 <- c()
@@ -2986,29 +2986,29 @@ toUpper <- function(x)
 normalizeNames <- function(names, case=c('title','lower','upper','none'), sep=" ", split=NULL, fixed=F, n=1, removeNumbers=T, charsToRemove=c('\\.','/','-',','))
 {
 	library(stringr)
-	
+
 	# Get the part of the string that is desired after splitting (if needed)
 	if(!is.null(split))
 	{
 		names <- getNSplit(names, sep=split, fixed=fixed, n=n)
 	}
-	
+
 	# Remove numbers if desired
 	if(removeNumbers)
 	{
 		names <- gsub("[[:digit:]]+", "", names)
 	}
-	
+
 	# Remove chars if desired
 	if(!is.null(charsToRemove) && length(charsToRemove) > 0)
 	{
-		names <- gsub(paste0("([", 
+		names <- gsub(paste0("([",
 									paste0(charsToRemove, collapse=']|['),
 									"]+)"),
-						  " ", 
+						  " ",
 						  names)
 	}
-	
+
 	# Normalize Case and Separator
 	if(case[1]=='title')
 	{
@@ -3026,12 +3026,12 @@ normalizeNames <- function(names, case=c('title','lower','upper','none'), sep=" 
 	{
 		names <- gsub("[[:space:]]+", replacement=sep, trimws(names))
 	}
-	
+
 	if(any(duplicated(names)))
 	{
 		warning("Found duplicate names after normalization")
 	}
-	
+
 	return(names)
 }
 
@@ -3118,39 +3118,39 @@ pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
 }
 
 calculate_ci_with_prevalence <- function(N, prevalence, observed_sensitivity, observed_specificity, CI=0.95) {
-	
+
 	# # Example Calc.
 	# sens <- 0.8
 	# spec <- 0.95
 	# CI <- 0.95
 	# # Calculate confidence intervals
-	# calculate_ci_with_prevalence(N=300, 
-	# 									  prevalence=0, 
-	# 									  observed_sensitivity=sens, 
-	# 									  observed_specificity=spec, 
+	# calculate_ci_with_prevalence(N=300,
+	# 									  prevalence=0,
+	# 									  observed_sensitivity=sens,
+	# 									  observed_specificity=spec,
 	# 									  CI=CI)
 	# z_value <- qnorm(1-(1-CI)/2)
-	
+
 	# Results match output of website (https://wnarifin.github.io/ssc/sssnsp.html)
-	
+
 	# Number of true positives and true negatives
 	n_tp <- N * prevalence    # Number of positives
 	n_tn <- N * (1 - prevalence)  # Number of negatives
-	
+
 	# Standard error for sensitivity
 	se_sensitivity <- ifelse(n_tp > 0, sqrt(observed_sensitivity * (1 - observed_sensitivity) / n_tp), 0)
-	
+
 	# Standard error for specificity
 	se_specificity <- ifelse(n_tn > 0, sqrt(observed_specificity * (1 - observed_specificity) / n_tn), 0)
-	
+
 	# Confidence intervals for sensitivity
 	sensitivity_ci_lower <- max(0, observed_sensitivity - z_value * se_sensitivity)
 	sensitivity_ci_upper <- min(1, observed_sensitivity + z_value * se_sensitivity)
-	
+
 	# Confidence intervals for specificity
 	specificity_ci_lower <- max(0, observed_specificity - z_value * se_specificity)
 	specificity_ci_upper <- min(1, observed_specificity + z_value * se_specificity)
-	
+
 	# Return as a list
 	list(
 		Sensitivity_CI = c(lower = sensitivity_ci_lower, upper = sensitivity_ci_upper, interval = (sensitivity_ci_upper-sensitivity_ci_lower)/2),
@@ -5636,27 +5636,27 @@ calcTransition <- function(x, base=10, frac=0.15)
 }
 
 asinh_ggtrans = function(cofactor) {
-	
+
 	transform =   function(x,...)
 	{
 		asinh(x/cofactor)
 	}
-	
+
 	inverse = function(x,...)
 	{
 		sinh(x)*cofactor
 	}
-	
+
 	breaks = function(x,...)
 	{
 		# use linear marks < abs(cofactor)
 		thresh <- floor(log10(cofactor))-1
 		lin.max <- cofactor/(10^thresh)
 		lin.ticks <- c(seq(0, lin.max, length.out = 8))*10^thresh
-		
+
 		log.maj <- 10^seq(thresh+2,6)
 		log.min <- rep(10^seq(thresh+2, 10, 1), each = 9)
-		
+
 		log.ticks.minor <- rep(1:9,length(log.min)/9)*log.min
 		breaks <- c(0, log.maj, -log.maj, cofactor, -cofactor)
 		labels <- c(breaks, rep("", length(linear.ticks)*2), rep("", length(log.ticks.minor)*2))
@@ -8787,11 +8787,11 @@ getError <- function(x, y, fun, par, par.init, w, transform, asinh.cofactor)
 	return(err)
 }
 
-optimizeParams <- function(x, y, fun=NULL, par.init=NULL, 
-									par.init.fun=NULL, 
-									w=NULL, 
-									fixed=null, 
-									transform=c('none','asinh','log'), 
+optimizeParams <- function(x, y, fun=NULL, par.init=NULL,
+									par.init.fun=NULL,
+									w=NULL,
+									fixed=null,
+									transform=c('none','asinh','log'),
 									asinh.cofactor=0.1*max(abs(y)),
 									lower=-Inf, upper=Inf, ...)
 {
@@ -8855,12 +8855,12 @@ LL4.SqError.Par <- function(x, y, par, w=NULL, fixed=c(NA,NA,NA,NA), transform=c
 	res <- LL4.Residuals.Par(x, y, par=par, fixed=fixed, transform=transform, asinh.cofactor=asinh.cofactor)
 	if(is.null(w))
 	{
-		return(sum(res))
+		return(sum(res^2))
 	}
 	else
 	{
 		# Using this method to be consistent with drc:drm
-		return(sum((w*res)^2))
+		return(sum((w*res)^2)) # Don't need to divide by sum(w) because weights are fixed and residuals optimized
 	}
 }
 
@@ -8892,17 +8892,23 @@ LL4.Residuals <- function(x, y, SLOPE, LL, UL, logED50, fixed=c(NA,NA,NA,NA), tr
 		{
 			browser()
 		}
+		# plot(x, log(tempy))
+		# lines(x, log(tempp))
 		return(log(tempp)-log(tempy))
 	}
 	else if(transform[1]=='asinh')
 	{
 		tempp <- pred
 		tempy <- y
+		# plot(x, asinh(tempy/asinh.cofactor))
+		# lines(x, asinh(tempp/asinh.cofactor))
 		return(asinh(tempp/asinh.cofactor)-asinh(tempy/asinh.cofactor))
 		# return(asinh.transform(tempp/asinh.cofactor, asinh.cofactor)-asinh.transform(tempy/asinh.cofactor, asinh.cofactor))
 	}
 	else
 	{
+		# plot(x, y)
+		# lines(x, pred)
 		return(pred-y)
 	}
 }
@@ -8933,13 +8939,14 @@ LL4.Inverse.fit <- function(y, Steepness, LL, UL, logOffset)
 }
 
 LL4.Fit <- function(x, y, par.init=NULL, w=NULL, fixed=c(NA,NA,NA,NA), transform=c('asinh','log','none'), asinh.cofactor=0.1*max(abs(y)),
-						  lower=c(-Inf, 0, .Machine$double.eps, 0), 
+						  lower=c(-Inf, 0, .Machine$double.eps, 0),
 						  upper=c(-1*.Machine$double.neg.eps,Inf,Inf,Inf), ...)
 {
 	# Parameter order is {Steepness, LL, UL, logOffset}
 	if(is.null(par.init))
 	{
 		par.init <- LL4.InitialGuess(x, y)
+		print(par.init)
 	}
 	ret <- optim(par=par.init[is.na(fixed)],
 		 fn=LL4.SqError.Par,
@@ -9132,14 +9139,14 @@ getThresholdsFrom_pROC <- function(roc.object, actual.neg.pos.vals=c('Neg','Pos'
 	# To get information for "all" the thresholds, set thresholds='all' (default)
 	# To get the Youden threshold only, set thresholds='Youden'
 	# To get the threshold that brings the ROC curve closest to the 100% Sens. 100% Spec. corner of the graph, set thresholds='UpperLeftMost'
-	
+
 	ret <- data.table(coords(roc.object, x='all', ret=c('threshold','sensitivity','specificity')))
 	ret[, c('TP','FN','TN','FP'):=calculateTprFpr(ifelse(roc.object$original.predictor < .BY[[1]], 'Neg','Pos'), roc.object$original.response, predicted.vals = c('Neg','Pos'), actual.vals = actual.neg.pos.vals)[c('TP','FN','TN','FP')], by=.(threshold)]
 	ret[, accuracy:=(TP+TN)/(TP+TN+FP+FN)]
 	ret[, cor_incor_ratio:=(TP+TN)/(FP+FN)]
 	ret[, upperleft_dist:=sqrt((100-sensitivity)^2+(100-specificity)^2)]
 	ret[, youden:=sensitivity+specificity]
-	
+
 	if(tolower(thresh.type[1])=='all')
 	{
 		return(ret[])
@@ -9186,11 +9193,11 @@ calculateTprFpr <- function(predicted, actual, predicted.vals, actual.vals)
 suppressNoise <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1, suppression.factor=1, ...)
 {
 	# Use ... to send arguments to rollapply such as align='right' etc.
-	# Example: 
+	# Example:
 	# plot(-200:200, suppressNoise(-200:200, win.width=7, noise.level = 100, suppression.factor = 20, align='center'), type='l')
 	# abline(a=0, b=1)
 	# abline(h=0)
-	
+
 	ret <- sign(x)*(abs(x)/noise.level)^pmax(1, ((1-2*(suppression.factor-1)/2)+2*(suppression.factor-1)/(1+(x/noise.level)^2)))
 	if(win.width < 1)
 	{
@@ -9211,13 +9218,13 @@ suppressNoise <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1,
 suppressNoise2 <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1, suppression.factor=1, ...)
 {
 	# Use ... to send arguments to rollapply such as align='right' etc.
-	# Example: 
+	# Example:
 	# plot(-200:200, suppressNoise(-200:200, win.width=7, noise.level = 200, suppression.factor = 2, align='center'), type='l', log='xy')
 	# lines(-200:200, suppressNoise2(-200:200, win.width=7, noise.level = 200, suppression.factor = 2, align='center'), type='l', col='red', lty=2, log='xy')
 	# lines(-200:200, ((-200:200)^2)/200)
 	# abline(a=0, b=1)
 	# abline(h=0)
-	
+
 	ret <- sign(x)*(abs(x)/noise.level)^pmax(1, (1+(suppression.factor-1)*(1-abs(x/noise.level))))
 	if(win.width < 1)
 	{
@@ -9480,11 +9487,11 @@ cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.l
 	{
 		if(max(x, na.rm=T) > max(breaks, na.rm=T))
 		{
-			warning("Some values above highest break point. Adding them to NA count in table at index 0.")	
+			warning("Some values above highest break point. Adding them to NA count in table at index 0.")
 		}
 		if(min(x, na.rm=T) < min(breaks, na.rm=T))
 		{
-			warning("Some values below lowest break point. Adding them to NA count in table at index 0.")	
+			warning("Some values below lowest break point. Adding them to NA count in table at index 0.")
 		}
 		if(include.lowest==F)
 		{
@@ -9498,7 +9505,7 @@ cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.l
 			}
 		}
 	}
-		
+
 	if(length(breaks)==1)
 	{
 		minmax <- range(x, na.rm=T)
@@ -9537,15 +9544,15 @@ PrevalenceSampleSize.1Stage <- function(p0=0, # Null hypothesis prevalence
 {
 	Zalpha = abs(qnorm(alpha))
 	Zbeta = abs(qnorm(beta))
-	
+
 	# Apparent Null distribution prevalence p0=0
 	p0.app <- Se * p0 + (1-Sp) * (1-p0)
-	
+
 	# Apparent Alternative Distribution
 	p1.app <- Se * p1 + (1-Sp) * (1-p1)
-	
+
 	n <- (Zalpha + Zbeta)^2 * (p0*(1-p0) + p1*(1-p1)) / ((p1.app-p0.app)^2)
-	
+
 	return(n)
 }
 
