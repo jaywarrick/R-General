@@ -9134,7 +9134,7 @@ rbind.results <- function(dt.expression, grpColName='paramSet', ...)
 }
 
 
-getThresholdsFrom_pROC <- function(roc.object, actual.neg.pos.vals=c('Neg','Pos'), thresh.type=c('all','Youden','UpperLeftmost','ccuracy'))
+getThresholdsFrom_pROC <- function(roc.object, actual.neg.pos.vals=c('Neg','Pos'), thresh.type=c('all','Youden','UpperLeftmost','accuracy'))
 {
 	# To get information for "all" the thresholds, set thresholds='all' (default)
 	# To get the Youden threshold only, set thresholds='Youden'
