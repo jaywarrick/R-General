@@ -1,6 +1,7 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 library(data.table)
+library(coin)
 
 .define.fonts <- function()
 {
@@ -450,6 +451,21 @@ getCombos <- function(x, colnames=c('Var1','Var2'))
 	return(ret)
 }
 
+applyPairwise <- function(x, FUN, by, sep='-', A_name='A', B_name='B', ...)
+{
+  getByName <- function(temp, row)
+  {
+    paste(temp[row],collapse='-')
+  }
+  temp <- getUniqueCombos(y, by=by)
+  tempBy <- paste(c(A_name, B_name), '_temp', sep='')
+  combos <- setNames(data.table(t(combn(1:nrow(temp), 2))), tempBy)
+  # browser()
+  ret <- combos[, setNames(list(getByName(temp, .BY[[1]]), getByName(temp, .BY[[2]]), FUN(x[temp[.BY[[1]]], on=by], x[temp[.BY[[2]]], on=by]), ...), c(A_name, B_name,'Value')), by=tempBy]
+  # combos[, setNames(list(getByName(temp, .BY[[1]]), getByName(temp, .BY[[2]]), list(x[temp[.BY[[1]]], on=by])), c(A_name, B_name,'Value')), by=tempBy]
+  return(ret[, c(A_name, B_name, 'Value'), with=F])
+}
+
 getUniqueCombos <- function(x, by, idCols=by, ordered=T)
 {
 	if(ordered)
@@ -475,6 +491,23 @@ getUniqueCombosAsStringVector <- function(x, idCols, ordered=T)
 	dt <- getUniqueCombos(x=x, idCols=idCols, ordered=ordered)
 	makeComplexId(x=dt, cols=idCols)
 	return(dt$cId)
+}
+
+fillFunc <- function(x)
+{
+  if(all(is.na(x)))
+  {
+    return(x)
+  }
+  else
+  {
+    rep(x[!is.na(x)][1], length(x))
+  }
+}
+
+fillDown <- function(x, by, cols)
+{
+  lapply.data.table(x, FUN=fillFunc, by=by, cols=cols)
 }
 
 #' Fill missing rows in a data.table
@@ -1783,7 +1816,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 						  log='', logicle.params=NULL, trans.logit=c(F,F), main='', xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
 						  density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1),
 						  h=NULL, h.col='black', h.lty=2, h.lwd=1, v=NULL, v.col='black', v.lty=2, v.lwd=1,
-						  legend.plot=T, legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
+						  legend.plot=T, legend.sep=':', legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
 						  save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light','TT Arial'), res=300,
 						  sample.size=-1, sample.seed=sample(1:1000, 1), polygons=list(),
 						  spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max,
@@ -1808,7 +1841,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 		warning('Data is empty. Nothing to plot.')
 		return()
 	}
-	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=paste(line.color.by, collapse=':'), lwd=2, lty=1, inset=0, ncol=1), legend.args)
+	legend.args <- merge.lists(list(x='topright', cex=0.5, bg='white', bty='o', title=paste(line.color.by, collapse=legend.sep), lwd=2, lty=1, inset=0, ncol=1), legend.args)
 
 	env.args <- merge.lists(list(env.alpha=0.5, env.smooth=F, env.spar=0.2), env.args)
 
@@ -1855,7 +1888,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 
 	if(!is.null(line.color.by))
 	{
-		paste.cols(legend.colors, cols=line.color.by, name='names', sep=':')
+		paste.cols(legend.colors, cols=line.color.by, name='names', sep=legend.sep)
 	}
 	else
 	{
@@ -8842,6 +8875,124 @@ optimizeParams <- function(x, y, fun=NULL, par.init=NULL,
 
 ##### Dose Response Functions #####
 
+LogLog.InitialGuess <- function(x, y)
+{
+  temp <- lm(y ~ x, data=data.table(y=log10(y), x=log10(x)))
+  return(c(LL.intercept=as.numeric(coefficients(temp)[1]), LL.slope=as.numeric(coefficients(temp)[2])))
+}
+
+LogLog.SqError.Par <- function(x, y, par, w=NULL, fixed=c(NA,NA))
+{
+  if(!is.null(w))
+  {
+    if(length(w) != length(x))
+    {
+      stop('Length of the data must be same as the length of the weights')
+    }
+  }
+  res <- LogLog.Residuals.Par(x, y, par=par, fixed=fixed)
+  if(is.null(w))
+  {
+    return(sum(res^2))
+  }
+  else
+  {
+    # Using this method to be consistent with drc:drm
+    return(sum((w*res)^2)) # Don't need to divide by sum(w) because weights are fixed and residuals optimized
+  }
+}
+
+LogLog.Residuals.Par <- function(x, y, par, fixed=c(NA,NA))
+{
+  newPar <- fixed
+  j <- 1
+  for(i in 1:2)
+  {
+    if(is.na(fixed[i]))
+    {
+      newPar[i] <- par[j]
+      j <- j + 1
+    }
+  }
+  return(LogLog.Residuals(x, y, LL.intercept=newPar[1], LL.slope=newPar[2], fixed=fixed))
+}
+
+LogLog.Residuals <- function(x, y, LL.intercept, LL.slope, fixed=c(NA,NA))
+{
+  pred <- LL.intercept + LL.slope*log10(x)
+  return(pred-log10(y))
+}
+
+LogLog.Inverse.explicit <- function(y, LL.intercept, LL.slope)
+{
+  # log10(y) <- LL.intercept + LL.slope*log10(x)
+  # Inverted
+  x <- rep(0, length(y))
+  x[y > 0] <- 10^((log10(y[y > 0]) - LL.intercept)/LL.slope)
+  return(x)
+}
+
+LogLog.Inverse.fit <- function(y, fit)
+{
+  return(LogLog.Inverse.explicit(y=y, LL.intercept = fit$par[1], LL.slope=fit$par[2]))
+}
+
+LogLog.Predict.fit <- function(x, fit)
+{
+  return(LogLog.Predict.par(x, fit$par))
+}
+
+LogLog.Predict.par <- function(x, par)
+{
+  ret <- rep(0, length(x))
+  valid <- (x >= 0)
+  ret[valid] <- 10^(par[1] + par[2]*log10(x[valid]))
+  return(ret)
+}
+
+LogLog.Predict.explicit <- function(x, LL.intercept, LL.slope)
+{
+  return(LogLog.Predict.par(x, c(LL.intercept, LL.slope)))
+}
+
+LogLog.Fit <- function(x, y, par.init=NULL, w=NULL, fixed=c(NA,NA),
+                              lower=c(-Inf, -Inf),
+                              upper=c(Inf, Inf), ...)
+{
+  valid <- (x > 0) & (y > 0) & is.finite(x) & is.finite(y)
+  x <- x[valid]
+  y <- y[valid]
+  w <- w[valid]
+  # Parameter order is {LL.intercept, LL.slope}
+  if(is.null(par.init))
+  {
+    par.init <- LogLog.InitialGuess(x, y)
+    print(par.init)
+  }
+  ret <- optim(par=par.init[is.na(fixed)],
+               fn=LogLog.SqError.Par,
+               method="L-BFGS-B",
+               lower=lower[is.na(fixed)],
+               upper=upper[is.na(fixed)],
+               fixed=fixed,
+               w=w,
+               x=x,
+               y=y,
+               ...)
+  newPar <- fixed
+  j <- 1
+  for(i in 1:2)
+  {
+    if(is.na(fixed[i]))
+    {
+      newPar[i] <- ret$par[j]
+      j <- j + 1
+    }
+  }
+  ret$par <- newPar
+  return(ret)
+}
+
 # 4 parameter Log-Logistic Function
 LL4.SqError.Par <- function(x, y, par, w=NULL, fixed=c(NA,NA,NA,NA), transform=c('asinh','log','none'), asinh.cofactor=1)
 {
@@ -8931,7 +9082,7 @@ LL4.Inverse.explicit <- function(y, Steepness, LL, UL, logOffset)
 	return(x)
 }
 
-LL4.Inverse.fit <- function(y, Steepness, LL, UL, logOffset)
+LL4.Inverse.fit <- function(y, fit)
 {
 	# pred <- fit$par[2] + (fit$par[3]-fit$par[2])/(1+exp(fit$par[1]*(log(x)-fit$par[4])))
 	# f(x) <- LL + (UL-LL)/(1+exp(Steepness*(log(x)-logOffset)))
@@ -8976,8 +9127,9 @@ LL4.Fit <- function(x, y, par.init=NULL, w=NULL, fixed=c(NA,NA,NA,NA), transform
 
 LL4.Predict.fit <- function(x, fit)
 {
-	pred <- fit$par[2] + (fit$par[3]-fit$par[2])/(1+exp(fit$par[1]*(log(x)-fit$par[4])))
-	return(pred)
+  return(LL4.Predict.par(x, fit$par))
+	# pred <- fit$par[2] + (fit$par[3]-fit$par[2])/(1+exp(fit$par[1]*(log(x)-fit$par[4])))
+	# return(pred)
 }
 
 LL4.Predict.par <- function(x, par)
@@ -9133,18 +9285,22 @@ rbind.results <- function(dt.expression, grpColName='paramSet', ...)
 	return(rbindlist(rets))
 }
 
-
 getThresholdsFrom_pROC <- function(roc.object, actual.neg.pos.vals=c('Neg','Pos'), thresh.type=c('all','Youden','UpperLeftmost','accuracy'))
 {
 	# To get information for "all" the thresholds, set thresholds='all' (default)
 	# To get the Youden threshold only, set thresholds='Youden'
 	# To get the threshold that brings the ROC curve closest to the 100% Sens. 100% Spec. corner of the graph, set thresholds='UpperLeftMost'
-
 	ret <- data.table(coords(roc.object, x='all', ret=c('threshold','sensitivity','specificity')))
+	responseVals <- unique(roc.object$original.response)
+	if(any(actual.neg.pos.vals %!in% responseVals))
+	{
+	  stop(paste('Expected values for positive and negative cases are not found in the roc.object. User specified: (', paste(actual.neg.pos.vals, collapse=','), '). The roc.object contains values: (', paste(responseVals, collapse=','), ').', sep=''))
+	}
+
 	ret[, c('TP','FN','TN','FP'):=calculateTprFpr(ifelse(roc.object$original.predictor < .BY[[1]], 'Neg','Pos'), roc.object$original.response, predicted.vals = c('Neg','Pos'), actual.vals = actual.neg.pos.vals)[c('TP','FN','TN','FP')], by=.(threshold)]
 	ret[, accuracy:=(TP+TN)/(TP+TN+FP+FN)]
 	ret[, cor_incor_ratio:=(TP+TN)/(FP+FN)]
-	ret[, upperleft_dist:=sqrt((100-sensitivity)^2+(100-specificity)^2)]
+	ret[, upperleft_dist:=sqrt((1-sensitivity)^2+(1-specificity)^2)]
 	ret[, youden:=sensitivity+specificity]
 
 	if(tolower(thresh.type[1])=='all')
@@ -9780,9 +9936,13 @@ getExpFuncError <- function(par, x, y, increasing)
 	return(sum((ypred-y)^2))
 }
 
-fitExpFunc <- function(x, y, par0, increasing=getExpFuncPar(x,y)['increasing'], ...)
+fitExpFunc <- function(x, y, par0=NA, increasing=getExpFuncPar(x,y)['increasing'], ...)
 {
-	# par0 <- as.vector(merge.lists(as.list(getExpFuncPar(x, y)), as.list(par0)))
+  if(is.na(par0))
+  {
+    par0 <- as.vector(merge.lists(as.list(getExpFuncPar(x, y)), as.list(par0)))
+    # par0 <- getExpFuncPar(x, y, increasing=increasing)
+  }
 	daFit <- optim(par=par0, fn=getExpFuncError, x=x, y=y, increasing=increasing, ...)
 	return(merge.lists(daFit$par, list(increasing=increasing)))
 }
