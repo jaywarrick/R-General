@@ -1,7 +1,6 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
 library(data.table)
-library(coin)
 
 .define.fonts <- function()
 {
@@ -418,6 +417,11 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 	paste.cols(x=x, cols=cols, name=idName, sep=sep)
 }
 
+makeList <- function(names, values)
+{
+  return(setNames(as.list(values), names))
+}
+
 #' getCombos
 #'
 #' Unlike combn, this function also includes the combination of each element
@@ -493,15 +497,52 @@ getUniqueCombosAsStringVector <- function(x, idCols, ordered=T)
 	return(dt$cId)
 }
 
+contingencyTest_roc <- function(rocA, rocB, actual.neg.pos.vals, thresh.type=c('UpperLeftmost', 'Youden', 'accuracy'), compare=c('acc','sens','spec'), alternative=c('two.sided','less','greater'))
+{
+  threshA <- getThresholdsFrom_pROC(rocA, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type=thresh.type[1])
+  threshB <- getThresholdsFrom_pROC(rocB, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type=thresh.type[1])
+  return(contingencyTest(A_TP=threshA$TP, A_TN=threshA$TN, A_FP=threshA$FP, A_FN=threshA$FN, B_TP=threshB$TP, B_TN=threshB$TN, B_FP=threshB$FP, B_FN=threshB$FN, compare=compare[1], alternative=alternative[1]))
+}
+
+contingencyTest <- function(A_TP=NA, A_TN=NA, A_FP=NA, A_FN=NA, B_TP=NA, B_TN=NA, B_FP=NA, B_FN=NA, compare=c('acc','sens','spec'), alternative=c('two.sided','less','greater'))
+{
+  if(compare[1]=='acc')
+  {
+    accuracy_table <- matrix(c(A_TP+A_TN, A_FP+A_FN, B_TP+B_TN, B_FP+B_FN), nrow = 2, byrow = TRUE)
+  }
+  else if(compare[1] == 'sens')
+  {
+    accuracy_table <- matrix(c(A_TP, A_FN, B_TP, B_FN), nrow = 2, byrow = TRUE)
+  }
+  else if(compare[1] == 'spec')
+  {
+    accuracy_table <- matrix(c(A_TN, A_FP, B_TN, B_FP), nrow = 2, byrow = TRUE)
+  }
+
+
+  # Construct the contingency table
+  # accuracy_table <- matrix(c(TA, FA, TB, FB), nrow = 2, byrow = TRUE)
+  colnames(accuracy_table) <- c("True Positive", "False Negative")
+  rownames(accuracy_table) <- c("Group A", "Group B")
+  accuracy_table <- as.table(accuracy_table)
+
+  # browser()
+  # Fisher's Exact Test
+  fisher_result_acc <- fisher.test(accuracy_table, alternative=alternative[1])
+  title <- paste0("Fisher's Exact Test p-value comparing '", compare, "': ")
+  cat(title, fisher_result_acc$p.value, "\n")
+  return(fisher_result_acc$p.value)
+}
+
 fillFunc <- function(x)
 {
-  if(all(is.na(x)))
+  if(sum(!is.na(x))==1)
   {
-    return(x)
+    rep(x[!is.na(x)][1], length(x))
   }
   else
   {
-    rep(x[!is.na(x)][1], length(x))
+    return(x)
   }
 }
 
@@ -1896,7 +1937,7 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 	}
 
 	# Set legend colors
-	if(is.null(line.color.by))
+	if(is.null(line.color.by) && is.null(legend.args$col))
 	{
 		legend.colors[, my.color:='black']
 	}
@@ -2856,6 +2897,11 @@ getAllColNamesExcept <- function(x, names)
 	return(names(x)[!(names(x) %in% names)])
 }
 
+excludeCols <- function(x, cols)
+{
+  return(x[, names(x) %!in% cols, with=F])
+}
+
 removeColsWithAnyNonFiniteVals <- function(x, cols=NULL)
 {
 	removeColsMatching(x, cols=cols, col.test=function(n){any(!is.finite(n))})
@@ -3572,6 +3618,99 @@ bigcor <- function(x, y=NULL, fun=c("cor","cov"), size=2000, verbose=TRUE, conve
 	{
 		return(resMAT)
 	}
+}
+
+compareROCCurves <- function(rocA,
+                             rocB,
+                             actual.neg.pos.vals=c(F,T),
+                             method=c('roc','survival-logrank','survival-wilcox','contingency'),
+                             pairwise=FALSE,
+                             exact=FALSE,
+                             roc.method=c("bootstrap", "delong", "venkatraman"),
+                             thresh.type=c('UpperLeftmost','Youden','accuracy'),
+                             contingency.compare=c('acc','sens','spec'),
+                             alternative=c('two.sided','less','greater'), ...)
+{
+  library(coin)
+  library(pROC)
+  if(method[1] %!in% c('roc','survival-logrank','survival-wilcox','contingency'))
+  {
+    stop("Unrecognized 'method' argument. Please sepcify one of the following options: 'roc','survival-logrank','survival-wilcox'.")
+  }
+
+  if(method[1] == 'roc')
+  {
+    if(exact)
+    {
+      warning("The 'exact' parameter is ignored for the 'roc' method.")
+    }
+    ret <- roc.test(rocA, rocB, paired=pairwise, method=roc.method[1], alternative=alternative, ...)$p.value
+    return(ret)
+  }
+
+  if(method[1] == 'contingency')
+  {
+    return(contingencyTest_roc(rocA, rocB, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type = thresh.type, compare=contingency.compare[1], alternative=alternative[1]))
+  }
+
+  A <- convertROCToSurvival(rocA, actual.neg.pos.vals = actual.neg.pos.vals)
+  B <- convertROCToSurvival(rocB, actual.neg.pos.vals = actual.neg.pos.vals)
+  data <- data.table(spec=c(A, B), group=factor(c(rep('A', length(A)), rep('B', length(B)))), pair_id=factor(c(1:length(A), 1:length(B))), event=rep(1, length(A) + length(B)))
+  # browser()
+  if(method[1] == 'survival-logrank')
+  {
+    if(pairwise)
+    {
+      if(exact)
+      {
+        warning("The 'exact' parameter is forced to be 'asymptotic' for the pairwise version of the 'survival-logrank' method")
+      }
+      ret <- pvalue(logrank_test(
+        Surv(spec, event) ~ group | pair_id,  # Critical '|' for pairing
+        data = data,
+        distribution = "asymptotic",  # Must use asymptotic approx for pairwise blocks
+        alternative = alternative
+      ))
+    }
+    else
+    {
+      ret <- pvalue(logrank_test(
+        Surv(spec, event) ~ group,
+        data = data,
+        distribution = ifelse(exact, "exact", "asymptotic"),
+        alternative = alternative
+      ))
+    }
+    return(ret)
+  }
+
+  if(method[1] == 'survival-wilcox')
+  {
+    if(pairwise)
+    {
+      ret <- pvalue(wilcoxsign_test(A ~ B,
+                                    distribution = ifelse(exact, "exact", "asymptotic"),
+                                    alternative = alternative))
+    }
+    else
+    {
+      ret <- pvalue(wilcox_test(spec ~ group,
+                                data=data,
+                                distribution = ifelse(exact, "exact", "asymptotic"),
+                                alternative = alternative))
+    }
+    return(ret)
+  }
+}
+
+convertROCToSurvival <- function(roc, actual.neg.pos.vals)
+{
+  library(pROC)
+  # browser()
+  thresholds <- getThresholdsFrom_pROC(roc, actual.neg.pos.vals = actual.neg.pos.vals)
+  temp <- data.table(row=2:(nrow(thresholds)), n=-1*diff(thresholds$TP), spec=thresholds$specificity[-1])
+  blah <- unlist(sapply(temp$row, FUN=function(x){rep(temp[row==x]$spec, temp[row==x]$n)}))
+  return(blah)
 }
 
 my.test <- function(x, y, test=c('wilcox','t.test'), adjust.p=F, adjust.method='BH', adjust.n=1, ...)
@@ -4720,6 +4859,92 @@ calculate.peak.AUCs <- function(x, y, nearestTo=NULL, peak.neighlim, valley.neig
 	return(peaks[])
 }
 
+# Calculate the median/mean, weight values based upon outlier probability (z-score)
+# Raise the weight to the specified power 'pow'
+# rank.based=T uses median and mad
+# rank.based=F uses mean and sd
+getWeightedBG <- function(x, mu.fun=c('mean','median'), sd.fun='mad', na.rm=F, weight.fun=c('dnorm','inverse rank'), bg.type=c('lower','middle','upper'), w.median.type=4, sd.adj=1)
+{
+  print(sd.fun)
+  # Example:
+  # getWeightedBG(rnorm(10), dist.fun=pnorm, mu.fun=median, dev.fun=mad, pow=1, na.rm=T)
+  if(bg.type[1] %!in% c('lower','middle','upper'))
+  {
+    stop('Unrecognized bg.type parameter. Must be lower, middle, or upper.')
+  }
+  if(weight.fun[1] %!in% c('dnorm','inverse rank'))
+  {
+    stop("Unrecognized weight.fun parameter. Must be 'dnorm' or 'inverse rank'.")
+  }
+  if(length(x)==1)
+  {
+    return(x)
+  }
+  if(mu.fun=='mean')
+  {
+    mu.fun <- mean
+    w.mu.fun <- weighted.mean
+  }
+  else if(sd.fun=='median')
+  {
+    library(spatstat)
+    mu.fun <- median
+    w.mu.fun <- function(x, w, na.rm){return(weighted.median(x=x, w=w, na.rm=na.rm, type=w.median.type))}
+  }
+  else
+  {
+    stop('Unrecognized mu.fun')
+  }
+  if(sd.fun[1]=='sd')
+  {
+    sd.fun <- sd
+  }
+  else if(sd.fun[1]=='mad')
+  {
+    sd.fun <- mad
+  }
+  else
+  {
+    stop('Unrecognized sd.fun')
+  }
+  mu <- mu.fun(x, na.rm=na.rm)
+  dev <- sd.fun(x, na.rm=na.rm)*sd.adj
+
+  if(weight.fun[1]=='dnorm')
+  {
+    w <- dnorm((x-mu)/dev, mean=0, sd=1)/dnorm(0)
+    if(bg.type[1]=='lower')
+    {
+      w <- 1-w
+      w[(x-mu)>0] <- 0
+    }
+    else if(bg.type[1]=='upper')
+    {
+      w <- 1-w
+      w[(x-mu)<0] <- 0
+    }
+  }
+  else if(weight.fun[1]=='inverse rank')
+  {
+    if(bg.type[1]=='lower')
+    {
+      w <- 1/rank(abs(x-min(x, na.rm=na.rm)))
+    }
+    else if(bg.type[1]=='upper')
+    {
+      w <- 1/rank(abs(x-max(x, na.rm=na.rm)))
+    }
+    else if(bg.type[1]=='middle')
+    {
+      w <- 1/rank(abs(x-median(x, na.rm=na.rm)))
+    }
+  }
+
+  w <- w/sum(w)
+  print(w)
+  return(w.mu.fun(x, w, na.rm=na.rm))
+}
+
 calculate.AUCs <- function(x, y, left, right, peak, plot.polygons=F, colors=NULL)
 {
 	peaks <- data.table(peak.i=1:length(left), left=left, right=right)
@@ -5339,6 +5564,7 @@ setroworder.data.table <- function(x, neworder)
 
 sort_col_alphanum <- function(x, col, ascending=T, ...)
 {
+  library(gtools)
 	# Additional arguments ... passed to gtools::mixedorder
 	setroworder.data.table(x=x, neworder=mixedorder(x[[col]], decreasing=!(as.logical(ascending)), ...))
 }
@@ -8872,6 +9098,8 @@ optimizeParams <- function(x, y, fun=NULL, par.init=NULL,
 	return(ret)
 }
 
+##### ROC and LCA Functions #####
+
 
 ##### Dose Response Functions #####
 
@@ -8945,7 +9173,19 @@ LogLog.Predict.fit <- function(x, fit)
 LogLog.Predict.par <- function(x, par)
 {
   ret <- rep(0, length(x))
-  valid <- (x >= 0)
+  print(x)
+  valid <- (x > 0)
+  if(length(valid)==0)
+  {
+    browser()
+    print('What?')
+  }
+  print(par[1])
+  print(par[2])
+  print(x)
+  print(valid)
+  print(x[valid])
+  print(log10(x[valid]))
   ret[valid] <- 10^(par[1] + par[2]*log10(x[valid]))
   return(ret)
 }
@@ -9290,14 +9530,33 @@ getThresholdsFrom_pROC <- function(roc.object, actual.neg.pos.vals=c('Neg','Pos'
 	# To get information for "all" the thresholds, set thresholds='all' (default)
 	# To get the Youden threshold only, set thresholds='Youden'
 	# To get the threshold that brings the ROC curve closest to the 100% Sens. 100% Spec. corner of the graph, set thresholds='UpperLeftMost'
-	ret <- data.table(coords(roc.object, x='all', ret=c('threshold','sensitivity','specificity')))
-	responseVals <- unique(roc.object$original.response)
-	if(any(actual.neg.pos.vals %!in% responseVals))
+  responses <- unique(roc.object$original.response)
+  responses <- responses[!is.na(responses)]
+  soft <- length(responses) > 2
+  if(soft)
 	{
-	  stop(paste('Expected values for positive and negative cases are not found in the roc.object. User specified: (', paste(actual.neg.pos.vals, collapse=','), '). The roc.object contains values: (', paste(responseVals, collapse=','), ').', sep=''))
-	}
-
-	ret[, c('TP','FN','TN','FP'):=calculateTprFpr(ifelse(roc.object$original.predictor < .BY[[1]], 'Neg','Pos'), roc.object$original.response, predicted.vals = c('Neg','Pos'), actual.vals = actual.neg.pos.vals)[c('TP','FN','TN','FP')], by=.(threshold)]
+    test_vals_sorted <- sort(unique(roc.object$original.predictor))
+    D <- roc.object$original.response
+	  ret <- data.table(threshold=c(-Inf, head(test_vals_sorted, -1) + diff(test_vals_sorted) / 2, Inf))
+	  ret[, c('TP','FP','TN','FN'):=list(sum((roc.object$original.predictor >= .BY[[1]]) * D),
+	                                     sum((roc.object$original.predictor >= .BY[[1]]) * (1 - D)),
+	                                     sum((1 - (roc.object$original.predictor >= .BY[[1]])) * (1 - D)),
+	                                     sum((1 - (roc.object$original.predictor >= .BY[[1]])) * D)), by=.(threshold)]
+	  ret[, c('sensitivity','specificity'):=list(TP / (TP + FN),
+	                                             TN / (TN + FP))]
+	  setcolorder(ret, neworder=c('threshold','sensitivity','specificity','TP','FP','TN','FN'))
+  }
+  else
+  {
+    # If the roc.object has a binary response variable (i.e., isn't soft), then check that pos.neg.vals match what is in the ROC object
+    responseVals <- unique(roc.object$original.response)
+    if(any(actual.neg.pos.vals %!in% responseVals))
+    {
+      stop(paste('Expected values for positive and negative cases are not found in the roc.object. User specified: (', paste(actual.neg.pos.vals, collapse=','), '). The roc.object contains values: (', paste(responseVals, collapse=','), ').', sep=''))
+    }
+    ret <- data.table(coords(roc.object, x='all', ret=c('threshold','sensitivity','specificity')))
+    ret[, c('TP','FN','TN','FP'):=calculateTprFpr(ifelse(roc.object$original.predictor < .BY[[1]], 'Neg','Pos'), roc.object$original.response, predicted.vals = c('Neg','Pos'), actual.vals = actual.neg.pos.vals)[c('TP','FN','TN','FP')], by=.(threshold)]
+  }
 	ret[, accuracy:=(TP+TN)/(TP+TN+FP+FN)]
 	ret[, cor_incor_ratio:=(TP+TN)/(FP+FN)]
 	ret[, upperleft_dist:=sqrt((1-sensitivity)^2+(1-specificity)^2)]
