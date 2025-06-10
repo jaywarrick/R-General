@@ -2787,7 +2787,49 @@ if.else <- function(condition, if.true, if.false)
 
 splitColumnAtString <- function(x, colToSplit, newColNames, fixed=T, sep='.', keep=NULL)
 {
-	x[, (newColNames) := tstrsplit(get(colToSplit), sep, fixed=fixed, keep=keep)]
+	x[, (newColNames) := tstrsplit(get(colToSplit), split=sep, fixed=fixed, keep=keep)]
+}
+
+splitColumnAtNthString <- function(x, colToSplit, newColNames, n=1, fixed=T, sep='.', keep=1:2)
+{
+  x[, (newColNames) := splitAllAtNthString(get(colToSplit), split=sep, n=n, fixed=fixed, keep=keep)]
+}
+
+splitAllAtNthString <- function(x, split='.', n=1, fixed=T, keep=1:2)
+{
+  return(data.table(t(sapply(sapply(x, strsplit, split=split, fixed=TRUE), pasteGroups, n=n, sep=split, keep=keep))))
+}
+
+pasteGroups <- function(x, n=1, sep='_', keep=1:2, missing=NA)
+{
+  if(n < 1)
+  {
+    stop('n must be > 1.')
+  }
+  if(!all(keep %in% c(1,2)))
+  {
+    stop('Keep must be 1 or 2 or 1:2')
+  }
+  if(n > length(x))
+  {
+    g1 <- paste(x[1:length(x)], collapse=sep)
+  }
+  else
+  {
+    g1 <- paste(x[1:n], collapse=sep)
+  }
+
+  if(n >= length(x))
+  {
+    g2 <- missing
+  }
+  else
+  {
+    g2 <- paste(x[(n + 1):length(x)], collapse=sep)
+  }
+
+  ret <- c(g1, g2)
+  return(return(ret[keep]))# Separate step in case order of keep is 2:1 to reverse things
 }
 
 #' convertAlphaNumericToIndex
@@ -4010,6 +4052,8 @@ getNSplit <- function(x, sep, fixed=T, n=1)
 	}
 	return(ret)
 }
+
+
 
 returnMatching <- function(words, token, firstMatchOnly=T, ...)
 {
@@ -5591,6 +5635,11 @@ setorder.alphanum <- function(x, ..., ascending=NULL)
 	setorderv.alphanum(x, cols=cols, ascending=ascending)
 }
 
+update.list <- function(current, updates)
+{
+  return(merge.lists(current, updates))
+}
+
 merge.lists <- function(list1, list2, items=list1, items.to.put=list2)
 {
 	# Default values in list1
@@ -5894,36 +5943,63 @@ calcTransition <- function(x, base=10, frac=0.15)
 	# }
 }
 
-asinh_ggtrans = function(cofactor) {
-
-	transform =   function(x,...)
+asinh_ggtrans = function(cofactor, base=10, n.lin=base, intervals.per.decade=ceiling(base)-1)
+{
+  force(cofactor)
+  force(n.lin)
+  force(base)
+  force(intervals.per.decade)
+	transform = function(x, cofactor2=cofactor)
 	{
-		asinh(x/cofactor)
+		asinh(x/cofactor2)
 	}
 
-	inverse = function(x,...)
+	inverse = function(x, cofactor2=cofactor)
 	{
-		sinh(x)*cofactor
+		sinh(x)*cofactor2
 	}
 
-	breaks = function(x,...)
-	{
-		# use linear marks < abs(cofactor)
-		thresh <- floor(log10(cofactor))-1
-		lin.max <- cofactor/(10^thresh)
-		lin.ticks <- c(seq(0, lin.max, length.out = 8))*10^thresh
+	breaks = asinh_breaks(cofactor=cofactor, n.lin=1, intervals.per.decade=1, base=base)
+	minor_breaks = asinh_minor_breaks(cofactor=cofactor, base=base, intervals.per.decade=intervals.per.decade)
 
-		log.maj <- 10^seq(thresh+2,6)
-		log.min <- rep(10^seq(thresh+2, 10, 1), each = 9)
+	force(breaks)
+	force(minor_breaks)
+	force(inverse)
+	force(transform)
+	scales::trans_new('asinh', transform=transform, inverse=inverse, breaks=breaks, minor_breaks = minor_breaks)
+}
 
-		log.ticks.minor <- rep(1:9,length(log.min)/9)*log.min
-		breaks <- c(0, log.maj, -log.maj, cofactor, -cofactor)
-		labels <- c(breaks, rep("", length(linear.ticks)*2), rep("", length(log.ticks.minor)*2))
-		breaks <- c(breaks, lin.ticks, -lin.ticks, log.ticks.minor, -log.ticks.minor)
-		names(breaks) <- labels
-		return(breaks)
-	}
-	scales::trans_new('asinh', transform, inverse, breaks)
+asinh_breaks = function(cofactor, n.lin=1, intervals.per.decade=1, base=10)
+{
+  force(n.lin)
+  force(cofactor)
+  force(intervals.per.decade)
+  force(base)
+  ret <- function(x, cofactor2=cofactor, n.lin2=n.lin, intervals.per.decade2=intervals.per.decade, base2=base)
+  {
+    lin.ticks <- seq(-cofactor2, cofactor2, length.out=1 + n.lin2*2)
+    log.range <- c(floor(log(cofactor2, base=base2)), ceiling(log(max(max(x, na.rm=T), -min(x, na.rm=T))+1, base=base2)))
+    log.ticks <- seq(log.range[1], log.range[2], by=1)
+    log.ticks <- base2^log.ticks
+    log.ticks <- sort(unique(unlist(lapply(log.ticks[-1], function(x){rev(seq(x, x/base2, by=-x/(intervals.per.decade2)))}))))
+    return(unique(c(-rev(log.ticks), lin.ticks, log.ticks)))
+  }
+  return(ret)
+}
+
+asinh_minor_breaks = function(cofactor, base, intervals.per.decade=ceiling(base)-1)
+{
+  force(intervals.per.decade)
+  force(cofactor)
+  force(base)
+  ret <- function(b, limits, n, cofactor2=force(cofactor), intervals.per.decade2=force(intervals.per.decade), base2=force(base))
+  {
+    temp <- sinh(b[b >= 0])*cofactor2
+    ticks <- sort(unique(unlist(lapply(temp[-1], function(x){rev(seq(from=x, to=x/base2, by=-x/(intervals.per.decade2+1)))}))))
+    toRet <- unique(c(-rev(ticks[ticks > 0]), 0, ticks[ticks > 0]))
+    return(asinh(toRet/cofactor2))
+  }
+  return(ret)
 }
 
 get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T, trans.logit=c(F,F))
