@@ -5898,6 +5898,13 @@ seq.each <- function(froms, tos)
 	lapply(paste(froms,tos, sep=':'), function(text){eval(parse(text=text))})
 }
 
+asinhseq <- function(from, to, length.out=10, cofactor=1)
+{
+  ret <- seq(asinh(from/cofactor), asinh(to/cofactor), length.out=length.out)
+  ret <- sinh(ret)*cofactor
+  return(ret)
+}
+
 lseq <- function(from, to, length.out=NULL, intervalsPerDecade=2)
 {
 	if(is.null(length.out))
@@ -5982,7 +5989,12 @@ asinh_breaks = function(cofactor, n.lin=1, intervals.per.decade=1, base=10)
     log.ticks <- seq(log.range[1], log.range[2], by=1)
     log.ticks <- base2^log.ticks
     log.ticks <- sort(unique(unlist(lapply(log.ticks[-1], function(x){rev(seq(x, x/base2, by=-x/(intervals.per.decade2)))}))))
-    return(unique(c(-rev(log.ticks), lin.ticks, log.ticks)))
+    ret <- c(lin.ticks, log.ticks)
+    if(!is.null(log.ticks))
+    {
+    	ret <- c(-rev(log.ticks), ret)
+    }
+    return(unique(ret))
   }
   return(ret)
 }
@@ -6327,7 +6339,14 @@ finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col=
 
 getPrettyNum <- function(x, sigFigs=3, dropTrailingZeros=F)
 {
-	ret <- formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = dropTrailingZeros)
+  if(is.null(sigFigs) || is.na(sigFigs))
+  {
+    ret <- as.character(x)
+  }
+  else
+  {
+    ret <- formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = dropTrailingZeros)
+  }
 	if(any(endsWith(ret, '.')))
 	{
 	     for(i in 1:length(ret))
@@ -8144,17 +8163,20 @@ getPaddedDeltas <- function(x, pad=NA)
 #' @param undetected.value description
 #'
 #' @import data.table
-findFirstUpCrossing <- function(x, y, thresh, undetected.value)
+findFirstUpCrossing <- function(x, y, thresh, undetected.value, error.val=NA)
 {
 	ret <- undetected.value
 	index <- which(y >= thresh)[1]
-	if(!is.na(index) && index > 1)
+	if(!is.na(index) && index %in% c(1, which(!is.na(y))[1]))
+	{
+		return(x[index])
+	}
+	else
 	{
 		# Linearly interpolate the ascending threshold crossing point.
 		crossing <- ((thresh-y[index-1])/(y[index]-y[index-1])) * (x[index]-x[index-1]) + x[index-1]
-		ret <- crossing
+		return(crossing)
 	}
-	return(ret)
 }
 
 #' findFirstUpCrossing
@@ -8291,7 +8313,7 @@ clear.warnings <- function()
 
 sig.digits <- function(x, nSig=2, trim.spaces=T, trim.zeros=F)
 {
-     ret <- getPrettyNum(x, sigFigs = nSig, dropTrailingZeros = trim.zeros)
+  ret <- getPrettyNum(x, sigFigs = nSig, dropTrailingZeros = trim.zeros)
 	# ret <- signif(x,digits=nSig)
 	# ret <- format(ret, scientific=F)
 	#
@@ -9966,7 +9988,66 @@ cutForMids <- function(x, n, include.lowest=F, ...)
 	return(list(x=breaks0, breaks=breaks, mids=mids))
 }
 
-cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.lab=2, add.tails=T, ...)
+cut2 <- function(x, breaks, labels = NULL, include.lowest = FALSE,
+                                right = TRUE, outer_inclusive = TRUE, dig.lab = 3, ...) {
+  # Step 1: Create full set of bin labels from cut(breaks, breaks, ...)
+  full_bin_factor <- cut(breaks, breaks = breaks, include.lowest = include.lowest,
+                         right = right, labels = FALSE, dig.lab = dig.lab, ...)
+
+  # This gives numeric bin IDs; to get default labels:
+  full_labels <- levels(cut(breaks[-length(breaks)] + 1e-8, breaks = breaks, include.lowest = include.lowest,
+                            right = right, dig.lab = dig.lab, ...))
+
+  # Step 2: Bin the actual data
+  bin <- cut(x, breaks = breaks, labels = full_labels, include.lowest = include.lowest,
+             right = right, dig.lab = dig.lab, ...)
+
+  # Step 3: Ensure all levels are assigned
+  bin <- factor(bin, levels = full_labels)
+
+  # Step 4: If not modifying outer brackets, we're done
+  if (!outer_inclusive || is.null(levels(bin))) return(bin)
+
+  # Step 5: Parse and adjust only outer brackets
+  parse_interval <- function(lbl) {
+    m <- regexec("^([\\[\\(])([^,]+),([^\\]\\)]+)([\\]\\)])$", lbl, perl = TRUE)
+    parts <- regmatches(lbl, m)[[1]]
+    if (length(parts) != 5) return(NULL)
+    list(
+      left_bracket = parts[2],
+      left = parts[3],
+      right = parts[4],
+      right_bracket = parts[5]
+    )
+  }
+
+  # Get current labels and parse them
+  intervals <- lapply(full_labels, parse_interval)
+  if (any(sapply(intervals, is.null))) stop("Could not parse bin labels")
+
+  # Modify brackets of first and last intervals
+  intervals[[1]]$left_bracket <- "["
+  intervals[[length(intervals)]]$right_bracket <- "]"
+
+  # Reconstruct new labels
+  new_labels <- vapply(intervals, function(p) {
+    paste0(p$left_bracket, p$left, ",", p$right, p$right_bracket)
+  }, character(1))
+
+  # Assign new levels
+  levels(bin) <- new_labels
+
+  # Step 6: Manually include outermost values in correct bins
+  min_x <- min(breaks, na.rm = TRUE)
+  max_x <- max(breaks, na.rm = TRUE)
+  if (any(x == min_x, na.rm = TRUE)) bin[x == min_x] <- new_labels[1]
+  if (any(x == max_x, na.rm = TRUE)) bin[x == max_x] <- new_labels[length(new_labels)]
+
+  return(bin)
+}
+
+
+cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.lab=2, add.tails=T, asinh.cofactor=1, outer_inclusive=TRUE, ...)
 {
 	library(data.table)
 	# See ?cut for descriptions of parameters
@@ -10006,21 +10087,25 @@ cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.l
 	{
 		breaks <- c(-Inf, breaks, Inf)
 	}
-	myLevels <- levels(cut(breaks, breaks=breaks, labels=labels, right=right, include.lowest=include.lowest, dig.lab, ...))
-	temp <- data.table(x=x, bin=cut(x, breaks=breaks, labels=labels, right=right, include.lowest=include.lowest, dig.lab=dig.lab, ...))
+	# myLevels <- levels(cut2(breaks, breaks=breaks, labels=labels, right=right, include.lowest=include.lowest, dig.lab, ...))
+	temp <- data.table(x=x, bin=cut2(x, breaks=breaks, labels=labels, right=right, include.lowest=include.lowest, dig.lab=dig.lab, outer_inclusive=outer_inclusive, ...))
+	myLevels <- levels(temp$bin)
 	ret <- temp[, list(count=.N), by='bin']
 	setkey(ret, bin)
-	if(any(is.na(ret$bin)))
+	hasNA <- any(is.na(ret$bin))
+	ret <- rbindlist(list(ret[is.na(bin)], ret[!is.na(bin)][myLevels]))
+	if(hasNA)
 	{
-		ret <- rbindlist(list(ret[is.na(bin)], ret[!is.na(bin)][myLevels]))
-		ret[, bin:=factor(bin, levels=c(NA, myLevels), exclude=F)]
+	  ret[, bin:=factor(bin, levels=c(NA, myLevels), exclude=F)]
 	}
 	ret[is.na(count), count:=0]
 	setorder(ret, bin)
 	ret[, ':='(index=if.else(any(is.na(as.character(bin))), as.numeric(bin)-1, as.numeric(bin)))]
-	ret[!is.na(as.character(bin)), ':='(freq=count/sum(count, na.rm=T), min=breaks[as.numeric(index)], max=breaks[as.numeric(index)+1])]
+	ret[!is.na(as.character(bin)), ':='(frac=count/sum(count, na.rm=T), min=breaks[as.numeric(index)], max=breaks[as.numeric(index)+1])]
+	ret[!is.na(as.character(bin)), density:=frac/(max-min)]
 	ret[, mid_log10:=10^(log10(min)+0.5*(log10(max)-log10(min)))]
 	ret[, mid_lin:=min+0.5*(max-min)]
+	ret[, min_asinh:=sinh(asinh(min/asinh.cofactor)+0.5*(asinh(max/asinh.cofactor)-asinh(min/asinh.cofactor)))*asinh.cofactor]
 	return(ret[])
 }
 
