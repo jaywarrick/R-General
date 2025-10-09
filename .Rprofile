@@ -5950,7 +5950,7 @@ calcTransition <- function(x, base=10, frac=0.15)
 	# }
 }
 
-asinh_ggtrans = function(cofactor, base=10, n.lin=base, intervals.per.decade=ceiling(base)-1)
+asinh_ggtrans = function(cofactor, base=10, n.lin=1, intervals.per.decade=ceiling(base)-1)
 {
   force(cofactor)
   force(n.lin)
@@ -5966,7 +5966,7 @@ asinh_ggtrans = function(cofactor, base=10, n.lin=base, intervals.per.decade=cei
 		sinh(x)*cofactor2
 	}
 
-	breaks = asinh_breaks(cofactor=cofactor, n.lin=1, intervals.per.decade=1, base=base)
+	breaks = asinh_breaks(cofactor=cofactor, n.lin=n.lin, intervals.per.decade=1, base=base)
 	minor_breaks = asinh_minor_breaks(cofactor=cofactor, base=base, intervals.per.decade=intervals.per.decade)
 
 	force(breaks)
@@ -6007,7 +6007,7 @@ asinh_minor_breaks = function(cofactor, base, intervals.per.decade=ceiling(base)
   ret <- function(b, limits, n, cofactor2=force(cofactor), intervals.per.decade2=force(intervals.per.decade), base2=force(base))
   {
     temp <- sinh(b[b >= 0])*cofactor2
-    ticks <- sort(unique(unlist(lapply(temp[-1], function(x){rev(seq(from=x, to=x/base2, by=-x/(intervals.per.decade2+1)))}))))
+    ticks <- sort(unique(unlist(lapply(temp[temp >= base], function(x){rev(seq(from=x, to=x/base2, by=-x/(intervals.per.decade2+1)))}))))
     toRet <- unique(c(-rev(ticks[ticks > 0]), 0, ticks[ticks > 0]))
     return(asinh(toRet/cofactor2))
   }
