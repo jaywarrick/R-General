@@ -6,6 +6,11 @@ library(ggprism)
 library(scales)
 library(colorspace)
 library(ggh4x)  # if you're using facet_nested
+library(ggpubr)
+library(grid)
+library(gtable)
+
+##### Basics #####
 
 .define.fonts <- function()
 {
@@ -1772,95 +1777,97 @@ loopingPalette <- function(k, cols=palette()[-1])
 }
 
 scale_fill_prism_adjusted <- function(palette = "colorblind_safe",
-                                      alpha = 1,
-                                      lighten = 0.2,
-                                      darken = NULL,
-                                      method = c("relative", "absolute"),
-                                      space  = c("HCL", "HLS", "combined"),
-                                      fixup  = TRUE,
-                                      ...) {
-  method <- match.arg(method)
-  space  <- match.arg(space)
+									  alpha = 1,
+									  lighten = 0.2,
+									  darken = NULL,
+									  method = c("relative", "absolute"),
+									  space  = c("HCL", "HLS", "combined"),
+									  fixup  = TRUE,
+									  ...) {
+	method <- match.arg(method)
+	space  <- match.arg(space)
 
-  # Use the official ggprism palettes
-  pal_fun <- function(n) {
-    prism_fill_pal(palette = palette)(n)
-  }
+	# Use the official ggprism palettes
+	pal_fun <- function(n) {
+		prism_fill_pal(palette = palette)(n)
+	}
 
-  # Build an adjusted palette function
-  adjusted_pal <- function(n) {
-    cols <- pal_fun(n)
-    if (!is.null(lighten)) {
-      cols <- colorspace::lighten(cols,
-                                  amount = lighten,
-                                  method = method,
-                                  space = space,
-                                  fixup = fixup)
-    } else if (!is.null(darken)) {
-      cols <- colorspace::darken(cols,
-                                 amount = darken,
-                                 method = method,
-                                 space = space,
-                                 fixup = fixup)
-    }
-    if (!is.null(alpha) && alpha < 1) {
-      cols <- scales::alpha(cols, alpha)
-    }
-    cols
-  }
+	# Build an adjusted palette function
+	adjusted_pal <- function(n) {
+		cols <- pal_fun(n)
+		if (!is.null(lighten)) {
+			cols <- colorspace::lighten(cols,
+										amount = lighten,
+										method = method,
+										space = space,
+										fixup = fixup)
+		} else if (!is.null(darken)) {
+			cols <- colorspace::darken(cols,
+									   amount = darken,
+									   method = method,
+									   space = space,
+									   fixup = fixup)
+		}
+		if (!is.null(alpha) && alpha < 1) {
+			cols <- scales::alpha(cols, alpha)
+		}
+		cols
+	}
 
-  ggplot2::discrete_scale(
-    aesthetics = "fill",
-    scale_name = paste0("prism_adjusted_", palette),
-    palette   = adjusted_pal,
-    ...
-  )
+	# SIMPLER AND CORRECT: Just remove scale_name entirely
+	# It was an internal ggplot2 argument that shouldn't have been exposed
+	ggplot2::discrete_scale(
+		aesthetics = "fill",
+		palette = adjusted_pal,
+		...
+	)
 }
 
 scale_color_prism_adjusted <- function(palette = "colorblind_safe",
-                                      alpha = 1,
-                                      lighten = 0.2,
-                                      darken = NULL,
-                                      method = c("relative", "absolute"),
-                                      space  = c("HCL", "HLS", "combined"),
-                                      fixup  = TRUE,
-                                      ...) {
-  method <- match.arg(method)
-  space  <- match.arg(space)
+									   alpha = 1,
+									   lighten = 0.2,
+									   darken = NULL,
+									   method = c("relative", "absolute"),
+									   space  = c("HCL", "HLS", "combined"),
+									   fixup  = TRUE,
+									   ...) {
+	method <- match.arg(method)
+	space  <- match.arg(space)
 
-  # Use the official ggprism palettes
-  pal_fun <- function(n) {
-    prism_fill_pal(palette = palette)(n)
-  }
+	# Use the official ggprism palettes
+	pal_fun <- function(n) {
+		prism_fill_pal(palette = palette)(n)
+	}
 
-  # Build an adjusted palette function
-  adjusted_pal <- function(n) {
-    cols <- pal_fun(n)
-    if (!is.null(lighten)) {
-      cols <- colorspace::lighten(cols,
-                                  amount = lighten,
-                                  method = method,
-                                  space = space,
-                                  fixup = fixup)
-    } else if (!is.null(darken)) {
-      cols <- colorspace::darken(cols,
-                                 amount = darken,
-                                 method = method,
-                                 space = space,
-                                 fixup = fixup)
-    }
-    if (!is.null(alpha) && alpha < 1) {
-      cols <- scales::alpha(cols, alpha)
-    }
-    cols
-  }
+	# Build an adjusted palette function
+	adjusted_pal <- function(n) {
+		cols <- pal_fun(n)
+		if (!is.null(lighten)) {
+			cols <- colorspace::lighten(cols,
+										amount = lighten,
+										method = method,
+										space = space,
+										fixup = fixup)
+		} else if (!is.null(darken)) {
+			cols <- colorspace::darken(cols,
+									   amount = darken,
+									   method = method,
+									   space = space,
+									   fixup = fixup)
+		}
+		if (!is.null(alpha) && alpha < 1) {
+			cols <- scales::alpha(cols, alpha)
+		}
+		cols
+	}
 
-  ggplot2::discrete_scale(
-    aesthetics = "color",
-    scale_name = paste0("prism_adjusted_", palette),
-    palette   = adjusted_pal,
-    ...
-  )
+	# SIMPLER AND CORRECT: Just remove scale_name entirely
+	# It was an internal ggplot2 argument that shouldn't have been exposed
+	ggplot2::discrete_scale(
+		aesthetics = "colour",
+		palette = adjusted_pal,
+		...
+	)
 }
 
 adjustColor <- function(my.colors, alpha.factor)
@@ -6099,6 +6106,7 @@ theme_jay <- function(
     alpha   = 1,
     lighten = 0.2,
     legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),
+    panel.spacing = 3,
     ...
 ) {
   library(ggprism)
@@ -6107,7 +6115,9 @@ theme_jay <- function(
   argslist <- list(...)
   theme.args <- list(plot.background = element_rect(fill = "transparent", colour = NA),
   				   legend.title = element_text(),   # allow title styling
-  				   legend.text = element_text()    # allow text styling
+  				   legend.text = element_text(),    # allow text styling
+  				   panel.spacing.x=unit(panel.spacing, 'pt'),
+  				   panel.spacing.y=unit(panel.spacing, 'pt')
   				   )
   theme.args <- merge.lists(theme.args, argslist)
   # Return a list of ggplot layers that can be added with +
@@ -6128,6 +6138,311 @@ theme_jay <- function(
     do.call(theme, theme.args)    # pass all accumulated args to theme
   )
 }
+
+###### Facet Labels #####
+
+# ================================================================
+# IMPLEMENTATION CODE 2: facet_jay (wrapper function)
+# ================================================================
+
+facet_jay <- function(facets, ...,
+					  rows = NULL,
+					  cols = NULL,
+					  strip = ggh4x::strip_nested(
+					  	text_x = element_text(vjust = 0),
+					  	background_x = element_rect(color = 'black', linewidth = 1)
+					  ),
+					  labels = NULL,
+					  label_width_units = 'mm',
+					  label_padding = 3) {
+
+	# Determine which syntax was used
+	if (!is.null(facets)) {
+		# facets was provided (formula or character)
+		if (is.character(facets)) {
+			if (length(facets) == 1) {
+				facets <- as.formula(paste(". ~", facets))
+			} else if (length(facets) == 2) {
+				facets <- as.formula(paste(facets[1], "~", facets[2]))
+			}
+		}
+	} else if (!is.null(rows) || !is.null(cols)) {
+		# rows and/or cols were provided
+		rows_str <- if (!is.null(rows)) paste(rows, collapse = " + ") else "."
+		cols_str <- if (!is.null(cols)) paste(cols, collapse = " + ") else "."
+		facets <- as.formula(paste(rows_str, "~", cols_str))
+	} else {
+		stop("Must specify either facets, or rows/cols")
+	}
+
+	# Use facet_nested_custom with custom_labels and label_width parameters
+	facet_nested_custom(facets, ...,
+						strip = strip,
+						custom_labels = labels,
+						label_width_units = label_width_units,
+						label_padding = label_padding)
+}
+
+# Helper function to calculate text width
+calculate_text_width <- function(text, fontsize = 11, fontface = "bold", width_units='mm',
+								 padding = 3, fontfamily = "") {
+	# Create a text grob to measure
+	text_grob <- textGrob(
+		label = text,
+		gp = gpar(
+			fontsize = fontsize,
+			fontface = fontface,
+			fontfamily = fontfamily
+		)
+	)
+
+	# Get the width of the text
+	text_width <- unit(convertUnit(grobWidth(text_grob), width_units, valueOnly = T), width_units)
+
+	# Add padding on both sides
+	text_width + 2 * unit(padding, width_units)
+}
+
+# 1. Create the new Facet ggproto class
+FacetNestedCustom <- ggproto(
+	"FacetNestedCustom",
+	ggh4x::FacetNested,
+
+	draw_panels = function(self, panels, layout, x_scales, y_scales,
+						   ranges, coord, data, theme, params) {
+
+		# --- STEP 1: Let the parent build the standard panel table ---
+		panel_table <- ggproto_parent(ggh4x::FacetNested, self)$draw_panels(
+			panels, layout, x_scales, y_scales,
+			ranges, coord, data, theme, params
+		)
+
+		# --- STEP 2: Find all strip grobs ---
+		table_layout <- panel_table$layout
+		strip_indices <- which(grepl("^strip-t-", table_layout$name))
+
+		if (length(strip_indices) == 0) {
+			return(panel_table)
+		}
+
+		# --- STEP 3: Determine nesting levels ---
+		# Get all column facet variable names (outermost first)
+		col_vars <- if (!is.null(params$cols) && length(params$cols) > 0) {
+			names(params$cols)
+		} else {
+			character(0)
+		}
+
+		n_levels <- length(col_vars)
+
+		if (n_levels == 0) {
+			return(panel_table)
+		}
+
+		# --- STEP 4: Get custom labels and label width from params ---
+		custom_labels <- params$custom_labels
+		label_padding <- getDefault(params$label_padding, 3)
+		label_width_units <- getDefault(params$label_width_units, 'mm')
+
+		# Validate custom labels if provided
+		if (!is.null(custom_labels)) {
+			if (length(custom_labels) != n_levels) {
+				stop('The number of custom labels (', length(custom_labels),
+					 ') does not equal the number of column facet levels (', n_levels, ').')
+			}
+		}
+
+		# --- STEP 5: Calculate or use provided label width ---
+		# Determine which labels to use for width calculation
+		labels_for_width <- if (!is.null(custom_labels)) {
+			custom_labels
+		} else {
+			col_vars
+		}
+
+		# Calculate width based on the longest label
+		if (length(labels_for_width) > 0) {
+			# Get theme settings for strip text to match font properties
+			strip_text_element <- theme$strip.text.x %||% theme$strip.text
+
+			# Extract font properties
+			fontsize <- if (!is.null(strip_text_element$size)) {
+				strip_text_element$size
+			} else {
+				11  # Default if not found in theme
+			}
+
+			fontface <- if (!is.null(strip_text_element$face)) {
+				strip_text_element$face
+			} else {
+				"bold"  # Default
+			}
+
+			fontfamily <- if (!is.null(strip_text_element$family)) {
+				strip_text_element$family
+			} else {
+				""  # Default
+			}
+
+			# Calculate width for each label and take the maximum
+			label_widths <- sapply(labels_for_width, function(label) {
+				calculate_text_width(
+					label,
+					fontsize = fontsize,
+					fontface = fontface,
+					width_units = label_width_units,
+					padding = label_padding,
+					fontfamily = fontfamily
+				)
+			})
+
+			# Use the maximum width plus some extra padding
+			max_width <- max(label_widths)
+			label_width <- unit(max_width, label_width_units)
+		}
+
+		# --- STEP 6: Add a new column to the main panel table ---
+		panel_table <- gtable::gtable_add_cols(panel_table, widths = label_width, pos = -1)
+		new_col_index <- ncol(panel_table)
+
+		# --- STEP 7: Get strip row information ---
+		strip_rows <- unique(table_layout$t[strip_indices])
+
+		if (length(strip_rows) == 0) {
+			return(panel_table)
+		}
+
+		# --- STEP 8: Create a gtable for the labels column ---
+		strip_pos <- table_layout[strip_indices[1], ]
+		strip_height <- strip_pos$b - strip_pos$t + 1
+
+		# Create a gtable for our labels with the same height as the strip
+		label_gtable <- gtable(widths = label_width,
+							   heights = panel_table$heights[strip_pos$t:strip_pos$b])
+
+		# --- STEP 9: Add labels at different vertical positions (OUTER FIRST) ---
+		for (i in seq_len(n_levels)) {
+			# Use custom label if provided, otherwise use variable name
+			var_name <- if (!is.null(custom_labels)) {
+				custom_labels[i]
+			} else {
+				col_vars[i]
+			}
+
+			# Calculate vertical position within the strip
+			if (n_levels == 1) {
+				y_pos <- 0.5
+			} else {
+				# Distribute labels from top (outer) to bottom (inner)
+				y_pos <- 1 - (i - 0.5) / n_levels
+			}
+
+			# Create text grob (use theme font properties if available)
+			text_grob <- textGrob(
+				label = var_name,
+				x = unit(0.1, "npc"),
+				y = unit(y_pos, "npc"),
+				just = c("left", "center"),
+				gp = gpar(
+					fontsize = fontsize,
+					col = "black",
+					fontface = fontface,
+					fontfamily = fontfamily
+				)
+			)
+
+			# Add to label gtable
+			label_gtable <- gtable_add_grob(
+				label_gtable,
+				grobs = text_grob,
+				t = 1, l = 1, b = strip_height, r = 1,
+				name = paste0("label-", i)
+			)
+		}
+
+		# --- STEP 10: Add the label gtable to the main panel table ---
+		panel_table <- gtable_add_grob(
+			panel_table,
+			grobs = label_gtable,
+			t = strip_pos$t, l = new_col_index,
+			b = strip_pos$b, r = new_col_index,
+			name = "custom-labels-column"
+		)
+
+		return(panel_table)
+	}
+)
+
+# 2. Create the core function
+facet_nested_custom <- function(
+		rows = NULL,
+		cols = NULL,
+		scales = "fixed",
+		space  = "fixed",
+		axes   = "margins",
+		remove_labels = "none",
+		independent = "none",
+		shrink = TRUE,
+		labeller = "label_value",
+		as.table = TRUE,
+		switch = NULL,
+		drop = TRUE,
+		margins = FALSE,
+		nest_line = element_line(inherit.blank = TRUE),
+		solo_line = FALSE,
+		resect = unit(0, "mm"),
+		render_empty = TRUE,
+		strip = "nested",
+		bleed = NULL,
+		custom_labels = NULL,   # Custom labels for facet variables
+		label_width = NULL,      # Optional: fixed width for label column
+		label_padding = 3,
+		label_width_units = 'mm'
+) {
+	# Use ggh4x's internal resolve_strip function
+	strip <- ggh4x:::resolve_strip(strip)
+
+	if (!is.null(bleed)) {
+		lifecycle::deprecate_warn(
+			when = "0.2.0",
+			what = "facet_nested_custom(bleed)",
+			details = paste0("The `bleed` argument should be set in the ",
+							 "`strip_nested()` function instead.")
+		)
+		strip$params$bleed <- isTRUE(bleed)
+	}
+
+	# Handle nest_line argument
+	if (isTRUE(nest_line)) {
+		nest_line <- element_line()
+	}
+	if (isFALSE(nest_line)) {
+		nest_line <- element_blank()
+	}
+
+	# Create params list including custom_labels and label_width
+	params <- list(
+		nest_line = nest_line,
+		solo_line = isTRUE(solo_line),
+		resect = resect,
+		custom_labels = custom_labels,
+		label_width = label_width,  # Pass label_width to params
+		label_padding = label_padding,
+		label_width_units = label_width_units
+	)
+
+	# Use ggh4x's internal new_grid_facets function
+	ggh4x:::new_grid_facets(
+		rows, cols,
+		scales, space, axes, remove_labels, independent,
+		shrink, labeller, as.table, switch,
+		drop, margins, render_empty, strip,
+		params = params,
+		super = FacetNestedCustom
+	)
+}
+
+###### geom_prism #####
 
 geom_prism <- function(mapping = NULL, data = NULL,
 						na.rm = FALSE,
