@@ -1,6 +1,11 @@
 'Hi, Jay. Defining your default suite of favorite functions...'
 'Change these in the file ~/.Rprofile'
+library(ggplot2)
 library(data.table)
+library(ggprism)
+library(scales)
+library(colorspace)
+library(ggh4x)  # if you're using facet_nested
 
 .define.fonts <- function()
 {
@@ -566,7 +571,6 @@ fillDown <- function(x, by, cols)
 #' @export
 fillMissingRows <- function(x, cols, fill=NULL, tempIdColName='tempId')
 {
-	library(data.table)
 	if(!is.data.table(x))
 	{
 		stop('This function requires a data.table')
@@ -1765,6 +1769,98 @@ loopingPalette <- function(k, cols=palette()[-1])
 {
 	n <- length(cols)
 	return(cols[((k-1) %% (n)) + 1])
+}
+
+scale_fill_prism_adjusted <- function(palette = "colorblind_safe",
+                                      alpha = 1,
+                                      lighten = 0.2,
+                                      darken = NULL,
+                                      method = c("relative", "absolute"),
+                                      space  = c("HCL", "HLS", "combined"),
+                                      fixup  = TRUE,
+                                      ...) {
+  method <- match.arg(method)
+  space  <- match.arg(space)
+
+  # Use the official ggprism palettes
+  pal_fun <- function(n) {
+    prism_fill_pal(palette = palette)(n)
+  }
+
+  # Build an adjusted palette function
+  adjusted_pal <- function(n) {
+    cols <- pal_fun(n)
+    if (!is.null(lighten)) {
+      cols <- colorspace::lighten(cols,
+                                  amount = lighten,
+                                  method = method,
+                                  space = space,
+                                  fixup = fixup)
+    } else if (!is.null(darken)) {
+      cols <- colorspace::darken(cols,
+                                 amount = darken,
+                                 method = method,
+                                 space = space,
+                                 fixup = fixup)
+    }
+    if (!is.null(alpha) && alpha < 1) {
+      cols <- scales::alpha(cols, alpha)
+    }
+    cols
+  }
+
+  ggplot2::discrete_scale(
+    aesthetics = "fill",
+    scale_name = paste0("prism_adjusted_", palette),
+    palette   = adjusted_pal,
+    ...
+  )
+}
+
+scale_color_prism_adjusted <- function(palette = "colorblind_safe",
+                                      alpha = 1,
+                                      lighten = 0.2,
+                                      darken = NULL,
+                                      method = c("relative", "absolute"),
+                                      space  = c("HCL", "HLS", "combined"),
+                                      fixup  = TRUE,
+                                      ...) {
+  method <- match.arg(method)
+  space  <- match.arg(space)
+
+  # Use the official ggprism palettes
+  pal_fun <- function(n) {
+    prism_fill_pal(palette = palette)(n)
+  }
+
+  # Build an adjusted palette function
+  adjusted_pal <- function(n) {
+    cols <- pal_fun(n)
+    if (!is.null(lighten)) {
+      cols <- colorspace::lighten(cols,
+                                  amount = lighten,
+                                  method = method,
+                                  space = space,
+                                  fixup = fixup)
+    } else if (!is.null(darken)) {
+      cols <- colorspace::darken(cols,
+                                 amount = darken,
+                                 method = method,
+                                 space = space,
+                                 fixup = fixup)
+    }
+    if (!is.null(alpha) && alpha < 1) {
+      cols <- scales::alpha(cols, alpha)
+    }
+    cols
+  }
+
+  ggplot2::discrete_scale(
+    aesthetics = "color",
+    scale_name = paste0("prism_adjusted_", palette),
+    palette   = adjusted_pal,
+    ...
+  )
 }
 
 adjustColor <- function(my.colors, alpha.factor)
@@ -3308,9 +3404,10 @@ power.sensitivity <- function(h0, h1, alpha, beta, prev, plot=F)
 	return(list(n=npos/prev, npos=npos, alpha=alpha_actual, beta=beta_actual, prev=prev, h0=h0, h1=h1, beta_vec=beta_vec, alpha_vec=alpha_vec))
 }
 
-data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=NULL, test=c('wilcox','t.test'), p.adjust.method='BH', p.adjust.by=NULL, calc.summary.by=NULL, summary.func=median, debug.mode=F, nSig=1, ...)
+data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=NULL, test=c('wilcox','t.test','var.test.norm','var.test.non.norm'), p.adjust.method='BH', p.adjust.by=NULL, calc.summary.by=NULL, summary.func=median, debug.mode=F, nSig=1, ggplot=FALSE, ...)
 {
-	my.test.1 <- function(x, y, test=c('wilcox','t.test'), ...)
+	library(car)
+	my.test.1 <- function(x, y, test=c('wilcox','t.test','var.test.norm','var.test.non.norm'), ...)
 	{
 		ret1 <- NA
 		if(test[1]=='wilcox')
@@ -3324,7 +3421,7 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 			}
 			tryCatch(ret1 <- wilcox.test(x, y, ...)$p.value, error=function(e){ret1 <- NA})
 		}
-		else
+		else if(test[1] == 't.test')
 		{
 			if(debug.mode)
 			{
@@ -3334,6 +3431,17 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 				print(y)
 			}
 			tryCatch(ret1 <- t.test(x, y, ...)$p.value, error=function(e){ret1 <- NA})
+		}
+		else
+		{
+			if(debug.mode)
+			{
+				print('X:')
+				print(x)
+				print('Y:')
+				print(y)
+			}
+			tryCatch(ret1 <- var.test(x, y, ...)$p.value, error=function(e){ret1 <- NA})
 		}
 		return(ret1)
 	}
@@ -3513,11 +3621,22 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 		{
 			daGlobal <- y[, list(p.value.global=getAnovaP(dt=copy(.SD), val.col=val.col, compare.by=compare.by, pair.by=pair.by)), by=for.each][]
 		}
-		else
+		else if(test[1]=='wilcox')
 		{
 			daGlobal <- y[, list(p.value.global=kruskal.test(get(val.col), g=da.compare.by.f)$p.value), by=for.each][]
 		}
-
+		else if(test[1]=='var.test.norm')
+		{
+			daGlobal <- y[, list(p.value.global=bartlett.test(get(val.col), g=da.compare.by.f)$p.value), by=for.each][]
+		}
+		else if(test[1]=='var.test.non.norm')
+		{
+			daGlobal <- y[, list(p.value.global=leveneTest(get(val.col), group=da.compare.by.f)$p.value), by=for.each][]
+		}
+		else
+		{
+			stop('Unrecognized test name. Provide t.test, wilcox, var.test.norm, or var.test.non.norm.')
+		}
 	}
 	else
 	{
@@ -3525,13 +3644,37 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 		{
 			daGlobal <- y[, list(p.value.global=getAnovaP(dt=copy(.SD), val.col=val.col, compare.by=compare.by, pair.by=pair.by)), by=for.each][]
 		}
-		else
+		else if(test[1]=='wilcox')
 		{
 			paste.cols(y, cols=compare.by, name='da.compare.by')
 			paste.cols(y, cols=pair.by, name='da.pair.by')
 			y[, da.compare.by.f:=factor(da.compare.by)]
 			y[, da.pair.by.f:=factor(da.pair.by)]
 			daGlobal <- y[, list(p.value.global=friedman.test(y=get(val.col), groups=da.compare.by.f, blocks=da.pair.by.f)$p.value), by=for.each][]
+		}
+		else if(test[1]=='var.test.norm')
+		{
+			if(!is.null(pair.by))
+			{
+				warning('Leveraging pairwise data structure analysis is not supported by this test.')
+			}
+			paste.cols(y, cols=compare.by, name='da.compare.by')
+			y[, da.compare.by.f:=factor(da.compare.by)]
+			daGlobal <- y[, list(p.value.global=bartlett.test(x=get(val.col), g=da.compare.by.f)$p.value), by=for.each][]
+		}
+		else if(test[1]=='var.test.non.norm')
+		{
+			if(!is.null(pair.by))
+			{
+				warning('Leveraging pairwise data structure analysis is not supported by this test.')
+			}
+			paste.cols(y, cols=compare.by, name='da.compare.by')
+			y[, da.compare.by.f:=factor(da.compare.by)]
+			daGlobal <- y[, list(p.value.global=leveneTest(y=get(val.col), group=da.compare.by.f, blocks=da.pair.by.f)$p.value), by=for.each][]
+		}
+		else
+		{
+			stop('Unrecognized test name. Provide t.test, wilcox, var.test.norm, or var.test.non.norm.')
 		}
 	}
 
@@ -3546,6 +3689,11 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 	     ret[['p.value.global']] <- daGlobal[1][[1]]
 	}
 
+	if(ggplot)
+	{
+		# Rename the group columns for recognition by add_pvalue functions for ggplot.
+		setnames(ret, c(names(ret)[1:2],'p.value.global'), c('group1','group2','p'))
+	}
 	return(ret)
 }
 
@@ -3910,7 +4058,6 @@ getEffectSize <- function(x1, x2, rank.biserial=F)
 # This is for calculating the p-value by combining multiple experiments
 wilcox.test.combined <- function(data, replCols, condCol, valCol, exact=NULL, two.tailed=TRUE)
 {
-	library(data.table)
 	x1 <- data.table(data)
 
 
@@ -4249,7 +4396,6 @@ unfactorizeNumerics <- function(x)
 readJEXData <- function(dbPath, ds=NULL, e.x=NULL, e.y=NULL, type=NULL, name=NULL, labels=list())
 {
 	library(foreign)
-	library(data.table)
 
 	ret <- list()
 	labelNames <- names(labels)
@@ -4322,7 +4468,6 @@ filterTableWithIdsFromAnotherTable <- function(x, filterTable, idCols)
 #'
 fread.csv <- function(path, stringArgs="-d ',' --no-header-row --blanks", in2csvPath=c("/opt/homebrew/bin","/Library/Frameworks/Python.framework/Versions/Current/bin"), ...)
 {
-	library(data.table)
 	oldPath <- Sys.getenv("PATH")
 	if(!grepl(in2csvPath[1], Sys.getenv("PATH")))
 	{
@@ -4587,7 +4732,6 @@ paste.mget <- function(mgetList, sep='', collapse=NULL)
 #' @export
 paste.cols <- function(x, cols, name, sep='')
 {
-	library(data.table)
 	if(!is.data.table(x))
 	{
 		stop('This function requires a data.table')
@@ -4616,7 +4760,6 @@ paste.cols <- function(x, cols, name, sep='')
 #' @export
 reorganize <- function(data, idCols=NULL, measurementCols='Measurement', valueCols='Value', ...)
 {
-	library(data.table)
 	isDataTable <- FALSE
 	if(is.data.table(data))
 	{
@@ -4765,8 +4908,6 @@ reorganizeTable <- function (data, baseName = NA, convertToNumeric = TRUE, nameC
 
 reorganizeFeatureTable <- function (data, baseName = NA, specialNames = c("Channel"), convertToNumeric = TRUE, nameCol='Measurement', valueCol='Value')
 {
-	library(data.table)
-
 	myfunc <- function(keys, values, allKeys, sd)
 	{
 		names(values) <- keys
@@ -5332,7 +5473,7 @@ siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
 
 	# References: Sidney Siegel and John Wilder Tukey (1960) A
 	#   nonparametric sum
-	# of ranks procedure for relative spread in unpaired
+	# of ranks procedure for relative jitter in unpaired
 	#   samples. Journal of the
 	# American Statistical Association. See also, David J.
 	#   Sheskin (2004)
@@ -5948,6 +6089,410 @@ calcTransition <- function(x, base=10, frac=0.15)
 	# {
 	# 	return(3*mad(negNums, na.rm=T))
 	# }
+}
+
+## ggplot stuff
+
+# Define your custom wrapper
+theme_jay <- function(
+    palette = "colorblind_safe",
+    alpha   = 1,
+    lighten = 0.2,
+    legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),
+    ...
+) {
+  library(ggprism)
+  library(scales)
+  library(colorspace)
+  argslist <- list(...)
+  theme.args <- list(plot.background = element_rect(fill = "transparent", colour = NA),
+  				   legend.title = element_text(),   # allow title styling
+  				   legend.text = element_text()    # allow text styling
+  				   )
+  theme.args <- merge.lists(theme.args, argslist)
+  # Return a list of ggplot layers that can be added with +
+  positions <- list(topleft=c(0,1), topright=c(1,1), bottomright=c(1,0), bottomleft=c(0,0))
+  if(legend[1] %in% c('topleft','bottomright','topright','bottomleft'))
+  {
+  	theme.args[['legend.justification']] <- positions[[legend]]
+  	theme.args[['legend.position']] <- positions[[legend]]
+  }
+  else
+  {
+  	theme.args[['legend.position']] <- legend[1]
+  }
+  list(
+    scale_fill_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
+    scale_color_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
+    theme_prism(),
+    do.call(theme, theme.args)    # pass all accumulated args to theme
+  )
+}
+
+# Simple spread jitter position (no dodge)
+position_spread <- function(width = 0.6, n = NULL, seed = NULL) {
+	# Handle NULL width
+	if (is.null(width)) width <- 0.6
+
+	ggproto(NULL, PositionSpread,
+			width = width,
+			n = n,
+			seed = seed
+	)
+}
+
+PositionSpread <- ggproto("PositionSpread", Position,
+						  required_aes = "x",
+
+						  setup_params = function(self, data) {
+						  	list(
+						  		width = self$width,
+						  		n = self$n,
+						  		seed = self$seed
+						  	)
+						  },
+
+						  compute_panel = function(data, params, scales) {
+						  	# Set seed if provided
+						  	if (!is.null(params$seed)) {
+						  		if (!exists(".Random.seed", envir = .GlobalEnv)) runif(1)
+						  		previous_state <- .GlobalEnv$.Random.seed
+						  		on.exit(.GlobalEnv$.Random.seed <- previous_state)
+						  		set.seed(params$seed)
+						  	}
+
+						  	# Process by group (color groups)
+						  	data <- data %>%
+						  		dplyr::group_by(PANEL, group) %>%
+						  		dplyr::group_modify(function(group_data, keys) {
+						  			n_points <- nrow(group_data)
+
+						  			# Skip if no points
+						  			if (n_points == 0) return(group_data)
+
+						  			# Determine number of positions
+						  			n_pos <- if (!is.null(params$n)) {
+						  				params$n
+						  			} else {
+						  				n_points
+						  			}
+
+						  			# Ensure n_pos > 0
+						  			n_pos <- max(1, n_pos)
+
+						  			# Create evenly spaced positions
+						  			positions <- seq(-params$width/2, params$width/2, length.out = n_pos)
+
+						  			# Randomly assign points to positions
+						  			if (n_points <= n_pos) {
+						  				assigned_positions <- sample(positions, size = n_points, replace = FALSE)
+						  			} else {
+						  				assigned_positions <- c(
+						  					sample(positions, size = n_pos, replace = FALSE),
+						  					sample(positions, size = n_points - n_pos, replace = TRUE)
+						  				)
+						  			}
+
+						  			# Shuffle assignments
+						  			assigned_positions <- sample(assigned_positions)
+
+						  			# Apply to x
+						  			group_data$x <- group_data$x + assigned_positions
+
+						  			return(group_data)
+						  		}) %>%
+						  		dplyr::ungroup()
+
+						  	return(data)
+						  }
+)
+
+# Modified geom_prism with proper dodge handling
+geom_prism <- function(mapping = NULL, data = NULL,
+					   position = "identity",
+					   na.rm = FALSE,
+					   show.legend = NA,
+					   inherit.aes = TRUE,
+					   mean_linewidth = 1,
+					   mean_width = 0.3,
+					   errorbar_linewidth = 0.4,
+					   errorbar_width = 0.1,
+					   errorbar_color = "black",
+					   mean_color = NULL,
+					   jitter = TRUE,
+					   jitter_width = 0.2,
+					   jitter_n = NULL,
+					   jitter_seed = NULL,
+					   ...) {
+
+	# Handle NULL jitter_width
+	if (is.null(jitter_width)) jitter_width <- 0.6
+
+	# Create custom stat function
+	mean_sd_stat <- function(x) {
+		m <- mean(x, na.rm = TRUE)
+		s <- sd(x, na.rm = TRUE)
+		data.frame(
+			y = m,
+			ymin = m - s,
+			ymax = m + s
+		)
+	}
+
+	# Prepare params for mean line
+	mean_params <- list(
+		na.rm = na.rm,
+		fun.data = function(x) {
+			m <- mean(x, na.rm = TRUE)
+			data.frame(y = m, ymin = m, ymax = m)
+		},
+		width = mean_width,
+		linewidth = mean_linewidth
+	)
+
+	# Add color to mean_params if explicitly provided
+	if (!is.null(mean_color)) {
+		mean_params$color <- mean_color
+	}
+
+	# For points: if jitter=TRUE, use spread position
+	# But if a dodge position is provided, we need to handle it differently
+	point_position <- if (jitter) {
+		# Check if user provided a dodge position
+		if (inherits(position, "PositionDodge")) {
+			# User wants dodge + spread
+			# We'll apply dodge first, then spread within dodged positions
+			# This is tricky - let's use a different approach
+			warning("position_dodge() with jitter=TRUE not fully supported. Using spread only.")
+			position_spread(width = jitter_width/2, n = jitter_n, seed = jitter_seed)
+		} else {
+			position_spread(width = jitter_width/2, n = jitter_n, seed = jitter_seed)
+		}
+	} else {
+		position
+	}
+
+	list(
+		# Error bars (mean ± sd) with fixed color
+		ggplot2::layer(
+			geom = "errorbar",
+			stat = "summary",
+			data = data,
+			mapping = mapping,
+			position = position,  # Use whatever position user provided
+			params = list(
+				na.rm = na.rm,
+				fun.data = mean_sd_stat,
+				width = errorbar_width,
+				linewidth = errorbar_linewidth,
+				color = errorbar_color
+			),
+			inherit.aes = inherit.aes,
+			show.legend = FALSE
+		),
+
+		# Horizontal mean line
+		ggplot2::layer(
+			geom = "errorbar",
+			stat = "summary",
+			data = data,
+			mapping = mapping,
+			position = position,
+			params = mean_params,
+			inherit.aes = inherit.aes,
+			show.legend = FALSE
+		),
+
+		# Individual points
+		ggplot2::layer(
+			geom = "point",
+			stat = "identity",
+			data = data,
+			mapping = mapping,
+			position = point_position,
+			params = list(na.rm = na.rm, ...),
+			inherit.aes = inherit.aes,
+			show.legend = show.legend
+		)
+	)
+}
+
+geom_prism2 <- function(mapping = NULL, data = NULL,
+						na.rm = FALSE,
+						show.legend = NA,
+						inherit.aes = TRUE,
+						mean_linewidth = 1,
+						mean_width = 0.4,
+						errorbar_linewidth = 0.4,
+						errorbar_width = 0.2,
+						errorbar_color = "black",
+						mean_color = NULL,
+						dodge_width = 0.7,
+						jitter_width = 0.3,
+						jitter_n = NULL,
+						jitter_seed = NULL,
+						...) {
+
+	# Create custom stat function
+	mean_sd_stat <- function(x) {
+		m <- mean(x, na.rm = TRUE)
+		s <- sd(x, na.rm = TRUE)
+		data.frame(
+			y = m,
+			ymin = m - s,
+			ymax = m + s
+		)
+	}
+
+	# Prepare params for mean line
+	mean_params <- list(
+		na.rm = na.rm,
+		fun.data = function(x) {
+			m <- mean(x, na.rm = TRUE)
+			data.frame(y = m, ymin = m, ymax = m)
+		},
+		width = mean_width,
+		linewidth = mean_linewidth
+	)
+
+	# Add color to mean_params if explicitly provided
+	if (!is.null(mean_color)) {
+		mean_params$color <- mean_color
+	}
+
+	# Create dodge position for error bars and mean lines
+	dodge_pos <- position_dodge(width = dodge_width)
+
+	# Custom position for points: dodge + jitter
+	PositionDodgeSpread <- ggplot2::ggproto(
+		"PositionDodgeSpread", ggplot2::Position,
+
+		required_aes = c("x", "group"),
+
+		setup_params = function(self, data) {
+			list(
+				dodge_width = self$dodge_width,
+				jitter_width = self$jitter_width/4,
+				jitter_n = self$jitter_n,
+				jitter_seed = self$jitter_seed
+			)
+		},
+
+		compute_panel = function(data, params, scales) {
+			# ... seed code ...
+
+			# First, apply standard dodge
+			dodge_pos <- position_dodge(width = params$dodge_width)
+			dodged <- dodge_pos$compute_panel(data, list(width = params$dodge_width), scales)
+
+			# Apply spread within each dodged group
+			dodged <- dodged %>%
+				dplyr::group_by(PANEL, x = round(x, 10)) %>%
+				dplyr::mutate(
+					# FIX: Use dplyr::n_distinct()
+					n_groups_in_cluster = dplyr::n_distinct(group),
+					space_per_group = params$dodge_width / n_groups_in_cluster
+				) %>%
+				dplyr::group_by(PANEL, group) %>%
+				dplyr::group_modify(function(group_data, keys) {
+					n_points <- nrow(group_data)
+					if (n_points == 0) return(group_data)
+
+					n_pos <- if (!is.null(params$jitter_n)) params$jitter_n else n_points
+					n_pos <- max(1, n_pos)
+
+					center_x <- mean(group_data$x, na.rm = TRUE)
+
+					# Use a percentage of the space allocated to this group
+					# jitter_width = 0.2 means "use 20% of this group's allocated width"
+					space_per_group <- unique(group_data$space_per_group)[1]
+					scaled_jitter_width <- space_per_group * params$jitter_width
+
+					positions <- center_x + seq(-scaled_jitter_width/2,
+												scaled_jitter_width/2,
+												length.out = n_pos)
+
+					if (n_points <= n_pos) {
+						assigned <- sample(positions, n_points, replace = FALSE)
+					} else {
+						assigned <- c(
+							sample(positions, n_pos, replace = FALSE),
+							sample(positions, n_points - n_pos, replace = TRUE)
+						)
+					}
+
+					assigned <- sample(assigned)
+					group_data$x <- assigned
+					return(group_data)
+				}) %>%
+				dplyr::ungroup() %>%
+				dplyr::select(-n_groups_in_cluster, -space_per_group)
+
+			return(dodged)
+		}
+	)
+
+	# Create the custom position object with the parameters
+	dodge_jitter_pos <- PositionDodgeSpread
+	dodge_jitter_pos$dodge_width <- dodge_width
+	dodge_jitter_pos$jitter_width <- jitter_width
+	dodge_jitter_pos$jitter_n <- jitter_n
+	dodge_jitter_pos$jitter_seed <- jitter_seed
+
+	# --- SOLUTION 2: Use the original mapping directly ---
+	# The previous logic that created 'errorbar_mapping' has been removed.
+	# All layers now use the 'mapping' argument as provided by the user.
+	# ggplot2's standard behavior will handle grouping via the color aesthetic.
+
+	list(
+		# Error bars with standard dodge - Use original mapping
+		ggplot2::layer(
+			geom = "errorbar",
+			stat = "summary",
+			data = data,
+			mapping = mapping,  # CHANGED: Use original mapping directly
+			position = dodge_pos,
+			params = list(
+				na.rm = na.rm,
+				fun.data = mean_sd_stat,
+				width = errorbar_width,
+				linewidth = errorbar_linewidth
+				# color = errorbar_color
+			),
+			inherit.aes = inherit.aes,
+			show.legend = FALSE
+		),
+
+		# Mean line with standard dodge - Use original mapping
+		ggplot2::layer(
+			geom = "errorbar",
+			stat = "summary",
+			data = data,
+			mapping = mapping,  # CHANGED: Use original mapping directly
+			position = dodge_pos,
+			params = mean_params,
+			inherit.aes = inherit.aes,
+			show.legend = FALSE
+		),
+
+		# Points with dodge + jitter - Use original mapping
+		ggplot2::layer(
+			geom = "point",
+			stat = "identity",
+			data = data,
+			mapping = mapping,
+			position = dodge_jitter_pos,
+			params = list(na.rm = na.rm, ...),
+			inherit.aes = inherit.aes,
+			show.legend = show.legend
+		)
+	)
+}
+
+mean_sd <- function(x) {
+  m <- mean(x, na.rm = TRUE)
+  s <- sd(x, na.rm = TRUE)
+  data.frame(y = m, ymin = m - s, ymax = m + s)
 }
 
 asinh_ggtrans = function(cofactor, base=10, n.lin=1, intervals.per.decade=ceiling(base)-1)
