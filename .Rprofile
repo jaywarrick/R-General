@@ -6129,195 +6129,7 @@ theme_jay <- function(
   )
 }
 
-# Simple spread jitter position (no dodge)
-position_spread <- function(width = 0.6, n = NULL, seed = NULL) {
-	# Handle NULL width
-	if (is.null(width)) width <- 0.6
-
-	ggproto(NULL, PositionSpread,
-			width = width,
-			n = n,
-			seed = seed
-	)
-}
-
-PositionSpread <- ggproto("PositionSpread", Position,
-						  required_aes = "x",
-
-						  setup_params = function(self, data) {
-						  	list(
-						  		width = self$width,
-						  		n = self$n,
-						  		seed = self$seed
-						  	)
-						  },
-
-						  compute_panel = function(data, params, scales) {
-						  	# Set seed if provided
-						  	if (!is.null(params$seed)) {
-						  		if (!exists(".Random.seed", envir = .GlobalEnv)) runif(1)
-						  		previous_state <- .GlobalEnv$.Random.seed
-						  		on.exit(.GlobalEnv$.Random.seed <- previous_state)
-						  		set.seed(params$seed)
-						  	}
-
-						  	# Process by group (color groups)
-						  	data <- data %>%
-						  		dplyr::group_by(PANEL, group) %>%
-						  		dplyr::group_modify(function(group_data, keys) {
-						  			n_points <- nrow(group_data)
-
-						  			# Skip if no points
-						  			if (n_points == 0) return(group_data)
-
-						  			# Determine number of positions
-						  			n_pos <- if (!is.null(params$n)) {
-						  				params$n
-						  			} else {
-						  				n_points
-						  			}
-
-						  			# Ensure n_pos > 0
-						  			n_pos <- max(1, n_pos)
-
-						  			# Create evenly spaced positions
-						  			positions <- seq(-params$width/2, params$width/2, length.out = n_pos)
-
-						  			# Randomly assign points to positions
-						  			if (n_points <= n_pos) {
-						  				assigned_positions <- sample(positions, size = n_points, replace = FALSE)
-						  			} else {
-						  				assigned_positions <- c(
-						  					sample(positions, size = n_pos, replace = FALSE),
-						  					sample(positions, size = n_points - n_pos, replace = TRUE)
-						  				)
-						  			}
-
-						  			# Shuffle assignments
-						  			assigned_positions <- sample(assigned_positions)
-
-						  			# Apply to x
-						  			group_data$x <- group_data$x + assigned_positions
-
-						  			return(group_data)
-						  		}) %>%
-						  		dplyr::ungroup()
-
-						  	return(data)
-						  }
-)
-
-# Modified geom_prism with proper dodge handling
 geom_prism <- function(mapping = NULL, data = NULL,
-					   position = "identity",
-					   na.rm = FALSE,
-					   show.legend = NA,
-					   inherit.aes = TRUE,
-					   mean_linewidth = 1,
-					   mean_width = 0.3,
-					   errorbar_linewidth = 0.4,
-					   errorbar_width = 0.1,
-					   errorbar_color = "black",
-					   mean_color = NULL,
-					   jitter = TRUE,
-					   jitter_width = 0.2,
-					   jitter_n = NULL,
-					   jitter_seed = NULL,
-					   ...) {
-
-	# Handle NULL jitter_width
-	if (is.null(jitter_width)) jitter_width <- 0.6
-
-	# Create custom stat function
-	mean_sd_stat <- function(x) {
-		m <- mean(x, na.rm = TRUE)
-		s <- sd(x, na.rm = TRUE)
-		data.frame(
-			y = m,
-			ymin = m - s,
-			ymax = m + s
-		)
-	}
-
-	# Prepare params for mean line
-	mean_params <- list(
-		na.rm = na.rm,
-		fun.data = function(x) {
-			m <- mean(x, na.rm = TRUE)
-			data.frame(y = m, ymin = m, ymax = m)
-		},
-		width = mean_width,
-		linewidth = mean_linewidth
-	)
-
-	# Add color to mean_params if explicitly provided
-	if (!is.null(mean_color)) {
-		mean_params$color <- mean_color
-	}
-
-	# For points: if jitter=TRUE, use spread position
-	# But if a dodge position is provided, we need to handle it differently
-	point_position <- if (jitter) {
-		# Check if user provided a dodge position
-		if (inherits(position, "PositionDodge")) {
-			# User wants dodge + spread
-			# We'll apply dodge first, then spread within dodged positions
-			# This is tricky - let's use a different approach
-			warning("position_dodge() with jitter=TRUE not fully supported. Using spread only.")
-			position_spread(width = jitter_width/2, n = jitter_n, seed = jitter_seed)
-		} else {
-			position_spread(width = jitter_width/2, n = jitter_n, seed = jitter_seed)
-		}
-	} else {
-		position
-	}
-
-	list(
-		# Error bars (mean ± sd) with fixed color
-		ggplot2::layer(
-			geom = "errorbar",
-			stat = "summary",
-			data = data,
-			mapping = mapping,
-			position = position,  # Use whatever position user provided
-			params = list(
-				na.rm = na.rm,
-				fun.data = mean_sd_stat,
-				width = errorbar_width,
-				linewidth = errorbar_linewidth,
-				color = errorbar_color
-			),
-			inherit.aes = inherit.aes,
-			show.legend = FALSE
-		),
-
-		# Horizontal mean line
-		ggplot2::layer(
-			geom = "errorbar",
-			stat = "summary",
-			data = data,
-			mapping = mapping,
-			position = position,
-			params = mean_params,
-			inherit.aes = inherit.aes,
-			show.legend = FALSE
-		),
-
-		# Individual points
-		ggplot2::layer(
-			geom = "point",
-			stat = "identity",
-			data = data,
-			mapping = mapping,
-			position = point_position,
-			params = list(na.rm = na.rm, ...),
-			inherit.aes = inherit.aes,
-			show.legend = show.legend
-		)
-	)
-}
-
-geom_prism2 <- function(mapping = NULL, data = NULL,
 						na.rm = FALSE,
 						show.legend = NA,
 						inherit.aes = TRUE,
@@ -6325,7 +6137,6 @@ geom_prism2 <- function(mapping = NULL, data = NULL,
 						mean_width = 0.4,
 						errorbar_linewidth = 0.4,
 						errorbar_width = 0.2,
-						errorbar_color = "black",
 						mean_color = NULL,
 						dodge_width = 0.7,
 						jitter_width = 0.3,
@@ -6355,15 +6166,13 @@ geom_prism2 <- function(mapping = NULL, data = NULL,
 		linewidth = mean_linewidth
 	)
 
-	# Add color to mean_params if explicitly provided
 	if (!is.null(mean_color)) {
 		mean_params$color <- mean_color
 	}
 
-	# Create dodge position for error bars and mean lines
+	# Create dodge position
 	dodge_pos <- position_dodge(width = dodge_width)
 
-	# Custom position for points: dodge + jitter
 	PositionDodgeSpread <- ggplot2::ggproto(
 		"PositionDodgeSpread", ggplot2::Position,
 
@@ -6372,110 +6181,151 @@ geom_prism2 <- function(mapping = NULL, data = NULL,
 		setup_params = function(self, data) {
 			list(
 				dodge_width = self$dodge_width,
-				jitter_width = self$jitter_width/4,
+				jitter_width = self$jitter_width,
 				jitter_n = self$jitter_n,
-				jitter_seed = self$jitter_seed
+				jitter_seed = self$jitter_seed,
+				reverse = FALSE
 			)
 		},
 
 		compute_panel = function(data, params, scales) {
-			# ... seed code ...
+			# Check if data.table is available
+			if (!requireNamespace("data.table", quietly = TRUE)) {
+				stop("data.table package is required for geom_prism2")
+			}
 
-			# First, apply standard dodge
-			dodge_pos <- position_dodge(width = params$dodge_width)
-			dodged <- dodge_pos$compute_panel(data, list(width = params$dodge_width), scales)
+			# Set seed if provided
+			if (!is.null(params$jitter_seed)) {
+				withr::local_preserve_seed()
+				set.seed(params$jitter_seed)
+			}
 
-			# Apply spread within each dodged group
-			dodged <- dodged %>%
-				dplyr::group_by(PANEL, x = round(x, 10)) %>%
-				dplyr::mutate(
-					# FIX: Use dplyr::n_distinct()
-					n_groups_in_cluster = dplyr::n_distinct(group),
-					space_per_group = params$dodge_width / n_groups_in_cluster
-				) %>%
-				dplyr::group_by(PANEL, group) %>%
-				dplyr::group_modify(function(group_data, keys) {
-					n_points <- nrow(group_data)
-					if (n_points == 0) return(group_data)
+			# Convert to data.table
+			dt <- data.table::as.data.table(data)
 
-					n_pos <- if (!is.null(params$jitter_n)) params$jitter_n else n_points
-					n_pos <- max(1, n_pos)
+			# Store original row order and all columns
+			dt[, row_id := .I]
+			all_cols <- names(dt)
 
-					center_x <- mean(group_data$x, na.rm = TRUE)
+			# Convert x to numeric position
+			if (is.factor(dt$x)) {
+				dt[, x_numeric := as.numeric(x)]
+			} else if (is.character(dt$x)) {
+				dt[, x_numeric := as.numeric(factor(x))]
+			} else {
+				dt[, x_numeric := x]
+			}
 
-					# Use a percentage of the space allocated to this group
-					# jitter_width = 0.2 means "use 20% of this group's allocated width"
-					space_per_group <- unique(group_data$space_per_group)[1]
-					scaled_jitter_width <- space_per_group * params$jitter_width
+			# CORRECTED DODGE FORMULA (matches ggplot's position_dodge exactly):
+			# x_center = x + (group_index - (n_groups + 1)/2) * width / n_groups
+			dt[, group_id := as.numeric(factor(group)), by = .(PANEL, x_numeric)]
+			dt[, n_groups := data.table::uniqueN(group), by = .(PANEL, x_numeric)]
 
-					positions <- center_x + seq(-scaled_jitter_width/2,
-												scaled_jitter_width/2,
-												length.out = n_pos)
+			# This is the formula that matches ggplot's position_dodge
+			dt[, x_center := x_numeric + (group_id - (n_groups + 1)/2) * params$dodge_width / n_groups]
 
-					if (n_points <= n_pos) {
-						assigned <- sample(positions, n_points, replace = FALSE)
+			# DEBUG: Uncomment to see calculations
+			# print(dt[, .(x_numeric, group_id, n_groups, x_center)])
+
+			# Apply jitter around centers
+			dt[, n_points := .N, by = .(PANEL, x_center, group)]
+
+			# Jitter range should be based on the space available per group
+			# The space per group is dodge_width / n_groups
+			dt[, space_per_group := params$dodge_width / n_groups]
+			dt[, jitter_range := space_per_group * params$jitter_width]
+
+			# Create jittered positions
+			result <- dt[, {
+				n_pts <- .N
+				center <- x_center[1]
+				jitter_val <- jitter_range[1]
+
+				if (n_pts == 1) {
+					x_pos <- center
+				} else {
+					n_pos <- if (!is.null(params$jitter_n)) min(params$jitter_n, n_pts) else n_pts
+
+					# Uniformly spaced positions within jitter range
+					positions <- seq(
+						center - jitter_val/2,
+						center + jitter_val/2,
+						length.out = n_pos
+					)
+
+					if (n_pts <= length(positions)) {
+						x_pos <- sample(positions, n_pts, replace = FALSE)
 					} else {
-						assigned <- c(
-							sample(positions, n_pos, replace = FALSE),
-							sample(positions, n_points - n_pos, replace = TRUE)
+						x_pos <- c(
+							sample(positions, length(positions), replace = FALSE),
+							sample(positions, n_pts - length(positions), replace = TRUE)
 						)
 					}
+					x_pos <- sample(x_pos)
+				}
 
-					assigned <- sample(assigned)
-					group_data$x <- assigned
-					return(group_data)
-				}) %>%
-				dplyr::ungroup() %>%
-				dplyr::select(-n_groups_in_cluster, -space_per_group)
+				# Update x in a copy of the data
+				modified <- copy(.SD)
+				modified[, x := x_pos]
+				modified
+			}, by = .(PANEL, x_center, group)]
 
-			return(dodged)
+			# Clean up temporary columns
+			temp_cols <- c("row_id", "x_numeric", "group_id", "n_groups",
+						   "x_center", "n_points", "space_per_group", "jitter_range")
+			result[, (temp_cols) := NULL]
+
+			# Ensure all original columns are present
+			missing_cols <- setdiff(all_cols, names(result))
+			if (length(missing_cols) > 0) {
+				result[, (missing_cols) := NA]
+			}
+
+			# Reorder to match original
+			setcolorder(result, all_cols)
+
+			return(as.data.frame(result))
 		}
 	)
 
-	# Create the custom position object with the parameters
+	# Initialize position object
 	dodge_jitter_pos <- PositionDodgeSpread
 	dodge_jitter_pos$dodge_width <- dodge_width
 	dodge_jitter_pos$jitter_width <- jitter_width
 	dodge_jitter_pos$jitter_n <- jitter_n
 	dodge_jitter_pos$jitter_seed <- jitter_seed
 
-	# --- SOLUTION 2: Use the original mapping directly ---
-	# The previous logic that created 'errorbar_mapping' has been removed.
-	# All layers now use the 'mapping' argument as provided by the user.
-	# ggplot2's standard behavior will handle grouping via the color aesthetic.
-
 	list(
-		# Error bars with standard dodge - Use original mapping
+		# Error bars
 		ggplot2::layer(
 			geom = "errorbar",
 			stat = "summary",
 			data = data,
-			mapping = mapping,  # CHANGED: Use original mapping directly
+			mapping = mapping,
 			position = dodge_pos,
 			params = list(
 				na.rm = na.rm,
 				fun.data = mean_sd_stat,
 				width = errorbar_width,
 				linewidth = errorbar_linewidth
-				# color = errorbar_color
 			),
 			inherit.aes = inherit.aes,
 			show.legend = FALSE
 		),
 
-		# Mean line with standard dodge - Use original mapping
+		# Mean line
 		ggplot2::layer(
 			geom = "errorbar",
 			stat = "summary",
 			data = data,
-			mapping = mapping,  # CHANGED: Use original mapping directly
+			mapping = mapping,
 			position = dodge_pos,
 			params = mean_params,
 			inherit.aes = inherit.aes,
 			show.legend = FALSE
 		),
 
-		# Points with dodge + jitter - Use original mapping
+		# Points
 		ggplot2::layer(
 			geom = "point",
 			stat = "identity",
