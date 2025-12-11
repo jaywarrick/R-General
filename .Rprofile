@@ -200,10 +200,10 @@ library(gtable)
 
 dev.off2 <- function(file)
 {
-     # if(startsWith(file, '~'))
-     # {
-     #      stop('Embed fonts must have a fully defined path and cannot start with a tilde. Fully specify the path.')
-     # }
+	# if(startsWith(file, '~'))
+	# {
+	#      stop('Embed fonts must have a fully defined path and cannot start with a tilde. Fully specify the path.')
+	# }
 	library(extrafont)
 	dev.off()
 	embed_fonts(normalizePath(file))
@@ -429,7 +429,7 @@ makeComplexId <- function(x, cols, sep='.', idName='cId')
 
 makeList <- function(names, values)
 {
-  return(setNames(as.list(values), names))
+	return(setNames(as.list(values), names))
 }
 
 #' getCombos
@@ -467,17 +467,17 @@ getCombos <- function(x, colnames=c('Var1','Var2'))
 
 applyPairwise <- function(x, FUN, by, sep='-', A_name='A', B_name='B', ...)
 {
-  getByName <- function(temp, row)
-  {
-    paste(temp[row],collapse='-')
-  }
-  temp <- getUniqueCombos(y, by=by)
-  tempBy <- paste(c(A_name, B_name), '_temp', sep='')
-  combos <- setNames(data.table(t(combn(1:nrow(temp), 2))), tempBy)
-  # browser()
-  ret <- combos[, setNames(list(getByName(temp, .BY[[1]]), getByName(temp, .BY[[2]]), FUN(x[temp[.BY[[1]]], on=by], x[temp[.BY[[2]]], on=by]), ...), c(A_name, B_name,'Value')), by=tempBy]
-  # combos[, setNames(list(getByName(temp, .BY[[1]]), getByName(temp, .BY[[2]]), list(x[temp[.BY[[1]]], on=by])), c(A_name, B_name,'Value')), by=tempBy]
-  return(ret[, c(A_name, B_name, 'Value'), with=F])
+	getByName <- function(temp, row)
+	{
+		paste(temp[row],collapse='-')
+	}
+	temp <- getUniqueCombos(y, by=by)
+	tempBy <- paste(c(A_name, B_name), '_temp', sep='')
+	combos <- setNames(data.table(t(combn(1:nrow(temp), 2))), tempBy)
+	# browser()
+	ret <- combos[, setNames(list(getByName(temp, .BY[[1]]), getByName(temp, .BY[[2]]), FUN(x[temp[.BY[[1]]], on=by], x[temp[.BY[[2]]], on=by]), ...), c(A_name, B_name,'Value')), by=tempBy]
+	# combos[, setNames(list(getByName(temp, .BY[[1]]), getByName(temp, .BY[[2]]), list(x[temp[.BY[[1]]], on=by])), c(A_name, B_name,'Value')), by=tempBy]
+	return(ret[, c(A_name, B_name, 'Value'), with=F])
 }
 
 getUniqueCombos <- function(x, by, idCols=by, ordered=T)
@@ -509,56 +509,56 @@ getUniqueCombosAsStringVector <- function(x, idCols, ordered=T)
 
 contingencyTest_roc <- function(rocA, rocB, actual.neg.pos.vals, thresh.type=c('UpperLeftmost', 'Youden', 'accuracy'), compare=c('acc','sens','spec'), alternative=c('two.sided','less','greater'))
 {
-  threshA <- getThresholdsFrom_pROC(rocA, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type=thresh.type[1])
-  threshB <- getThresholdsFrom_pROC(rocB, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type=thresh.type[1])
-  return(contingencyTest(A_TP=threshA$TP, A_TN=threshA$TN, A_FP=threshA$FP, A_FN=threshA$FN, B_TP=threshB$TP, B_TN=threshB$TN, B_FP=threshB$FP, B_FN=threshB$FN, compare=compare[1], alternative=alternative[1]))
+	threshA <- getThresholdsFrom_pROC(rocA, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type=thresh.type[1])
+	threshB <- getThresholdsFrom_pROC(rocB, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type=thresh.type[1])
+	return(contingencyTest(A_TP=threshA$TP, A_TN=threshA$TN, A_FP=threshA$FP, A_FN=threshA$FN, B_TP=threshB$TP, B_TN=threshB$TN, B_FP=threshB$FP, B_FN=threshB$FN, compare=compare[1], alternative=alternative[1]))
 }
 
 contingencyTest <- function(A_TP=NA, A_TN=NA, A_FP=NA, A_FN=NA, B_TP=NA, B_TN=NA, B_FP=NA, B_FN=NA, compare=c('acc','sens','spec'), alternative=c('two.sided','less','greater'))
 {
-  if(compare[1]=='acc')
-  {
-    accuracy_table <- matrix(c(A_TP+A_TN, A_FP+A_FN, B_TP+B_TN, B_FP+B_FN), nrow = 2, byrow = TRUE)
-  }
-  else if(compare[1] == 'sens')
-  {
-    accuracy_table <- matrix(c(A_TP, A_FN, B_TP, B_FN), nrow = 2, byrow = TRUE)
-  }
-  else if(compare[1] == 'spec')
-  {
-    accuracy_table <- matrix(c(A_TN, A_FP, B_TN, B_FP), nrow = 2, byrow = TRUE)
-  }
+	if(compare[1]=='acc')
+	{
+		accuracy_table <- matrix(c(A_TP+A_TN, A_FP+A_FN, B_TP+B_TN, B_FP+B_FN), nrow = 2, byrow = TRUE)
+	}
+	else if(compare[1] == 'sens')
+	{
+		accuracy_table <- matrix(c(A_TP, A_FN, B_TP, B_FN), nrow = 2, byrow = TRUE)
+	}
+	else if(compare[1] == 'spec')
+	{
+		accuracy_table <- matrix(c(A_TN, A_FP, B_TN, B_FP), nrow = 2, byrow = TRUE)
+	}
 
 
-  # Construct the contingency table
-  # accuracy_table <- matrix(c(TA, FA, TB, FB), nrow = 2, byrow = TRUE)
-  colnames(accuracy_table) <- c("True Positive", "False Negative")
-  rownames(accuracy_table) <- c("Group A", "Group B")
-  accuracy_table <- as.table(accuracy_table)
+	# Construct the contingency table
+	# accuracy_table <- matrix(c(TA, FA, TB, FB), nrow = 2, byrow = TRUE)
+	colnames(accuracy_table) <- c("True Positive", "False Negative")
+	rownames(accuracy_table) <- c("Group A", "Group B")
+	accuracy_table <- as.table(accuracy_table)
 
-  # browser()
-  # Fisher's Exact Test
-  fisher_result_acc <- fisher.test(accuracy_table, alternative=alternative[1])
-  title <- paste0("Fisher's Exact Test p-value comparing '", compare, "': ")
-  cat(title, fisher_result_acc$p.value, "\n")
-  return(fisher_result_acc$p.value)
+	# browser()
+	# Fisher's Exact Test
+	fisher_result_acc <- fisher.test(accuracy_table, alternative=alternative[1])
+	title <- paste0("Fisher's Exact Test p-value comparing '", compare, "': ")
+	cat(title, fisher_result_acc$p.value, "\n")
+	return(fisher_result_acc$p.value)
 }
 
 fillFunc <- function(x)
 {
-  if(sum(!is.na(x))==1)
-  {
-    rep(x[!is.na(x)][1], length(x))
-  }
-  else
-  {
-    return(x)
-  }
+	if(sum(!is.na(x))==1)
+	{
+		rep(x[!is.na(x)][1], length(x))
+	}
+	else
+	{
+		return(x)
+	}
 }
 
 fillDown <- function(x, by, cols)
 {
-  lapply.data.table(x, FUN=fillFunc, by=by, cols=cols)
+	lapply.data.table(x, FUN=fillFunc, by=by, cols=cols)
 }
 
 #' Fill missing rows in a data.table
@@ -816,8 +816,8 @@ assignToClustersN <- function(data, nClusters=2, rndSeed=1234, clusterCol='clust
 	# Get basic cluster results (results are potentially out of order)
 	emobj <- simple.init(x, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
-					  fixed.iter = 1, n.candidate = 3,
-					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
+						  fixed.iter = 1, n.candidate = 3,
+						  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
 
 	data[, c(clusterCol):= assign.class(as.matrix(data), ret, return.all = FALSE)$class]
@@ -915,8 +915,8 @@ assignToClusters <- function(data, nClusters=2, starts=NULL, starts.percentile=N
 		emobj$pi <- seedPoints
 	}
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
-					  fixed.iter = 1, n.candidate = 3,
-					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
+						  fixed.iter = 1, n.candidate = 3,
+						  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(x, emobj, assign.class = TRUE, EMC=control)
 
 	# Create a data.frame to return
@@ -1003,8 +1003,8 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 	# Get basic cluster results (results are potentially out of order)
 	emobj <- simple.init(mat, nclass = nClusters)
 	control <- .EMControl(alpha = 0.99, short.iter = 200, short.eps = 1e-2,
-					  fixed.iter = 1, n.candidate = 3,
-					  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
+						  fixed.iter = 1, n.candidate = 3,
+						  em.iter = 100, em.eps = 1e-3, exhaust.iter = 5)
 	ret <- emcluster(mat, emobj, assign.class = TRUE, EMC=control)
 
 	temp <- copy(data)
@@ -1096,10 +1096,10 @@ assignToClustersXY <- function(data, cols, nClusters=2, rndSeed=1234)
 #'
 #' @export
 bar <- function(dt, y.column, color.columns=NULL, group.columns=NULL, error.upper.column=NULL, error.lower.column=error.upper.column,
-			 main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, alpha=0.4, group.names=NULL, color.colors=NULL, rotate.x.labels=F, rotate.y.labels=F, plot.border=T,
-			 error.bar.args=list(length=0.1),
-			 legend.plot=TRUE, legend.args=list(),
-			 par.args=list(mar=c(4.5,4.5,2,2)), use.pastels=T, sep=':', ...)
+				main=NULL, ylab=NULL, xlab=NULL, color.names=NULL, alpha=0.4, group.names=NULL, color.colors=NULL, rotate.x.labels=F, rotate.y.labels=F, plot.border=T,
+				error.bar.args=list(length=0.1),
+				legend.plot=TRUE, legend.args=list(),
+				par.args=list(mar=c(4.5,4.5,2,2)), use.pastels=T, sep=':', ...)
 {
 	# Save default margins
 	# default.mar <- par('mar')
@@ -1113,19 +1113,19 @@ bar <- function(dt, y.column, color.columns=NULL, group.columns=NULL, error.uppe
 	has.upper <- FALSE
 	if(!is.null(error.upper.column))
 	{
-	     if(!(error.upper.column %in% names(dt)))
-	     {
-	          stop('Specified error.upper.column does not exist in table. Aborting.')
-	     }
+		if(!(error.upper.column %in% names(dt)))
+		{
+			stop('Specified error.upper.column does not exist in table. Aborting.')
+		}
 		has.upper <- TRUE
 	}
 	has.lower <- FALSE
 	if(!is.null(error.lower.column))
 	{
-	     if(!(error.lower.column %in% names(dt)))
-	     {
-	          stop('Specified error.lower.column does not exist in table. Aborting.')
-	     }
+		if(!(error.lower.column %in% names(dt)))
+		{
+			stop('Specified error.lower.column does not exist in table. Aborting.')
+		}
 		has.lower <- TRUE
 	}
 
@@ -1146,7 +1146,7 @@ bar <- function(dt, y.column, color.columns=NULL, group.columns=NULL, error.uppe
 	}
 	if(!is.null(color.columns) && (length(color.columns) == 0 || !all(color.columns %in% names(dt))))
 	{
-	     stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
+		stop("All color.columns must be specified and must be present in the provided table of data. Aborting.")
 	}
 
 	# Get the matrix needed for barplot
@@ -1200,17 +1200,17 @@ bar <- function(dt, y.column, color.columns=NULL, group.columns=NULL, error.uppe
 	}
 	else
 	{
-	     mat <- y
-	     color.names <- getUniqueCombosAsStringVector(dt, idCols=color.columns, ordered=F)
-	     # color.names <- dt[[color.columns]]
-	     if(has.upper)
-	     {
-	          upper <- dt[[error.upper.column]]
-	     }
-	     if(has.lower)
-	     {
-	          lower <- dt[[error.lower.column]]
-	     }
+		mat <- y
+		color.names <- getUniqueCombosAsStringVector(dt, idCols=color.columns, ordered=F)
+		# color.names <- dt[[color.columns]]
+		if(has.upper)
+		{
+			upper <- dt[[error.upper.column]]
+		}
+		if(has.lower)
+		{
+			lower <- dt[[error.lower.column]]
+		}
 	}
 
 	# Copy over group and color names from the table if not specified or if specified incorrectly
@@ -1291,28 +1291,28 @@ bar <- function(dt, y.column, color.columns=NULL, group.columns=NULL, error.uppe
 		if(legend.plot)
 		{
 			args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
-							 col=color.colors,
-							 legend.text=color.names.display, args.legend=legend.args, xpd=TRUE,
-							 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
-							 ylab=if(is.null(ylab)) y.column else ylab)
+								 col=color.colors,
+								 legend.text=color.names.display, args.legend=legend.args, xpd=TRUE,
+								 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
+								 ylab=if(is.null(ylab)) y.column else ylab)
 		}
 		else
 		{
 			args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=group.names.display,
-							 col=color.colors,
-							 legend.text=F, args.legend=NULL, xpd=TRUE,
-							 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
-							 ylab=if(is.null(ylab)) y.column else ylab)
+								 col=color.colors,
+								 legend.text=F, args.legend=NULL, xpd=TRUE,
+								 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
+								 ylab=if(is.null(ylab)) y.column else ylab)
 		}
 
 	}
 	else
 	{
 		args.barplot <- list(beside=TRUE, height=mat, ylim=c(min(0, ymin), max(0,ymax)), main=main, names.arg=color.names.display,
-						 col=color.colors,
-						 legend.text=F, args.legend=NULL, xpd=TRUE,
-						 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
-						 ylab=if(is.null(ylab)) y.column else ylab)
+							 col=color.colors,
+							 legend.text=F, args.legend=NULL, xpd=TRUE,
+							 xlab=if(is.null(xlab)) paste(group.columns, collapse=sep) else xlab,
+							 ylab=if(is.null(ylab)) y.column else ylab)
 
 	}
 
@@ -1352,16 +1352,16 @@ bar <- function(dt, y.column, color.columns=NULL, group.columns=NULL, error.uppe
 		# Sort things appropriately if we have a grouped bar plot, otherwise, no need to
 		if(!is.null(group.columns))
 		{
-		     tempDT <- melt.data.table(tempCast, measure.vars = group.names)
+			tempDT <- melt.data.table(tempCast, measure.vars = group.names)
 			# # First turn the color and group columns into factors so we can order things 'manually'
 			# subDT[[color.column]] <- factor( as.character(subDT[[color.column]]), levels=color.names)
 			# subDT[[group.column]] <- factor( as.character(subDT[[group.column]]), levels=group.names)
 			# subDT <- subDT[order(subDT[[group.column]], subDT[[color.column]])]
 		}
-	     else
-	     {
-	          tempDT <- copy(dt)
-	     }
+		else
+		{
+			tempDT <- copy(dt)
+		}
 
 		# # Get error bar magnitudes if possible
 		# upper <- NULL
@@ -1383,11 +1383,11 @@ bar <- function(dt, y.column, color.columns=NULL, group.columns=NULL, error.uppe
 		# Compile the error bar arguments
 		if(!is.null(group.columns))
 		{
-		     args.error.final <- list(x=errloc, y=tempDT$value, upper=upper, lower=lower, draw.lower=has.lower)
+			args.error.final <- list(x=errloc, y=tempDT$value, upper=upper, lower=lower, draw.lower=has.lower)
 		}
 		else
 		{
-		     args.error.final <- list(x=errloc, y=tempDT[[y.column]], upper=upper, lower=lower, draw.lower=has.lower)
+			args.error.final <- list(x=errloc, y=tempDT[[y.column]], upper=upper, lower=lower, draw.lower=has.lower)
 		}
 
 		args.error.final <- modifyList(args.error.final, error.bar.args)
@@ -1954,19 +1954,19 @@ data.table.plot <- function(x, y, log='', logicle.params, xlim=NULL, ylim=NULL, 
 #' @param sample.size -1 = sample all, 0 = equal sample sizes of the same size of the smallest grouping, any number > 0 defines the sampled size, e.g. 100
 #' @param gates list of gate objects returned by gatePointsInPlot function
 data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol.lower=errcol.upper, alphacol=NULL, colorcol=NULL, main.show=T, mar=NULL, alpha.rank=T, alpha=0.8, by=NULL, plot.by=NULL, save.by.index=F, line.color.by=by, randomize=F,
-						  gates=list(),
-						  min.h=0.666, max.h=min.h+0.8, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
-						  env.err=T, env.args=list(),
-						  log='', logicle.params=NULL, trans.logit=c(F,F), main='', xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
-						  density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1),
-						  h=NULL, h.col='black', h.lty=2, h.lwd=1, v=NULL, v.col='black', v.lty=2, v.lwd=1,
-						  legend.plot=T, legend.sep=':', legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
-						  save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light','TT Arial'), res=300,
-						  sample.size=-1, sample.seed=sample(1:1000, 1), polygons=list(),
-						  spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max,
-						  cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(na.rm=T), cross.plot=F,
-						  mtext.args=NULL, time.stamp.plot=F, time.stamp.conversion=function(x){as.numeric(x)}, time.stamp.prefix='Time = ', time.stamp.suffix=' [h]',
-						  ...)
+								gates=list(),
+								min.h=0.666, max.h=min.h+0.8, contour.levels=4, contour.ngrid=20, contour.quantiles=T, contour.adj=c(1,1),
+								env.err=T, env.args=list(),
+								log='', logicle.params=NULL, trans.logit=c(F,F), main='', xlim=NULL, ylim=NULL, xlab=NULL, ylab=NULL, pch.alpha=1, type=c('p','c','l','d','h'),
+								density.args=NULL, cumulative=F, breaks=100, percentile.limits=c(0,1,0,1),
+								h=NULL, h.col='black', h.lty=2, h.lwd=1, v=NULL, v.col='black', v.lty=2, v.lwd=1,
+								legend.plot=T, legend.sep=':', legend.args=list(x='topright', cex=0.5, bg='white', bty='o', title=NULL, inset=0, ncol=1),
+								save.plot=T, save.file=NULL, save.type='png', save.width=5, save.height=4, family=c('Open Sans Light', 'Roboto Light', 'Quicksand', 'Muli Light', 'Montserrat Light','TT Arial'), res=300,
+								sample.size=-1, sample.seed=sample(1:1000, 1), polygons=list(),
+								spline.smooth=F, spline.spar=0.2, spline.n=.Machine$integer.max,
+								cross.fun=median, cross.cex=3, cross.pch=10, cross.lwd=2.5, cross.args=list(na.rm=T), cross.plot=F,
+								mtext.args=NULL, time.stamp.plot=F, time.stamp.conversion=function(x){as.numeric(x)}, time.stamp.prefix='Time = ', time.stamp.suffix=' [h]',
+								...)
 {
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
@@ -2260,39 +2260,39 @@ start.plot.to.file <- function(save.file, save.width, save.height, family='Open 
 	}
 	else if(getOS()!='osx')
 	{
-	  if(endsWith(save.file, 'pdf'))
-	  {
-  		if(any(.hasFont(family)))
-  		{
-  			font <- family[which(.hasFont(family))[1]]
-  			print(paste0("Setting the font to ", font))
-  			library(Cairo)
-  			cairo_pdf(save.file, width=save.width, height=save.height, family=font)
-  			embedTheFont <- T
-  			# save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
-  			# png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
-  			# .use.lightFont(font=font)
-  		}
-  		else
-  		{
-  			print("Couldn't find the specified font family. Using default.")
-  			save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
-  			png(save.file, width=save.width, height=save.height, res=res, units='in')
-  			.use.lightFont(font=font)
-  		}
-	  }
-	  else if(endsWith(save.file, 'png'))
-	  {
-	    png(save.file, width=save.width, height=save.height, units='in', res=res)
-	    if(!is.null(family))
-	    {
-	      .use.lightFont(font=family[1])
-	    }
-	  }
-	  else
-	  {
-	    stop(paste0('The save type ', save.type, ' is not supported. Aborting'))
-	  }
+		if(endsWith(save.file, 'pdf'))
+		{
+			if(any(.hasFont(family)))
+			{
+				font <- family[which(.hasFont(family))[1]]
+				print(paste0("Setting the font to ", font))
+				library(Cairo)
+				cairo_pdf(save.file, width=save.width, height=save.height, family=font)
+				embedTheFont <- T
+				# save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
+				# png(save.file, width=save.width, height=save.height, res=res, units='in', family=font)
+				# .use.lightFont(font=font)
+			}
+			else
+			{
+				print("Couldn't find the specified font family. Using default.")
+				save.file <- gsub('.pdf', '.png', save.file, fixed=T) # Make sure it is a png
+				png(save.file, width=save.width, height=save.height, res=res, units='in')
+				.use.lightFont(font=font)
+			}
+		}
+		else if(endsWith(save.file, 'png'))
+		{
+			png(save.file, width=save.width, height=save.height, units='in', res=res)
+			if(!is.null(family))
+			{
+				.use.lightFont(font=family[1])
+			}
+		}
+		else
+		{
+			stop(paste0('The save type ', save.type, ' is not supported. Aborting'))
+		}
 
 	}
 
@@ -2895,44 +2895,44 @@ splitColumnAtString <- function(x, colToSplit, newColNames, fixed=T, sep='.', ke
 
 splitColumnAtNthString <- function(x, colToSplit, newColNames, n=1, fixed=T, sep='.', keep=1:2)
 {
-  x[, (newColNames) := splitAllAtNthString(get(colToSplit), split=sep, n=n, fixed=fixed, keep=keep)]
+	x[, (newColNames) := splitAllAtNthString(get(colToSplit), split=sep, n=n, fixed=fixed, keep=keep)]
 }
 
 splitAllAtNthString <- function(x, split='.', n=1, fixed=T, keep=1:2)
 {
-  return(data.table(t(sapply(sapply(x, strsplit, split=split, fixed=TRUE), pasteGroups, n=n, sep=split, keep=keep))))
+	return(data.table(t(sapply(sapply(x, strsplit, split=split, fixed=TRUE), pasteGroups, n=n, sep=split, keep=keep))))
 }
 
 pasteGroups <- function(x, n=1, sep='_', keep=1:2, missing=NA)
 {
-  if(n < 1)
-  {
-    stop('n must be > 1.')
-  }
-  if(!all(keep %in% c(1,2)))
-  {
-    stop('Keep must be 1 or 2 or 1:2')
-  }
-  if(n > length(x))
-  {
-    g1 <- paste(x[1:length(x)], collapse=sep)
-  }
-  else
-  {
-    g1 <- paste(x[1:n], collapse=sep)
-  }
+	if(n < 1)
+	{
+		stop('n must be > 1.')
+	}
+	if(!all(keep %in% c(1,2)))
+	{
+		stop('Keep must be 1 or 2 or 1:2')
+	}
+	if(n > length(x))
+	{
+		g1 <- paste(x[1:length(x)], collapse=sep)
+	}
+	else
+	{
+		g1 <- paste(x[1:n], collapse=sep)
+	}
 
-  if(n >= length(x))
-  {
-    g2 <- missing
-  }
-  else
-  {
-    g2 <- paste(x[(n + 1):length(x)], collapse=sep)
-  }
+	if(n >= length(x))
+	{
+		g2 <- missing
+	}
+	else
+	{
+		g2 <- paste(x[(n + 1):length(x)], collapse=sep)
+	}
 
-  ret <- c(g1, g2)
-  return(return(ret[keep]))# Separate step in case order of keep is 2:1 to reverse things
+	ret <- c(g1, g2)
+	return(return(ret[keep]))# Separate step in case order of keep is 2:1 to reverse things
 }
 
 #' convertAlphaNumericToIndex
@@ -2958,7 +2958,7 @@ convertAlphaNumericToIndex <- function(x, rows=8, cols=12, capital=T, horizontal
 convertAlphaNumericToRowCol <- function(x, rows=8, cols=12, capital=T)
 {
 	return(convertIndexToRowCol(convertAlphaNumericToIndex(x, rows=rows, cols=cols, capital=capital, horizontalNumbering=T),
-						   rows=rows, cols=cols, horizontalNumbering=T))
+								rows=rows, cols=cols, horizontalNumbering=T))
 }
 
 #' convertIndexToRowCol
@@ -3023,7 +3023,7 @@ splitAlphaNumeric <- function(x, convertToNumeric=F)
 #'
 #' @return whether or not each of the values in x contains the fixed string patter y
 xContainsY <- function(x, y){
-     return(grepl(y,x,fixed=T))
+	return(grepl(y,x,fixed=T))
 }
 
 #' xContainsAnyY
@@ -3033,8 +3033,8 @@ xContainsY <- function(x, y){
 #'
 #' @return whether or not each of the values in x contains any of the fixed string patterns in y
 xContainsAnyY <- function(x, y){
-     ret <- sapply(y, xContainsY, x=x)
-     return(as.logical(rowSums(ret)))
+	ret <- sapply(y, xContainsY, x=x)
+	return(as.logical(rowSums(ret)))
 }
 
 getAllColNamesExcept <- function(x, names)
@@ -3044,7 +3044,7 @@ getAllColNamesExcept <- function(x, names)
 
 excludeCols <- function(x, cols)
 {
-  return(x[, names(x) %!in% cols, with=F])
+	return(x[, names(x) %!in% cols, with=F])
 }
 
 removeColsWithAnyNonFiniteVals <- function(x, cols=NULL)
@@ -3227,10 +3227,10 @@ normalizeNames <- function(names, case=c('title','lower','upper','none'), sep=" 
 	if(!is.null(charsToRemove) && length(charsToRemove) > 0)
 	{
 		names <- gsub(paste0("([",
-									paste0(charsToRemove, collapse=']|['),
-									"]+)"),
-						  " ",
-						  names)
+							 paste0(charsToRemove, collapse=']|['),
+							 "]+)"),
+					  " ",
+					  names)
 	}
 
 	# Normalize Case and Separator
@@ -3309,21 +3309,21 @@ getSortedCorrelations <- function(cor.result)
 
 t.test.2sample <- function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
 {
-     if( equal.variance==FALSE )
-     {
-          se <- sqrt( (s1^2/n1) + (s2^2/n2) )
-          # welch-satterthwaite df
-          df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
-     } else
-     {
-          # pooled standard deviation, scaled by the sample sizes
-          se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) )
-          df <- n1+n2-2
-     }
-     t <- (m1-m2-m0)/se
-     dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))
-     names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
-     return(dat)
+	if( equal.variance==FALSE )
+	{
+		se <- sqrt( (s1^2/n1) + (s2^2/n2) )
+		# welch-satterthwaite df
+		df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
+	} else
+	{
+		# pooled standard deviation, scaled by the sample sizes
+		se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) )
+		df <- n1+n2-2
+	}
+	t <- (m1-m2-m0)/se
+	dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))
+	names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
+	return(dat)
 }
 
 pairwise.cor.test <- function(x, by, id.cols=NULL, measurement.cols=NULL, ...)
@@ -3411,7 +3411,20 @@ power.sensitivity <- function(h0, h1, alpha, beta, prev, plot=F)
 	return(list(n=npos/prev, npos=npos, alpha=alpha_actual, beta=beta_actual, prev=prev, h0=h0, h1=h1, beta_vec=beta_vec, alpha_vec=alpha_vec))
 }
 
-data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=NULL, test=c('wilcox','t.test','var.test.norm','var.test.non.norm'), p.adjust.method='BH', p.adjust.by=NULL, calc.summary.by=NULL, summary.func=median, debug.mode=F, nSig=1, ggplot=FALSE, ...)
+data.table.test <- function(x,
+							val.col,                  # Value to do stats on
+							compare.by=NULL,          # Grouping columns (list of column names) to define the subgroups of values to do stats tests between (e.g., comparing your experimental conditions like pH and SurfactantConc)
+							pair.by=NULL,             # Used to define pairwise testing. So, within each comparison group, it will match samples based upon pair.by, otherwise it is treated normally
+							for.each=NULL,            # The stats procedures are repeated independently for.each of these groups (can also be a list of column names)
+							test=c('wilcox','t.test','var.test.norm','var.test.non.norm'),  # These are the supported individual tests. By default it uses the first in the list but the list is here to show which ones are available.
+							p.adjust.method='BH',     # When you do lots of individual tests, you need to multiply your p.values to adjust for multiple comparisons. I default to the BH method.
+							p.adjust.by=NULL,         # This is so you can do the adjustment per some grouping in the data if needed.
+							calc.summary.by=NULL,     # in case you need to calculate means by some grouping before you do the stats. Use this along with the summary.func to do that calculation
+							summary.func=median,      # a function that will take a list of values and calculate a new number (e.g., mean, median, sum, etc). It is used first, for example to calculate the average of technical replicates to use in subsequent stats testing
+							debug.mode=F, 		      # Set to T to get some more info printed
+							nSig=1, 			      # I think this is the number of significant figures to show in the p.value
+							ggplot=FALSE,		      # Set this to True to rename some of the columns so you can use the table directly with stat_pvalue_manual from the ggpubr package to add p.values to plots.
+							...)                      # Pass additional parameters to the test functions like t.test (e.g., two.tailed = F)
 {
 	library(car)
 	my.test.1 <- function(x, y, test=c('wilcox','t.test','var.test.norm','var.test.non.norm'), ...)
@@ -3532,59 +3545,59 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 		return(list(p.value=p.value, p.sym=p.sym, p.label=p.label, n1=n1, n2=n2, mu1=mu1, mu2=mu2, med1=med1, med2=med2, sd1=sd1, sd2=sd2, mad1=mad1, mad2=mad2))
 	}
 
-	my.test.3 <- function(dt, val.col, compare.by, pair.by=NULL, test, ...)
+	my.test.3 <- function(temp, val.col, compare.by, pair.by=NULL, test, ...)
 	{
-		if(!(val.col %in% names(dt)))
+		if(!(val.col %in% names(temp)))
 		{
 			stop('The value column does not exist in the data.table provided. Aborting.')
 		}
-		dt <- copy(dt)
+		temp <- copy(temp)
 
 		if(!is.null(compare.by))
 		{
-			dt.n <- dt[, list(n=.N), by=compare.by]
-			dt.n <- dt.n[n > 1]
-			setkeyv(dt, compare.by)
-			setkeyv(dt.n, compare.by)
-			dt <- dt[dt.n, nomatch=0]
-			paste.cols(dt, cols=compare.by, name='splitNames', sep='.')
+			temp.n <- temp[, list(n=.N), by=compare.by]
+			temp.n <- temp.n[n > 1]
+			setkeyv(temp, compare.by)
+			setkeyv(temp.n, compare.by)
+			temp <- temp[temp.n, nomatch=0]
+			paste.cols(temp, cols=compare.by, name='splitNames', sep='.')
 		}
 		else
 		{
-			dt[, splitNames:='Group']
+			temp[, splitNames:='Group']
 		}
 
-		if(nrow(dt)==0)
+		if(nrow(temp)==0)
 		{
 			# None of the groups had enough samples
 			warning('None of the groups had enough samples. Returning NULL.')
 			return(NULL)
 		}
-		if(!is.null(compare.by) && length(unique(dt$splitNames)) <= 1)
+		if(!is.null(compare.by) && length(unique(temp$splitNames)) <= 1)
 		{
 			# There weren't enough groups to compare
 			warning('There were not enoung groups to compare. NA values generated.')
-			return(data.table(V1=unique(dt$splitNames), V2='', p.value=NA, n1=nrow(dt), n2=as.integer(0), p.value.adj=NA))
+			return(data.table(V1=unique(temp$splitNames), V2='', p.value=NA, n1=nrow(temp), n2=as.integer(0), p.value.adj=NA))
 		}
 
 		if(!is.null(compare.by))
 		{
-			splits <- as.data.table(t(combn(uniqueo(dt$splitNames),2)))
-			splits[, c('p.value', 'p.sym', 'p.label', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=dt[splitNames==.BY[[2]] & is.finite(get(val.col))], val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1,V2)]
+			splits <- as.data.table(t(combn(uniqueo(temp$splitNames),2)))
+			splits[, c('p.value', 'p.sym', 'p.label', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=temp[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=temp[splitNames==.BY[[2]] & is.finite(get(val.col))], val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1,V2)]
 			##print(splits[])
 			return(splits)
 		}
 		else
 		{
-			splits <- as.data.table(t(combn(uniqueo(dt$splitNames),1)))
-			splits[, c('p.value', 'p.sym', 'p.label', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=dt[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=NULL, val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1)]
+			splits <- as.data.table(t(combn(uniqueo(temp$splitNames),1)))
+			splits[, c('p.value', 'p.sym', 'p.label', 'n1', 'n2', 'mu1', 'mu2', 'med1', 'med2', 'sd1', 'sd2', 'mad1', 'mad2'):=my.test.2(dt1=temp[splitNames==.BY[[1]] & is.finite(get(val.col))], dt2=NULL, val.col=val.col, test=test, pair.by=pair.by, ...), by=.(V1)]
 			##print(splits[])
 			return(splits)
 		}
 
 	}
 
-	y <- copy(x) # We'll use this later
+	y <- copy(data.table(x)) # We'll use this later
 	x <- copy(y) # We'll use this now
 	if(!is.null(calc.summary.by))
 	{
@@ -3600,7 +3613,7 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 		setorderv(x, c(for.each))
 	}
 
-	ret <- x[, my.test.3(dt=.SD, val.col=val.col, compare.by=compare.by, pair.by=pair.by, test=test, ...), by=for.each]
+	ret <- x[, my.test.3(temp=.SD, val.col=val.col, compare.by=compare.by, pair.by=pair.by, test=test, ...), by=for.each]
 	ret[p.value >= 0, p.value.adj:=p.adjust(p.value, method=p.adjust.method), by=p.adjust.by]
 	ret[p.value >= 0, p.sym.adj:=getPSymbol(p.value.adj, sym.1='~')]
 	ret[p.value >= 0, p.label.adj:=sig.digits(p.value.adj, nSig=nSig)]
@@ -3687,19 +3700,19 @@ data.table.test <- function(x, val.col, compare.by=NULL, pair.by=NULL, for.each=
 
 	if(!is.null(for.each))
 	{
-	     setkeyv(daGlobal, for.each)
-	     setkeyv(ret, for.each)
-	     ret <- ret[daGlobal]
+		setkeyv(daGlobal, for.each)
+		setkeyv(ret, for.each)
+		ret <- ret[daGlobal]
 	}
 	else
 	{
-	     ret[['p.value.global']] <- daGlobal[1][[1]]
+		ret[['p.value.global']] <- daGlobal[1][[1]]
 	}
 
 	if(ggplot)
 	{
 		# Rename the group columns for recognition by add_pvalue functions for ggplot.
-		setnames(ret, c(names(ret)[1:2],'p.value.global'), c('group1','group2','p'))
+		setnames(ret, c(names(ret)[1:2],'p.value'), c('group1','group2','p'))
 	}
 	return(ret)
 }
@@ -3781,14 +3794,14 @@ bigcor <- function(x, y=NULL, fun=c("cor","cov"), size=2000, verbose=TRUE, conve
 		## if y = NULL
 		if (is.null(y)) {
 			if (verbose) cat(sprintf("#%d: %s of Block %s and Block %s (%s x %s) ... ", i, STR,  COMB[1],
-								COMB[2], length(G1),  length(G2)))
+									 COMB[2], length(G1),  length(G2)))
 			RES <- FUN(x[, G1], x[, G2], ...)
 			resMAT[G1, G2] <- RES
 			resMAT[G2, G1] <- t(RES)
 		} else ## if y = smaller matrix or vector
 		{
 			if (verbose) cat(sprintf("#%d: %s of Block %s and 'y' (%s x %s) ... ", i, STR,  COMB[1],
-								length(G1),  YCOL))
+									 length(G1),  YCOL))
 			RES <- FUN(x[, G1], y, ...)
 			resMAT[G1, ] <- RES
 		}
@@ -3818,96 +3831,96 @@ bigcor <- function(x, y=NULL, fun=c("cor","cov"), size=2000, verbose=TRUE, conve
 }
 
 compareROCCurves <- function(rocA,
-                             rocB,
-                             actual.neg.pos.vals=c(F,T),
-                             method=c('roc','survival-logrank','survival-wilcox','contingency'),
-                             pairwise=FALSE,
-                             exact=FALSE,
-                             roc.method=c("bootstrap", "delong", "venkatraman"),
-                             thresh.type=c('UpperLeftmost','Youden','accuracy'),
-                             contingency.compare=c('acc','sens','spec'),
-                             alternative=c('two.sided','less','greater'), ...)
+							 rocB,
+							 actual.neg.pos.vals=c(F,T),
+							 method=c('roc','survival-logrank','survival-wilcox','contingency'),
+							 pairwise=FALSE,
+							 exact=FALSE,
+							 roc.method=c("bootstrap", "delong", "venkatraman"),
+							 thresh.type=c('UpperLeftmost','Youden','accuracy'),
+							 contingency.compare=c('acc','sens','spec'),
+							 alternative=c('two.sided','less','greater'), ...)
 {
-  library(coin)
-  library(pROC)
-  if(method[1] %!in% c('roc','survival-logrank','survival-wilcox','contingency'))
-  {
-    stop("Unrecognized 'method' argument. Please sepcify one of the following options: 'roc','survival-logrank','survival-wilcox'.")
-  }
+	library(coin)
+	library(pROC)
+	if(method[1] %!in% c('roc','survival-logrank','survival-wilcox','contingency'))
+	{
+		stop("Unrecognized 'method' argument. Please sepcify one of the following options: 'roc','survival-logrank','survival-wilcox'.")
+	}
 
-  if(method[1] == 'roc')
-  {
-    if(exact)
-    {
-      warning("The 'exact' parameter is ignored for the 'roc' method.")
-    }
-    ret <- roc.test(rocA, rocB, paired=pairwise, method=roc.method[1], alternative=alternative, ...)$p.value
-    return(ret)
-  }
+	if(method[1] == 'roc')
+	{
+		if(exact)
+		{
+			warning("The 'exact' parameter is ignored for the 'roc' method.")
+		}
+		ret <- roc.test(rocA, rocB, paired=pairwise, method=roc.method[1], alternative=alternative, ...)$p.value
+		return(ret)
+	}
 
-  if(method[1] == 'contingency')
-  {
-    return(contingencyTest_roc(rocA, rocB, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type = thresh.type, compare=contingency.compare[1], alternative=alternative[1]))
-  }
+	if(method[1] == 'contingency')
+	{
+		return(contingencyTest_roc(rocA, rocB, actual.neg.pos.vals = actual.neg.pos.vals, thresh.type = thresh.type, compare=contingency.compare[1], alternative=alternative[1]))
+	}
 
-  A <- convertROCToSurvival(rocA, actual.neg.pos.vals = actual.neg.pos.vals)
-  B <- convertROCToSurvival(rocB, actual.neg.pos.vals = actual.neg.pos.vals)
-  data <- data.table(spec=c(A, B), group=factor(c(rep('A', length(A)), rep('B', length(B)))), pair_id=factor(c(1:length(A), 1:length(B))), event=rep(1, length(A) + length(B)))
-  # browser()
-  if(method[1] == 'survival-logrank')
-  {
-    if(pairwise)
-    {
-      if(exact)
-      {
-        warning("The 'exact' parameter is forced to be 'asymptotic' for the pairwise version of the 'survival-logrank' method")
-      }
-      ret <- pvalue(logrank_test(
-        Surv(spec, event) ~ group | pair_id,  # Critical '|' for pairing
-        data = data,
-        distribution = "asymptotic",  # Must use asymptotic approx for pairwise blocks
-        alternative = alternative
-      ))
-    }
-    else
-    {
-      ret <- pvalue(logrank_test(
-        Surv(spec, event) ~ group,
-        data = data,
-        distribution = ifelse(exact, "exact", "asymptotic"),
-        alternative = alternative
-      ))
-    }
-    return(ret)
-  }
+	A <- convertROCToSurvival(rocA, actual.neg.pos.vals = actual.neg.pos.vals)
+	B <- convertROCToSurvival(rocB, actual.neg.pos.vals = actual.neg.pos.vals)
+	data <- data.table(spec=c(A, B), group=factor(c(rep('A', length(A)), rep('B', length(B)))), pair_id=factor(c(1:length(A), 1:length(B))), event=rep(1, length(A) + length(B)))
+	# browser()
+	if(method[1] == 'survival-logrank')
+	{
+		if(pairwise)
+		{
+			if(exact)
+			{
+				warning("The 'exact' parameter is forced to be 'asymptotic' for the pairwise version of the 'survival-logrank' method")
+			}
+			ret <- pvalue(logrank_test(
+				Surv(spec, event) ~ group | pair_id,  # Critical '|' for pairing
+				data = data,
+				distribution = "asymptotic",  # Must use asymptotic approx for pairwise blocks
+				alternative = alternative
+			))
+		}
+		else
+		{
+			ret <- pvalue(logrank_test(
+				Surv(spec, event) ~ group,
+				data = data,
+				distribution = ifelse(exact, "exact", "asymptotic"),
+				alternative = alternative
+			))
+		}
+		return(ret)
+	}
 
-  if(method[1] == 'survival-wilcox')
-  {
-    if(pairwise)
-    {
-      ret <- pvalue(wilcoxsign_test(A ~ B,
-                                    distribution = ifelse(exact, "exact", "asymptotic"),
-                                    alternative = alternative))
-    }
-    else
-    {
-      ret <- pvalue(wilcox_test(spec ~ group,
-                                data=data,
-                                distribution = ifelse(exact, "exact", "asymptotic"),
-                                alternative = alternative))
-    }
-    return(ret)
-  }
+	if(method[1] == 'survival-wilcox')
+	{
+		if(pairwise)
+		{
+			ret <- pvalue(wilcoxsign_test(A ~ B,
+										  distribution = ifelse(exact, "exact", "asymptotic"),
+										  alternative = alternative))
+		}
+		else
+		{
+			ret <- pvalue(wilcox_test(spec ~ group,
+									  data=data,
+									  distribution = ifelse(exact, "exact", "asymptotic"),
+									  alternative = alternative))
+		}
+		return(ret)
+	}
 }
 
 convertROCToSurvival <- function(roc, actual.neg.pos.vals)
 {
-  library(pROC)
-  # browser()
-  thresholds <- getThresholdsFrom_pROC(roc, actual.neg.pos.vals = actual.neg.pos.vals)
-  temp <- data.table(row=2:(nrow(thresholds)), n=-1*diff(thresholds$TP), spec=thresholds$specificity[-1])
-  blah <- unlist(sapply(temp$row, FUN=function(x){rep(temp[row==x]$spec, temp[row==x]$n)}))
-  return(blah)
+	library(pROC)
+	# browser()
+	thresholds <- getThresholdsFrom_pROC(roc, actual.neg.pos.vals = actual.neg.pos.vals)
+	temp <- data.table(row=2:(nrow(thresholds)), n=-1*diff(thresholds$TP), spec=thresholds$specificity[-1])
+	blah <- unlist(sapply(temp$row, FUN=function(x){rep(temp[row==x]$spec, temp[row==x]$n)}))
+	return(blah)
 }
 
 my.test <- function(x, y, test=c('wilcox','t.test'), adjust.p=F, adjust.method='BH', adjust.n=1, ...)
@@ -3973,10 +3986,10 @@ data.table.wilcox.stats <- function(dt, val.col, grp.by, for.each, ...)
 
 getWilcoxStatForEachGroup <- function(dt, val.col, by, ...)
 {
-		dt2 <- copy(dt)
-		ret <- dt2[, getWilcoxStats(get(val.col),dt[-.I][[val.col]], ...), by=by]
-		lapply.data.table(ret, as.double, cols=c('W','p.value','median.x','median.y','V','z.score','effect.size'), in.place = T)
-		return(ret)
+	dt2 <- copy(dt)
+	ret <- dt2[, getWilcoxStats(get(val.col),dt[-.I][[val.col]], ...), by=by]
+	lapply.data.table(ret, as.double, cols=c('W','p.value','median.x','median.y','V','z.score','effect.size'), in.place = T)
+	return(ret)
 }
 
 getWilcoxStats <- function(x, y, ...)
@@ -4142,15 +4155,15 @@ writeLatexWilcoxCombinedTable <- function(x, captionAddition='', includeVals=F, 
 
 getPSymbol <- function(pval, na.val='', not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
 {
-     sapply(pval, getPSymbol_, na.val=na.val, not.sig=not.sig, sym.1=sym.1, sym.05=sym.05, sym.01=sym.01, sym.001=sym.001, sym.0001=sym.0001)
+	sapply(pval, getPSymbol_, na.val=na.val, not.sig=not.sig, sym.1=sym.1, sym.05=sym.05, sym.01=sym.01, sym.001=sym.001, sym.0001=sym.0001)
 }
 
 getPSymbol_ <- function(pval, na.val='', not.sig='', sym.1='', sym.05='*', sym.01='**', sym.001='***', sym.0001='****')
 {
-  if(is.na(pval))
-  {
-    return(na.val)
-  }
+	if(is.na(pval))
+	{
+		return(na.val)
+	}
 	if(is.list(pval))
 	{
 		collapseSymbols <- function(symbols)
@@ -4531,14 +4544,14 @@ readJEXDataTables <- function(jData, sample.size=-1, sampling.order.fun=NULL, sa
 				}
 				else
 				{
-				  if(!is.null(cellIdString))
-				  {
-				    words <- paste(c(lines.with, cellIdString), collapse="|")
-				  }
-				  else
-				  {
-				    words <- paste(c(lines.with), collapse="|")
-				  }
+					if(!is.null(cellIdString))
+					{
+						words <- paste(c(lines.with, cellIdString), collapse="|")
+					}
+					else
+					{
+						words <- paste(c(lines.with), collapse="|")
+					}
 
 					words <- gsub('$', "\\$", words, fixed=T)
 					if(!is.null(lines.with))
@@ -4995,9 +5008,9 @@ calculate.baseline <- function(x, lambda=3, p=0.002, maxit=30, presmooth.sd=NULL
 		x <- roll.gaussian(x, win.width=presmooth.sd)
 	}
 	ret <- baseline.als(spectra=t(as.matrix(x)),
-					lambda=lambda,
-					p=p,
-					maxit = maxit)
+						lambda=lambda,
+						p=p,
+						maxit = maxit)
 	sig <- as.numeric(t(ret$corrected))
 	bg <- as.numeric(t(ret$baseline))
 	if(!is.null(postsmooth.sd))
@@ -5057,84 +5070,84 @@ calculate.peak.AUCs <- function(x, y, nearestTo=NULL, peak.neighlim, valley.neig
 # rank.based=F uses mean and sd
 getWeightedBG <- function(x, mu.fun=c('mean','median'), sd.fun='mad', na.rm=F, weight.fun=c('dnorm','inverse rank'), bg.type=c('lower','middle','upper'), w.median.type=4, sd.adj=1)
 {
-  print(sd.fun)
-  # Example:
-  # getWeightedBG(rnorm(10), dist.fun=pnorm, mu.fun=median, dev.fun=mad, pow=1, na.rm=T)
-  if(bg.type[1] %!in% c('lower','middle','upper'))
-  {
-    stop('Unrecognized bg.type parameter. Must be lower, middle, or upper.')
-  }
-  if(weight.fun[1] %!in% c('dnorm','inverse rank'))
-  {
-    stop("Unrecognized weight.fun parameter. Must be 'dnorm' or 'inverse rank'.")
-  }
-  if(length(x)==1)
-  {
-    return(x)
-  }
-  if(mu.fun=='mean')
-  {
-    mu.fun <- mean
-    w.mu.fun <- weighted.mean
-  }
-  else if(sd.fun=='median')
-  {
-    library(spatstat)
-    mu.fun <- median
-    w.mu.fun <- function(x, w, na.rm){return(weighted.median(x=x, w=w, na.rm=na.rm, type=w.median.type))}
-  }
-  else
-  {
-    stop('Unrecognized mu.fun')
-  }
-  if(sd.fun[1]=='sd')
-  {
-    sd.fun <- sd
-  }
-  else if(sd.fun[1]=='mad')
-  {
-    sd.fun <- mad
-  }
-  else
-  {
-    stop('Unrecognized sd.fun')
-  }
-  mu <- mu.fun(x, na.rm=na.rm)
-  dev <- sd.fun(x, na.rm=na.rm)*sd.adj
+	print(sd.fun)
+	# Example:
+	# getWeightedBG(rnorm(10), dist.fun=pnorm, mu.fun=median, dev.fun=mad, pow=1, na.rm=T)
+	if(bg.type[1] %!in% c('lower','middle','upper'))
+	{
+		stop('Unrecognized bg.type parameter. Must be lower, middle, or upper.')
+	}
+	if(weight.fun[1] %!in% c('dnorm','inverse rank'))
+	{
+		stop("Unrecognized weight.fun parameter. Must be 'dnorm' or 'inverse rank'.")
+	}
+	if(length(x)==1)
+	{
+		return(x)
+	}
+	if(mu.fun=='mean')
+	{
+		mu.fun <- mean
+		w.mu.fun <- weighted.mean
+	}
+	else if(sd.fun=='median')
+	{
+		library(spatstat)
+		mu.fun <- median
+		w.mu.fun <- function(x, w, na.rm){return(weighted.median(x=x, w=w, na.rm=na.rm, type=w.median.type))}
+	}
+	else
+	{
+		stop('Unrecognized mu.fun')
+	}
+	if(sd.fun[1]=='sd')
+	{
+		sd.fun <- sd
+	}
+	else if(sd.fun[1]=='mad')
+	{
+		sd.fun <- mad
+	}
+	else
+	{
+		stop('Unrecognized sd.fun')
+	}
+	mu <- mu.fun(x, na.rm=na.rm)
+	dev <- sd.fun(x, na.rm=na.rm)*sd.adj
 
-  if(weight.fun[1]=='dnorm')
-  {
-    w <- dnorm((x-mu)/dev, mean=0, sd=1)/dnorm(0)
-    if(bg.type[1]=='lower')
-    {
-      w <- 1-w
-      w[(x-mu)>0] <- 0
-    }
-    else if(bg.type[1]=='upper')
-    {
-      w <- 1-w
-      w[(x-mu)<0] <- 0
-    }
-  }
-  else if(weight.fun[1]=='inverse rank')
-  {
-    if(bg.type[1]=='lower')
-    {
-      w <- 1/rank(abs(x-min(x, na.rm=na.rm)))
-    }
-    else if(bg.type[1]=='upper')
-    {
-      w <- 1/rank(abs(x-max(x, na.rm=na.rm)))
-    }
-    else if(bg.type[1]=='middle')
-    {
-      w <- 1/rank(abs(x-median(x, na.rm=na.rm)))
-    }
-  }
+	if(weight.fun[1]=='dnorm')
+	{
+		w <- dnorm((x-mu)/dev, mean=0, sd=1)/dnorm(0)
+		if(bg.type[1]=='lower')
+		{
+			w <- 1-w
+			w[(x-mu)>0] <- 0
+		}
+		else if(bg.type[1]=='upper')
+		{
+			w <- 1-w
+			w[(x-mu)<0] <- 0
+		}
+	}
+	else if(weight.fun[1]=='inverse rank')
+	{
+		if(bg.type[1]=='lower')
+		{
+			w <- 1/rank(abs(x-min(x, na.rm=na.rm)))
+		}
+		else if(bg.type[1]=='upper')
+		{
+			w <- 1/rank(abs(x-max(x, na.rm=na.rm)))
+		}
+		else if(bg.type[1]=='middle')
+		{
+			w <- 1/rank(abs(x-median(x, na.rm=na.rm)))
+		}
+	}
 
-  w <- w/sum(w)
-  print(w)
-  return(w.mu.fun(x, w, na.rm=na.rm))
+	w <- w/sum(w)
+	print(w)
+	return(w.mu.fun(x, w, na.rm=na.rm))
 }
 
 calculate.AUCs <- function(x, y, left, right, peak, plot.polygons=F, colors=NULL)
@@ -5422,8 +5435,8 @@ getWeightedR2_Vectors <- function(y, r, f, w)
 }
 
 siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
-					rnd = -1, alternative = "two.sided", mu = 0, paired = FALSE,
-					exact = FALSE, correct = TRUE, conf.int = FALSE, conf.level = 0.95) {
+						 rnd = -1, alternative = "two.sided", mu = 0, paired = FALSE,
+						 exact = FALSE, correct = TRUE, conf.int = FALSE, conf.level = 0.95) {
 	###### published on:
 	#   http://www.r-statistics.com/2010/02/siegel-tukey-a-non-parametric-test-for-equality-in-variability-r-code/
 	## Main author of the function:  Daniel Malter
@@ -5534,14 +5547,14 @@ siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
 	if (adjust.median == T) {
 		cat("\n", "Adjusting medians...", "\n", sep = "")
 		data$x[data$y == 0] = data$x[data$y == 0] - (median(data$x[data$y ==
-													    	0]))
+																   	0]))
 		data$x[data$y == 1] = data$x[data$y == 1] - (median(data$x[data$y ==
-													    	1]))
+																   	1]))
 	}
 	cat("\n", "Median of group 1 = ", median(data$x[data$y == 0]),
-	    "\n", sep = "")
+		"\n", sep = "")
 	cat("Median of group 2 = ", median(data$x[data$y == 1]), "\n",
-	    "\n", sep = "")
+		"\n", sep = "")
 	cat("Testing median differences...", "\n")
 	print(wilcox.test(data$x[data$y == 0], data$x[data$y == 1]))
 
@@ -5550,7 +5563,7 @@ siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
 	y <- data$y
 
 	cat("Performing Siegel-Tukey rank transformation...", "\n",
-	    "\n")
+		"\n")
 
 
 
@@ -5584,7 +5597,7 @@ siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
 	rank.matrix <- data.frame(unique.x, unique.ranks)
 
 	ST.matrix <- merge(data.matrix, rank.matrix, by.x = "sort.x",
-				    by.y = "unique.x")
+					   by.y = "unique.x")
 
 	print(ST.matrix)
 
@@ -5597,8 +5610,8 @@ siegel.tukey <- function(x, y, id.col = FALSE, adjust.median = F,
 	cat("Mean rank of group 1: ", mean(ranks1), "\n", sep = "")
 
 	print(wilcox.test(ranks0, ranks1, alternative = alternative,
-				   mu = mu, paired = paired, exact = exact, correct = correct,
-				   conf.int = conf.int, conf.level = conf.level))
+					  mu = mu, paired = paired, exact = exact, correct = correct,
+					  conf.int = conf.int, conf.level = conf.level))
 
 	return(list(ranks0=ranks0, ranks1=ranks1))
 }
@@ -5682,9 +5695,9 @@ paperHist <- function(letter='a)',histogram, xlabel='bins', ylabel='Density', la
 }
 
 myHist <- function (histogram, freq = equidist, density = NULL, angle = 45, col = NULL,
-				border = par("fg"), lty = NULL, main = paste("Histogram of",
-													histogram$xname), xlim = range(histogram$breaks), ylim = NULL, xlab = histogram$xname,
-				ylab, axes = TRUE, labels = FALSE, add = FALSE, width=1.0, offset=(1.0-width)/2, ...)
+					border = par("fg"), lty = NULL, main = paste("Histogram of",
+																 histogram$xname), xlim = range(histogram$breaks), ylim = NULL, xlab = histogram$xname,
+					ylab, axes = TRUE, labels = FALSE, add = FALSE, width=1.0, offset=(1.0-width)/2, ...)
 {
 	y <- histogram$counts
 	if(!freq)
@@ -5715,7 +5728,7 @@ myHist <- function (histogram, freq = equidist, density = NULL, angle = 45, col 
 		rect(x, 0, x+x.width, y, col=col, border=border, angle = angle, density = density, lty=lty);
 	} else {
 		rect(histogram$breaks[-nB], 0, histogram$breaks[-1], y, col = col, border = border,
-			angle = angle, density = density, lty = lty)
+			 angle = angle, density = density, lty = lty)
 	}
 
 	if ((logl <- is.logical(labels) && labels) || is.character(labels))
@@ -5756,7 +5769,7 @@ setroworder.data.table <- function(x, neworder)
 
 sort_col_alphanum <- function(x, col, ascending=T, ...)
 {
-  library(gtools)
+	library(gtools)
 	# Additional arguments ... passed to gtools::mixedorder
 	setroworder.data.table(x=x, neworder=mixedorder(x[[col]], decreasing=!(as.logical(ascending)), ...))
 }
@@ -5785,7 +5798,7 @@ setorder.alphanum <- function(x, ..., ascending=NULL)
 
 update.list <- function(current, updates)
 {
-  return(merge.lists(current, updates))
+	return(merge.lists(current, updates))
 }
 
 merge.lists <- function(list1, list2, items=list1, items.to.put=list2)
@@ -5801,194 +5814,194 @@ merge.lists <- function(list1, list2, items=list1, items.to.put=list2)
 
 merge.all.lists <- function(...)
 {
-     lists <- list(...)
-     # Default values in list1
-     # Overriding values in list2
-     items <- list()
-     for(l in list(...))
-     {
-          for(name in names(l))
-          {
-               items[[name]] <- l[[name]]
-          }
-     }
-     return(items)
+	lists <- list(...)
+	# Default values in list1
+	# Overriding values in list2
+	items <- list()
+	for(l in list(...))
+	{
+		for(name in names(l))
+		{
+			items[[name]] <- l[[name]]
+		}
+	}
+	return(items)
 }
 
 interdigitate <- function(a, b)
 {
-  len <- length(c(a, b))
-  x <- vector(class(a), len)
+	len <- length(c(a, b))
+	x <- vector(class(a), len)
 
-  a.l <- rep(length(a) >= length(b), len)
-  b.l <- rep(length(b) >= length(a), len)
-  len.min <- min(length(a), length(b))
-  a.l[1:(2*len.min)] <- rep(c(T,F), len.min)
-  b.l[1:(2*len.min)] <- rep(c(F,T), len.min)
-  x[a.l] <- a
-  x[b.l] <- b
-  return(x)
+	a.l <- rep(length(a) >= length(b), len)
+	b.l <- rep(length(b) >= length(a), len)
+	len.min <- min(length(a), length(b))
+	a.l[1:(2*len.min)] <- rep(c(T,F), len.min)
+	b.l[1:(2*len.min)] <- rep(c(F,T), len.min)
+	x[a.l] <- a
+	x[b.l] <- b
+	return(x)
 }
 
 getNameValue <- function(string, sep='=')
 {
-  vals <- strsplit(string, split=sep, fixed=T)[[1]]
-  ret <- data.table()
-  ret[[vals[1]]] <- vals[2]
-  return(data.table())
+	vals <- strsplit(string, split=sep, fixed=T)[[1]]
+	ret <- data.table()
+	ret[[vals[1]]] <- vals[2]
+	return(data.table())
 }
 
 getSurvivalCurves <- function(events, flip=F, by=NULL, idcol= 'cId', tcol='LD.time', ecol='LD.status', na.val=as.character(NA), ignore.first=T)
 {
-  library('reader')
-  # Get rid of cells that started with a positive event status
-  if(ignore.first)
-  {
-  	temp <- events[!(get(tcol)==min(get(tcol)) & get(ecol)==1)]
-  }
-  else
-  {
-  	temp <- copy(events)
-  }
+	library('reader')
+	# Get rid of cells that started with a positive event status
+	if(ignore.first)
+	{
+		temp <- events[!(get(tcol)==min(get(tcol)) & get(ecol)==1)]
+	}
+	else
+	{
+		temp <- copy(events)
+	}
 
 
-  # Get survival curves
-  rhs <- if(is.null(by)){names(events)[!names(events) %in% c(idcol, tcol, ecol)]}else{by}
-  setkeyv(temp, rhs)
-  my.f <- makeBasicFormula(paste('Surv(', tcol, ', ', ecol, ')', sep=''), rhs)
-  fit <- do.call(survfit, args=list(formula=my.f, data=temp))
-  my.surv <- data.table()
-  for(name in rhs)
-  {
-    my.surv[, c(name):=as.character(sapply(sapply(names(fit$strata), function(x){strsplit(x, split=', ', fixed=T)[[1]][which(rhs==name)]}), function(y){strsplit(y, split='=', fixed=T)[[1]][2]}))]
-    if(is.factor(temp[[name]]))
-    {
-      my.surv[, c(name):=factor(get(name), levels=levels(temp[[name]]))]
-    }
-  }
+	# Get survival curves
+	rhs <- if(is.null(by)){names(events)[!names(events) %in% c(idcol, tcol, ecol)]}else{by}
+	setkeyv(temp, rhs)
+	my.f <- makeBasicFormula(paste('Surv(', tcol, ', ', ecol, ')', sep=''), rhs)
+	fit <- do.call(survfit, args=list(formula=my.f, data=temp))
+	my.surv <- data.table()
+	for(name in rhs)
+	{
+		my.surv[, c(name):=as.character(sapply(sapply(names(fit$strata), function(x){strsplit(x, split=', ', fixed=T)[[1]][which(rhs==name)]}), function(y){strsplit(y, split='=', fixed=T)[[1]][2]}))]
+		if(is.factor(temp[[name]]))
+		{
+			my.surv[, c(name):=factor(get(name), levels=levels(temp[[name]]))]
+		}
+	}
 
-  if(is.null(fit$strata))
-  {
-  	# If there is only one condition to plot, survminer doesn't return a fit$strata object
-  	# So we fake one here
-  	my.surv <- data.table(x=as.factor(levels(temp[[name]])))
-  	setnames(my.surv, 'x', name)
-  	my.surv <- my.surv[rep(1:.N, length(fit$surv))]
-  }
-  else
-  {
-  	# Otherwise there are more than one conditions to plot and this should work like normal
-  	my.surv <- my.surv[rep(1:.N, fit$strata)]
-  }
+	if(is.null(fit$strata))
+	{
+		# If there is only one condition to plot, survminer doesn't return a fit$strata object
+		# So we fake one here
+		my.surv <- data.table(x=as.factor(levels(temp[[name]])))
+		setnames(my.surv, 'x', name)
+		my.surv <- my.surv[rep(1:.N, length(fit$surv))]
+	}
+	else
+	{
+		# Otherwise there are more than one conditions to plot and this should work like normal
+		my.surv <- my.surv[rep(1:.N, fit$strata)]
+	}
 
-  my.surv[, c(tcol, 'n.risk', 'n.censor', 'surv', 'std.err', 'cumhaz', 'chaz', 'conf.int', 'lower', 'upper'):=list(time=fit$time, n.risk=fit$n.risk, n.censor=fit$n.censor, surv=fit$surv, std.err=fit$std.err, cumhaz=fit$cumhaz, chaz=fit$std.chaz, conf.int=fit$conf.int, lower=fit$surv-fit$lower, upper=fit$upper-fit$surv)]
-  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name=tcol), .SDcols = c('surv', 'upper','lower',tcol), by=c(rhs)]
-  if(flip)
-  {
-    my.surv[, surv:=1-surv]
-    my.surv.s[, surv:=1-surv]
-  }
-  stats <- as.data.table(pairwise_survdiff(my.f, data = temp)$p.value, keep.rownames=T)
-  stats.sym <- lapply.data.table(stats, getPSymbol, cols=getAllColNamesExcept(stats, 'rn'), by=c('rn'), na.val=na.val)
+	my.surv[, c(tcol, 'n.risk', 'n.censor', 'surv', 'std.err', 'cumhaz', 'chaz', 'conf.int', 'lower', 'upper'):=list(time=fit$time, n.risk=fit$n.risk, n.censor=fit$n.censor, surv=fit$surv, std.err=fit$std.err, cumhaz=fit$cumhaz, chaz=fit$std.chaz, conf.int=fit$conf.int, lower=fit$surv-fit$lower, upper=fit$upper-fit$surv)]
+	my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name=tcol), .SDcols = c('surv', 'upper','lower',tcol), by=c(rhs)]
+	if(flip)
+	{
+		my.surv[, surv:=1-surv]
+		my.surv.s[, surv:=1-surv]
+	}
+	stats <- as.data.table(pairwise_survdiff(my.f, data = temp)$p.value, keep.rownames=T)
+	stats.sym <- lapply.data.table(stats, getPSymbol, cols=getAllColNamesExcept(stats, 'rn'), by=c('rn'), na.val=na.val)
 
-  ## Create a printable fixed width table of the stats information
-  # Create a lookup table betwen the by columns and the fixed width printable version of the by grouping labels called 'temp'
-  stats.sym2 <- copy(stats.sym)
-  for(name in by)
-  {
-    names(stats.sym2) <- gsub(paste(name,'=',sep=''), '', names(stats.sym2), fixed=T)
-    replaceSubStringInAllRowsOfCol(stats.sym2, old=paste(name,'=',sep=''), new='', col='rn')
-  }
-  names(stats.sym2) <- gsub(',', ':', names(stats.sym2), fixed=T)
-  replaceSubStringInAllRowsOfCol(stats.sym2, old=',', new=':', col='rn')
-  # setnames(stats.sym2, old='rn', new=' ')
-  temp <- conv.fixed.width(getUniqueCombos(events, by=by))
-  paste.cols(temp, cols=by, name='Combo.fw', sep=':')
-  lapply.data.table(temp, trimws, cols=by, in.place=T)
-  # Use the stats.sym table to create a table that can be formatted for printing
-  # Make it long form, taking just the unique combos by including both the group1 vs group2 but also group2 vs group1 (which are equivalent)
-  fw.table <- melt.data.table(stats.sym2, id.vars='rn')
-  fw.table <- rbind(fw.table[, c('rn','variable','value'):=list(variable, rn, value)],  melt.data.table(stats.sym2, id.vars='rn'))[rn != variable]
-  fw.table <- fw.table[order(value)]
-  fw.table <- unique(fw.table, by=c('rn','variable'))
-  # Create a new by variable for keeping track of group1 vs group2 comparisons and
-  by.v <- paste(by, '.v', sep='')
-  # Stats separates group sublabels by comma. Separate them to create the group1 label columns
-  splitColumnAtString(fw.table, colToSplit = 'rn', newColNames = by, sep=': ', keep=1L:length(by))
-  # Do the same to crewate the group2 label columns
-  splitColumnAtString(fw.table, colToSplit = 'variable', newColNames = by.v, sep=': ', keep=1L:length(by))
-  # Trim any potential whitespace characters from the group labels provided by stats.sym
-  lapply.data.table(fw.table, trimws, cols=c(by, by.v), in.place=T)
-  # Reset names incase rerunning this section of code multiple times
-  names(by) <-  by
-  by <- as.character(by)
-  # Use our lookup table to get the fixed width printable version for each group1 labeling
-  fw.table[temp, text:=Combo.fw, on=by]
-  # Use our lookup table to get the fixed width printable version for each group1 labeling, using by.v to associate names of group1 (by) and group2 (by.v)
-  names(by) <- by.v
-  fw.table[temp, text2:=Combo.fw, on=by]
-  # Make sure the by groupings have the same levels/ordering as the original events table
-  for(by.n in by)
-  {
-    if(is.factor(events[[by.n]]))
-    {
-      fw.table[, c(by.n):=factor(get(by.n), levels=levels(events[[by.n]]))]
-    }
-  }
-  for(by.n in by)
-  {
-    by.n.v <- paste(by.n, '.v', sep='')
-    if(is.factor(events[[by.n]]))
-    {
-      fw.table[, c(by.n.v):=factor(get(by.n.v), levels=levels(events[[by.n]]))]
-    }
-  }
-  setorderv(fw.table, c(by, by.v))
-  # Apply that ordering to the combined text
-  fw.table[, text:=factor(text, levels=unique(text))]
-  fw.table[, text2:=factor(text2, levels=levels(text))]
-  # Reorganize the table for printing
-  fw.table <- reorganize(fw.table, idCols='text', measurementCols = 'text2', valueCols = 'value')[, 1:(length(unique(fw.table$text)))]
-  # Replace NA values with ''
-  lapply.data.table(fw.table, FUN=function(x){x[is.na(x)] <- ''; return(x)}, cols=names(fw.table)[-1L], in.place=T)
-  # Replace the 'text' col name with a new name of '|' for printing
-  setnames(fw.table, old='text', new=' ')
-  # Add the header label
-  fw.table <- rbind(data.table()[, c(names(fw.table)):=as.list(names(fw.table))], fw.table)
-  fw.table <- conv.fixed.width(fw.table)
+	## Create a printable fixed width table of the stats information
+	# Create a lookup table betwen the by columns and the fixed width printable version of the by grouping labels called 'temp'
+	stats.sym2 <- copy(stats.sym)
+	for(name in by)
+	{
+		names(stats.sym2) <- gsub(paste(name,'=',sep=''), '', names(stats.sym2), fixed=T)
+		replaceSubStringInAllRowsOfCol(stats.sym2, old=paste(name,'=',sep=''), new='', col='rn')
+	}
+	names(stats.sym2) <- gsub(',', ':', names(stats.sym2), fixed=T)
+	replaceSubStringInAllRowsOfCol(stats.sym2, old=',', new=':', col='rn')
+	# setnames(stats.sym2, old='rn', new=' ')
+	temp <- conv.fixed.width(getUniqueCombos(events, by=by))
+	paste.cols(temp, cols=by, name='Combo.fw', sep=':')
+	lapply.data.table(temp, trimws, cols=by, in.place=T)
+	# Use the stats.sym table to create a table that can be formatted for printing
+	# Make it long form, taking just the unique combos by including both the group1 vs group2 but also group2 vs group1 (which are equivalent)
+	fw.table <- melt.data.table(stats.sym2, id.vars='rn')
+	fw.table <- rbind(fw.table[, c('rn','variable','value'):=list(variable, rn, value)],  melt.data.table(stats.sym2, id.vars='rn'))[rn != variable]
+	fw.table <- fw.table[order(value)]
+	fw.table <- unique(fw.table, by=c('rn','variable'))
+	# Create a new by variable for keeping track of group1 vs group2 comparisons and
+	by.v <- paste(by, '.v', sep='')
+	# Stats separates group sublabels by comma. Separate them to create the group1 label columns
+	splitColumnAtString(fw.table, colToSplit = 'rn', newColNames = by, sep=': ', keep=1L:length(by))
+	# Do the same to crewate the group2 label columns
+	splitColumnAtString(fw.table, colToSplit = 'variable', newColNames = by.v, sep=': ', keep=1L:length(by))
+	# Trim any potential whitespace characters from the group labels provided by stats.sym
+	lapply.data.table(fw.table, trimws, cols=c(by, by.v), in.place=T)
+	# Reset names incase rerunning this section of code multiple times
+	names(by) <-  by
+	by <- as.character(by)
+	# Use our lookup table to get the fixed width printable version for each group1 labeling
+	fw.table[temp, text:=Combo.fw, on=by]
+	# Use our lookup table to get the fixed width printable version for each group1 labeling, using by.v to associate names of group1 (by) and group2 (by.v)
+	names(by) <- by.v
+	fw.table[temp, text2:=Combo.fw, on=by]
+	# Make sure the by groupings have the same levels/ordering as the original events table
+	for(by.n in by)
+	{
+		if(is.factor(events[[by.n]]))
+		{
+			fw.table[, c(by.n):=factor(get(by.n), levels=levels(events[[by.n]]))]
+		}
+	}
+	for(by.n in by)
+	{
+		by.n.v <- paste(by.n, '.v', sep='')
+		if(is.factor(events[[by.n]]))
+		{
+			fw.table[, c(by.n.v):=factor(get(by.n.v), levels=levels(events[[by.n]]))]
+		}
+	}
+	setorderv(fw.table, c(by, by.v))
+	# Apply that ordering to the combined text
+	fw.table[, text:=factor(text, levels=unique(text))]
+	fw.table[, text2:=factor(text2, levels=levels(text))]
+	# Reorganize the table for printing
+	fw.table <- reorganize(fw.table, idCols='text', measurementCols = 'text2', valueCols = 'value')[, 1:(length(unique(fw.table$text)))]
+	# Replace NA values with ''
+	lapply.data.table(fw.table, FUN=function(x){x[is.na(x)] <- ''; return(x)}, cols=names(fw.table)[-1L], in.place=T)
+	# Replace the 'text' col name with a new name of '|' for printing
+	setnames(fw.table, old='text', new=' ')
+	# Add the header label
+	fw.table <- rbind(data.table()[, c(names(fw.table)):=as.list(names(fw.table))], fw.table)
+	fw.table <- conv.fixed.width(fw.table)
 
-  paste.cols(fw.table, names(fw.table), name='final', sep=' ')
-  #surv_pvalue(fit=fit, test.for.trend = T)
-  return(list(events=temp, sc=my.surv, sc.step=my.surv.s, stats=stats, symbols=stats.sym, fw.table=fw.table, fit=fit, p.val=surv_pvalue(fit=fit), p.val.trend=as.numeric(1), formula=my.f, rhs=rhs))
+	paste.cols(fw.table, names(fw.table), name='final', sep=' ')
+	#surv_pvalue(fit=fit, test.for.trend = T)
+	return(list(events=temp, sc=my.surv, sc.step=my.surv.s, stats=stats, symbols=stats.sym, fw.table=fw.table, fit=fit, p.val=surv_pvalue(fit=fit), p.val.trend=as.numeric(1), formula=my.f, rhs=rhs))
 }
 
 convertMultipleToSteps <- function(dt, x.name, from=min(dt[[x.name]]), to=max(dt[[x.name]]))
 {
-  # e.g.,  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name='time', from=0, to=40), .SDcols = c('surv', 'upper','lower','time'), by='strata']
-  ret <- list()
-  for(da.name in names(dt)[names(dt) != x.name])
-  {
-    temp <- convertToSteps(x=dt[[x.name]], y=dt[[da.name]], from=from, to=to)
-    if(length(ret) == 0)
-    {
-      ret[[x.name]] <- temp$x
-    }
-    ret[[da.name]] <- temp$y
-  }
-  return(ret)
+	# e.g.,  my.surv.s <- my.surv[, convertMultipleToSteps(.SD, x.name='time', from=0, to=40), .SDcols = c('surv', 'upper','lower','time'), by='strata']
+	ret <- list()
+	for(da.name in names(dt)[names(dt) != x.name])
+	{
+		temp <- convertToSteps(x=dt[[x.name]], y=dt[[da.name]], from=from, to=to)
+		if(length(ret) == 0)
+		{
+			ret[[x.name]] <- temp$x
+		}
+		ret[[da.name]] <- temp$y
+	}
+	return(ret)
 }
 
 convertToSteps <- function (x, y, from=min(x), to=max(x))
 {
-  k <- order(x)
-  y2 <- y[c(rep(k[-length(k)], each=2), k[length(k)])]
-  x2 <- x[c(k[1], rep(k[-1L], each=2))]
-  valid.x <- x2 >= from & x2 <= to
-  x2 <- x2[valid.x]
-  y2 <- y2[valid.x]
-  x2 <- c(from, x2, to)
-  y2 <- c(y2[1], y2, y2[length(y2)])
-  return(list(x=x2, y=y2))
+	k <- order(x)
+	y2 <- y[c(rep(k[-length(k)], each=2), k[length(k)])]
+	x2 <- x[c(k[1], rep(k[-1L], each=2))]
+	valid.x <- x2 >= from & x2 <= to
+	x2 <- x2[valid.x]
+	y2 <- y2[valid.x]
+	x2 <- c(from, x2, to)
+	y2 <- c(y2[1], y2, y2[length(y2)])
+	return(list(x=x2, y=y2))
 }
 
 merge.vectors <- function(vector1, vector2)
@@ -6048,9 +6061,9 @@ seq.each <- function(froms, tos)
 
 asinhseq <- function(from, to, length.out=10, cofactor=1)
 {
-  ret <- seq(asinh(from/cofactor), asinh(to/cofactor), length.out=length.out)
-  ret <- sinh(ret)*cofactor
-  return(ret)
+	ret <- seq(asinh(from/cofactor), asinh(to/cofactor), length.out=length.out)
+	ret <- sinh(ret)*cofactor
+	return(ret)
 }
 
 lseq <- function(from, to, length.out=NULL, intervalsPerDecade=2)
@@ -6101,42 +6114,41 @@ calcTransition <- function(x, base=10, frac=0.15)
 ## ggplot stuff
 
 # Define your custom wrapper
-theme_jay <- function(
-    palette = "colorblind_safe",
-    alpha   = 1,
-    lighten = 0.2,
-    legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),
-    panel.spacing = 3,
-    ...
-) {
-  library(ggprism)
-  library(scales)
-  library(colorspace)
-  argslist <- list(...)
-  theme.args <- list(plot.background = element_rect(fill = "transparent", colour = NA),
-  				   legend.title = element_text(),   # allow title styling
-  				   legend.text = element_text(),    # allow text styling
-  				   panel.spacing.x=unit(panel.spacing, 'pt'),
-  				   panel.spacing.y=unit(panel.spacing, 'pt')
-  				   )
-  theme.args <- merge.lists(theme.args, argslist)
-  # Return a list of ggplot layers that can be added with +
-  positions <- list(topleft=c(0,1), topright=c(1,1), bottomright=c(1,0), bottomleft=c(0,0))
-  if(legend[1] %in% c('topleft','bottomright','topright','bottomleft'))
-  {
-  	theme.args[['legend.justification']] <- positions[[legend]]
-  	theme.args[['legend.position']] <- positions[[legend]]
-  }
-  else
-  {
-  	theme.args[['legend.position']] <- legend[1]
-  }
-  list(
-    scale_fill_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
-    scale_color_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
-    theme_prism(),
-    do.call(theme, theme.args)    # pass all accumulated args to theme
-  )
+theme_jay <- function(palette = "colorblind_safe",         # pallet name from the ggprism package that is a list of palettes defined in graphpad prism
+					  alpha   = 1,                         # Global alpha value for the palette of colors (probably keep as 1 and use lighten instead to make things lighter, but nice for filled histograms)
+					  lighten = 0.2,                       # Value between 0-1 to lighten the each of the colors in the palette (in case you like colors but they are a bit intense)
+					  legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),  # Possible positions for the legend corner locations are inside the plot area, top, bottom, left, right are outside
+					  panel.spacing = 3,                   # Spacing parameter between the nested panels of data in 'pt' units
+					  ...)                                 # Parameters that are passed on to the standard 'theme()' function of ggplot. So this function replaces that function but with some nice defaults
+{
+	library(ggprism)
+	library(scales)
+	library(colorspace)
+	argslist <- list(...)
+	theme.args <- list(plot.background = element_rect(fill = "transparent", colour = NA),
+					   legend.title = element_text(),   # allow title styling
+					   legend.text = element_text(),    # allow text styling
+					   panel.spacing.x=unit(panel.spacing, 'pt'),
+					   panel.spacing.y=unit(panel.spacing, 'pt')
+	)
+	theme.args <- merge.lists(theme.args, argslist)
+	# Return a list of ggplot layers that can be added with +
+	positions <- list(topleft=c(0,1), topright=c(1,1), bottomright=c(1,0), bottomleft=c(0,0))
+	if(legend[1] %in% c('topleft','bottomright','topright','bottomleft'))
+	{
+		theme.args[['legend.justification']] <- positions[[legend]]
+		theme.args[['legend.position']] <- positions[[legend]]
+	}
+	else
+	{
+		theme.args[['legend.position']] <- legend[1]
+	}
+	list(
+		scale_fill_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
+		scale_color_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
+		theme_prism(),
+		do.call(theme, theme.args)    # pass all accumulated args to theme
+	)
 }
 
 ###### Facet Labels #####
@@ -6145,16 +6157,17 @@ theme_jay <- function(
 # IMPLEMENTATION CODE 2: facet_jay (wrapper function)
 # ================================================================
 
-facet_jay <- function(facets, ...,
-					  rows = NULL,
-					  cols = NULL,
-					  strip = ggh4x::strip_nested(
+facet_jay <- function(facets, ...,                    # Same as for face_nested from ggh4x, formula for facets like . ~ User + Method + Conc
+					  rows = NULL,                    # Same as for facet_nested
+					  cols = NULL,                    # Same as for facet_nested
+					  strip = ggh4x::strip_nested(    # Some convenient default values for the strip to draw boxes around the values
 					  	text_x = element_text(vjust = 0),
 					  	background_x = element_rect(color = 'black', linewidth = 1)
 					  ),
-					  labels = NULL,
-					  label_width_units = 'mm',
-					  label_padding = 3) {
+					  labels = NULL,                  # User-defined labels for the rows of the strip (otherwise pulled from the formula)
+					  label_width_units = 'mm',       # Technically can change the units of the label padding but shouldn't need to
+					  label_padding = 3)              # Estimate of space between the longest label and the right edge of the plot (without a right legend... right legends are added on further right)
+{
 
 	# Determine which syntax was used
 	if (!is.null(facets)) {
@@ -6444,35 +6457,42 @@ facet_nested_custom <- function(
 
 ###### geom_prism #####
 
-geom_prism <- function(mapping = NULL, data = NULL,
-						na.rm = FALSE,
-						show.legend = NA,
-						inherit.aes = TRUE,
-						mean_linewidth = 1,
-						mean_width = 0.4,
-						errorbar_linewidth = 0.4,
-						errorbar_width = 0.2,
-						mean_color = NULL,
-						dodge_width = 0.7,
-						jitter_width = 0.3,
-						jitter_n = NULL,
-						jitter_seed = NULL,
-						...) {
+geom_prism <- function(mapping = NULL,
+					   data = NULL,
+					   dodge_width = 0.7,             # Same as other geom_ functions, defines dodge widths in response to color and group etc
+					   mean_linewidth = 1,            # Linewidth/weight of the mean line
+					   mean_width = 0.4,              # Width of the mean line relative to the data panel
+					   errorbar_type = c('sd','se'),  # Calculation type for the error bars either sd or se = sd/sqrt(n_pts)
+					   errorbar_mult = 1,             # How much to multiply the sd or se calculation for plotting errorbars
+					   errorbar_linewidth = 0.4,      # Linewidth/weight of the errobar lines
+					   errorbar_width = 0.2,          # Width of the horizontal errorbar lines relative to the data panel
+					   jitter_width = 0.3,            # Width of the jitter of the points relative to the data panel
+					   jitter_seed = NULL,            # random seed to keep the jitter consistent from call to call
+					   inherit.aes = TRUE,            # Same as for any other geom_ function
+					   ...)                           # Parameters passed onto the geom_point function used within here (i.e., won't get passed to the functions for the mean or errorbar lines)
+{
 
+	if(errorbar_type[1] %!in% c('sd','se'))
+	{
+		stop("errorbar_type must be either 'sd' or 'se'")
+	}
 	# Create custom stat function
 	mean_sd_stat <- function(x) {
 		m <- mean(x, na.rm = TRUE)
 		s <- sd(x, na.rm = TRUE)
+		if(errorbar_type[1]=='se')
+		{
+			s <- s/sqrt(sum(!is.na(x)))
+		}
 		data.frame(
 			y = m,
-			ymin = m - s,
-			ymax = m + s
+			ymin = m - errorbar_mult*s,
+			ymax = m + errorbar_mult*s
 		)
 	}
 
 	# Prepare params for mean line
 	mean_params <- list(
-		na.rm = na.rm,
 		fun.data = function(x) {
 			m <- mean(x, na.rm = TRUE)
 			data.frame(y = m, ymin = m, ymax = m)
@@ -6480,10 +6500,6 @@ geom_prism <- function(mapping = NULL, data = NULL,
 		width = mean_width,
 		linewidth = mean_linewidth
 	)
-
-	if (!is.null(mean_color)) {
-		mean_params$color <- mean_color
-	}
 
 	# Create dodge position
 	dodge_pos <- position_dodge(width = dodge_width)
@@ -6497,7 +6513,6 @@ geom_prism <- function(mapping = NULL, data = NULL,
 			list(
 				dodge_width = self$dodge_width,
 				jitter_width = self$jitter_width,
-				jitter_n = self$jitter_n,
 				jitter_seed = self$jitter_seed,
 				reverse = FALSE
 			)
@@ -6559,24 +6574,13 @@ geom_prism <- function(mapping = NULL, data = NULL,
 				if (n_pts == 1) {
 					x_pos <- center
 				} else {
-					n_pos <- if (!is.null(params$jitter_n)) min(params$jitter_n, n_pts) else n_pts
-
 					# Uniformly spaced positions within jitter range
 					positions <- seq(
 						center - jitter_val/2,
 						center + jitter_val/2,
-						length.out = n_pos
+						length.out = n_pts
 					)
-
-					if (n_pts <= length(positions)) {
-						x_pos <- sample(positions, n_pts, replace = FALSE)
-					} else {
-						x_pos <- c(
-							sample(positions, length(positions), replace = FALSE),
-							sample(positions, n_pts - length(positions), replace = TRUE)
-						)
-					}
-					x_pos <- sample(x_pos)
+					x_pos <- sample(positions)
 				}
 
 				# Update x in a copy of the data
@@ -6607,7 +6611,6 @@ geom_prism <- function(mapping = NULL, data = NULL,
 	dodge_jitter_pos <- PositionDodgeSpread
 	dodge_jitter_pos$dodge_width <- dodge_width
 	dodge_jitter_pos$jitter_width <- jitter_width
-	dodge_jitter_pos$jitter_n <- jitter_n
 	dodge_jitter_pos$jitter_seed <- jitter_seed
 
 	list(
@@ -6619,7 +6622,6 @@ geom_prism <- function(mapping = NULL, data = NULL,
 			mapping = mapping,
 			position = dodge_pos,
 			params = list(
-				na.rm = na.rm,
 				fun.data = mean_sd_stat,
 				width = errorbar_width,
 				linewidth = errorbar_linewidth
@@ -6647,25 +6649,25 @@ geom_prism <- function(mapping = NULL, data = NULL,
 			data = data,
 			mapping = mapping,
 			position = dodge_jitter_pos,
-			params = list(na.rm = na.rm, ...),
+			params = list(...),
 			inherit.aes = inherit.aes,
-			show.legend = show.legend
+			show.legend = TRUE
 		)
 	)
 }
 
 mean_sd <- function(x) {
-  m <- mean(x, na.rm = TRUE)
-  s <- sd(x, na.rm = TRUE)
-  data.frame(y = m, ymin = m - s, ymax = m + s)
+	m <- mean(x, na.rm = TRUE)
+	s <- sd(x, na.rm = TRUE)
+	data.frame(y = m, ymin = m - s, ymax = m + s)
 }
 
 asinh_ggtrans = function(cofactor, base=10, n.lin=1, intervals.per.decade=ceiling(base)-1)
 {
-  force(cofactor)
-  force(n.lin)
-  force(base)
-  force(intervals.per.decade)
+	force(cofactor)
+	force(n.lin)
+	force(base)
+	force(intervals.per.decade)
 	transform = function(x, cofactor2=cofactor)
 	{
 		asinh(x/cofactor2)
@@ -6688,40 +6690,40 @@ asinh_ggtrans = function(cofactor, base=10, n.lin=1, intervals.per.decade=ceilin
 
 asinh_breaks = function(cofactor, n.lin=1, intervals.per.decade=1, base=10)
 {
-  force(n.lin)
-  force(cofactor)
-  force(intervals.per.decade)
-  force(base)
-  ret <- function(x, cofactor2=cofactor, n.lin2=n.lin, intervals.per.decade2=intervals.per.decade, base2=base)
-  {
-    lin.ticks <- seq(-cofactor2, cofactor2, length.out=1 + n.lin2*2)
-    log.range <- c(floor(log(cofactor2, base=base2)), ceiling(log(max(max(x, na.rm=T), -min(x, na.rm=T))+1, base=base2)))
-    log.ticks <- seq(log.range[1], log.range[2], by=1)
-    log.ticks <- base2^log.ticks
-    log.ticks <- sort(unique(unlist(lapply(log.ticks[-1], function(x){rev(seq(x, x/base2, by=-x/(intervals.per.decade2)))}))))
-    ret <- c(lin.ticks, log.ticks)
-    if(!is.null(log.ticks))
-    {
-    	ret <- c(-rev(log.ticks), ret)
-    }
-    return(unique(ret))
-  }
-  return(ret)
+	force(n.lin)
+	force(cofactor)
+	force(intervals.per.decade)
+	force(base)
+	ret <- function(x, cofactor2=cofactor, n.lin2=n.lin, intervals.per.decade2=intervals.per.decade, base2=base)
+	{
+		lin.ticks <- seq(-cofactor2, cofactor2, length.out=1 + n.lin2*2)
+		log.range <- c(floor(log(cofactor2, base=base2)), ceiling(log(max(max(x, na.rm=T), -min(x, na.rm=T))+1, base=base2)))
+		log.ticks <- seq(log.range[1], log.range[2], by=1)
+		log.ticks <- base2^log.ticks
+		log.ticks <- sort(unique(unlist(lapply(log.ticks[-1], function(x){rev(seq(x, x/base2, by=-x/(intervals.per.decade2)))}))))
+		ret <- c(lin.ticks, log.ticks)
+		if(!is.null(log.ticks))
+		{
+			ret <- c(-rev(log.ticks), ret)
+		}
+		return(unique(ret))
+	}
+	return(ret)
 }
 
 asinh_minor_breaks = function(cofactor, base, intervals.per.decade=ceiling(base)-1)
 {
-  force(intervals.per.decade)
-  force(cofactor)
-  force(base)
-  ret <- function(b, limits, n, cofactor2=force(cofactor), intervals.per.decade2=force(intervals.per.decade), base2=force(base))
-  {
-    temp <- sinh(b[b >= 0])*cofactor2
-    ticks <- sort(unique(unlist(lapply(temp[temp >= base], function(x){rev(seq(from=x, to=x/base2, by=-x/(intervals.per.decade2+1)))}))))
-    toRet <- unique(c(-rev(ticks[ticks > 0]), 0, ticks[ticks > 0]))
-    return(asinh(toRet/cofactor2))
-  }
-  return(ret)
+	force(intervals.per.decade)
+	force(cofactor)
+	force(base)
+	ret <- function(b, limits, n, cofactor2=force(cofactor), intervals.per.decade2=force(intervals.per.decade), base2=force(base))
+	{
+		temp <- sinh(b[b >= 0])*cofactor2
+		ticks <- sort(unique(unlist(lapply(temp[temp >= base], function(x){rev(seq(from=x, to=x/base2, by=-x/(intervals.per.decade2+1)))}))))
+		toRet <- unique(c(-rev(ticks[ticks > 0]), 0, ticks[ticks > 0]))
+		return(asinh(toRet/cofactor2))
+	}
+	return(ret)
 }
 
 get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T, trans.logit=c(F,F))
@@ -7049,23 +7051,23 @@ finishABLine <- function(h=NULL, h.col='black', h.lty=1, h.lwd=2, v=NULL, v.col=
 
 getPrettyNum <- function(x, sigFigs=3, dropTrailingZeros=F)
 {
-  if(is.null(sigFigs) || is.na(sigFigs))
-  {
-    ret <- as.character(x)
-  }
-  else
-  {
-    ret <- formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = dropTrailingZeros)
-  }
+	if(is.null(sigFigs) || is.na(sigFigs))
+	{
+		ret <- as.character(x)
+	}
+	else
+	{
+		ret <- formatC(signif(x,digits=sigFigs), digits=sigFigs,format="fg", flag="#", drop0trailing = dropTrailingZeros)
+	}
 	if(any(endsWith(ret, '.')))
 	{
-	     for(i in 1:length(ret))
-	     {
-	          if(endsWith(ret[i], '.'))
-	          {
-	               ret[i] <- substr(ret[i], 1, nchar(ret[i])-1)
-	          }
-	     }
+		for(i in 1:length(ret))
+		{
+			if(endsWith(ret[i], '.'))
+			{
+				ret[i] <- substr(ret[i], 1, nchar(ret[i])-1)
+			}
+		}
 	}
 	return(ret)
 }
@@ -7544,7 +7546,7 @@ drawLogitAxis <- function(axisNum=1, base=10, n.minor.ticks=8, las=0, ...)
 }
 
 logticks <- function (ax = 1, n.minor = 9, t.lims, t.ratio = 0.5, major.ticks = NULL,
-		base = c("ten", "ln", "two"), draw.labels=T, ...)
+					  base = c("ten", "ln", "two"), draw.labels=T, ...)
 {
 	lims <- par("usr")
 	if (ax %in% c(1, 3))
@@ -7557,7 +7559,7 @@ logticks <- function (ax = 1, n.minor = 9, t.lims, t.ratio = 0.5, major.ticks = 
 	ml <- t.lims[1]
 	mu <- t.lims[2]
 	major.ticks <- major.ticks[major.ticks >= ml & major.ticks <=
-						  	mu]
+							   	mu]
 	base <- match.arg(base)
 	LOG <- switch(base, ten = log10, ln = log, two = log2)
 	base <- switch(base, two = 2, ln = "e", ten = 10)
@@ -7577,9 +7579,9 @@ logticks <- function (ax = 1, n.minor = 9, t.lims, t.ratio = 0.5, major.ticks = 
 	minors <- minors[-c(1, n)]
 	minor.ticks <- c(outer(minors, major.ticks, `+`))
 	minor.ticks.loc <- minor.ticks[minor.ticks > ml & minor.ticks <
-							 	mu]
+								   	mu]
 	axis(ax, at = minor.ticks.loc, tcl = par("tcl") * t.ratio,
-		labels = FALSE)
+		 labels = FALSE)
 	return(invisible(base))
 }
 
@@ -9023,7 +9025,7 @@ clear.warnings <- function()
 
 sig.digits <- function(x, nSig=2, trim.spaces=T, trim.zeros=F)
 {
-  ret <- getPrettyNum(x, sigFigs = nSig, dropTrailingZeros = trim.zeros)
+	ret <- getPrettyNum(x, sigFigs = nSig, dropTrailingZeros = trim.zeros)
 	# ret <- signif(x,digits=nSig)
 	# ret <- format(ret, scientific=F)
 	#
@@ -9153,19 +9155,19 @@ getCandidates <- function(dt, cId, xcol, ycol, xpos, ypos, searchRadius, N)
 	dt <- dt[1:N]
 	if(nrow(dt)==0)
 	{
-	  return(NA)
+		return(NA)
 	}
 	else
 	{
-	  ret <- dt[r < searchRadius^2][[cId]]
-	  if(length(ret) == 0)
-	  {
-	    return(NA)
-	  }
-	  else
-	  {
-	    return(ret)
-	  }
+		ret <- dt[r < searchRadius^2][[cId]]
+		if(length(ret) == 0)
+		{
+			return(NA)
+		}
+		else
+		{
+			return(ret)
+		}
 	}
 }
 
@@ -9244,11 +9246,11 @@ getPaddedRange <- function(x, frac=0.01, lo=frac, hi=frac)
 
 filled.contour3 <-
 	function (x = seq(0, 1, length.out = nrow(z)),
-			y = seq(0, 1, length.out = ncol(z)), z, zlim = range(z, finite = TRUE),
-			levels = NULL, nlevels = 4, color.palette = loopingPastels, nnlevels = if (is.null(levels)) {nlevels} else {length(levels)},
-			quantiles=F, col = color.palette(1:(nnlevels - 1)), plot.title, plot.axes,
-			key.title, key.axes, xaxs = "i", yaxs = "i", las = 1,
-			axes = TRUE, frame.plot = axes,mar, add=F, ...)
+			  y = seq(0, 1, length.out = ncol(z)), z, zlim = range(z, finite = TRUE),
+			  levels = NULL, nlevels = 4, color.palette = loopingPastels, nnlevels = if (is.null(levels)) {nlevels} else {length(levels)},
+			  quantiles=F, col = color.palette(1:(nnlevels - 1)), plot.title, plot.axes,
+			  key.title, key.axes, xaxs = "i", yaxs = "i", las = 1,
+			  axes = TRUE, frame.plot = axes,mar, add=F, ...)
 	{
 		# modification by Ian Taylor of the filled.contour function
 		# to remove the key and facilitate overplotting with contour()
@@ -9315,7 +9317,7 @@ filled.contour3 <-
 			storage.mode(z) <- "double"
 
 		.filled.contour(as.double(x), as.double(y), z, as.double(levels),
-					 col = col)
+						col = col)
 		if (missing(plot.axes)) {
 			if (axes) {
 				title(main = "", xlab = "", ylab = "")
@@ -9488,8 +9490,8 @@ getSurfaceVolume <- function(xvec, yvec, zmat)
 
 	#calulates sum of truncated prism volumes
 	sum(mapply(function(triPoints,A) A/3*sum(df[triPoints,'z']),
-			 split.data.frame(res$tri,seq_along(res$areas)),
-			 res$areas))
+			   split.data.frame(res$tri,seq_along(res$areas)),
+			   res$areas))
 }
 
 hgf_3F2 <- function(a, b, c, d, e, z)
@@ -9855,12 +9857,12 @@ getError <- function(x, y, fun, par, par.init, w, transform, asinh.cofactor)
 }
 
 optimizeParams <- function(x, y, fun=NULL, par.init=NULL,
-									par.init.fun=NULL,
-									w=NULL,
-									fixed=null,
-									transform=c('none','asinh','log'),
-									asinh.cofactor=0.1*max(abs(y)),
-									lower=-Inf, upper=Inf, ...)
+						   par.init.fun=NULL,
+						   w=NULL,
+						   fixed=null,
+						   transform=c('none','asinh','log'),
+						   asinh.cofactor=0.1*max(abs(y)),
+						   lower=-Inf, upper=Inf, ...)
 {
 	if(any(lower > upper))
 	{
@@ -9888,18 +9890,18 @@ optimizeParams <- function(x, y, fun=NULL, par.init=NULL,
 		fixed <- rep(F, length(par.init))
 	}
 	ret <- optim(par=par.init[!fixed],
-					 fn=getError,
-					 method="L-BFGS-B",
-					 lower=lower[!fixed],
-					 upper=upper[!fixed],
-					 par.init=par.init,
-					 x=x,
-					 y=y,
-					 fun=fun,
-					 w=w,
-					 transform=transform,
-					 asinh.cofactor=asinh.cofactor,
-					 ...)
+				 fn=getError,
+				 method="L-BFGS-B",
+				 lower=lower[!fixed],
+				 upper=upper[!fixed],
+				 par.init=par.init,
+				 x=x,
+				 y=y,
+				 fun=fun,
+				 w=w,
+				 transform=transform,
+				 asinh.cofactor=asinh.cofactor,
+				 ...)
 	newPar <- par.init
 	newPar[names(ret$par)] <- ret$par
 	ret$par <- newPar
@@ -9913,132 +9915,132 @@ optimizeParams <- function(x, y, fun=NULL, par.init=NULL,
 
 LogLog.InitialGuess <- function(x, y)
 {
-  temp <- lm(y ~ x, data=data.table(y=log10(y), x=log10(x)))
-  return(c(LL.intercept=as.numeric(coefficients(temp)[1]), LL.slope=as.numeric(coefficients(temp)[2])))
+	temp <- lm(y ~ x, data=data.table(y=log10(y), x=log10(x)))
+	return(c(LL.intercept=as.numeric(coefficients(temp)[1]), LL.slope=as.numeric(coefficients(temp)[2])))
 }
 
 LogLog.SqError.Par <- function(x, y, par, w=NULL, fixed=c(NA,NA))
 {
-  if(!is.null(w))
-  {
-    if(length(w) != length(x))
-    {
-      stop('Length of the data must be same as the length of the weights')
-    }
-  }
-  res <- LogLog.Residuals.Par(x, y, par=par, fixed=fixed)
-  if(is.null(w))
-  {
-    return(sum(res^2))
-  }
-  else
-  {
-    # Using this method to be consistent with drc:drm
-    return(sum((w*res)^2)) # Don't need to divide by sum(w) because weights are fixed and residuals optimized
-  }
+	if(!is.null(w))
+	{
+		if(length(w) != length(x))
+		{
+			stop('Length of the data must be same as the length of the weights')
+		}
+	}
+	res <- LogLog.Residuals.Par(x, y, par=par, fixed=fixed)
+	if(is.null(w))
+	{
+		return(sum(res^2))
+	}
+	else
+	{
+		# Using this method to be consistent with drc:drm
+		return(sum((w*res)^2)) # Don't need to divide by sum(w) because weights are fixed and residuals optimized
+	}
 }
 
 LogLog.Residuals.Par <- function(x, y, par, fixed=c(NA,NA))
 {
-  newPar <- fixed
-  j <- 1
-  for(i in 1:2)
-  {
-    if(is.na(fixed[i]))
-    {
-      newPar[i] <- par[j]
-      j <- j + 1
-    }
-  }
-  return(LogLog.Residuals(x, y, LL.intercept=newPar[1], LL.slope=newPar[2], fixed=fixed))
+	newPar <- fixed
+	j <- 1
+	for(i in 1:2)
+	{
+		if(is.na(fixed[i]))
+		{
+			newPar[i] <- par[j]
+			j <- j + 1
+		}
+	}
+	return(LogLog.Residuals(x, y, LL.intercept=newPar[1], LL.slope=newPar[2], fixed=fixed))
 }
 
 LogLog.Residuals <- function(x, y, LL.intercept, LL.slope, fixed=c(NA,NA))
 {
-  pred <- LL.intercept + LL.slope*log10(x)
-  return(pred-log10(y))
+	pred <- LL.intercept + LL.slope*log10(x)
+	return(pred-log10(y))
 }
 
 LogLog.Inverse.explicit <- function(y, LL.intercept, LL.slope)
 {
-  # log10(y) <- LL.intercept + LL.slope*log10(x)
-  # Inverted
-  x <- rep(0, length(y))
-  x[y > 0] <- 10^((log10(y[y > 0]) - LL.intercept)/LL.slope)
-  return(x)
+	# log10(y) <- LL.intercept + LL.slope*log10(x)
+	# Inverted
+	x <- rep(0, length(y))
+	x[y > 0] <- 10^((log10(y[y > 0]) - LL.intercept)/LL.slope)
+	return(x)
 }
 
 LogLog.Inverse.fit <- function(y, fit)
 {
-  return(LogLog.Inverse.explicit(y=y, LL.intercept = fit$par[1], LL.slope=fit$par[2]))
+	return(LogLog.Inverse.explicit(y=y, LL.intercept = fit$par[1], LL.slope=fit$par[2]))
 }
 
 LogLog.Predict.fit <- function(x, fit)
 {
-  return(LogLog.Predict.par(x, fit$par))
+	return(LogLog.Predict.par(x, fit$par))
 }
 
 LogLog.Predict.par <- function(x, par)
 {
-  ret <- rep(0, length(x))
-  print(x)
-  valid <- (x > 0)
-  if(length(valid)==0)
-  {
-    browser()
-    print('What?')
-  }
-  print(par[1])
-  print(par[2])
-  print(x)
-  print(valid)
-  print(x[valid])
-  print(log10(x[valid]))
-  ret[valid] <- 10^(par[1] + par[2]*log10(x[valid]))
-  return(ret)
+	ret <- rep(0, length(x))
+	print(x)
+	valid <- (x > 0)
+	if(length(valid)==0)
+	{
+		browser()
+		print('What?')
+	}
+	print(par[1])
+	print(par[2])
+	print(x)
+	print(valid)
+	print(x[valid])
+	print(log10(x[valid]))
+	ret[valid] <- 10^(par[1] + par[2]*log10(x[valid]))
+	return(ret)
 }
 
 LogLog.Predict.explicit <- function(x, LL.intercept, LL.slope)
 {
-  return(LogLog.Predict.par(x, c(LL.intercept, LL.slope)))
+	return(LogLog.Predict.par(x, c(LL.intercept, LL.slope)))
 }
 
 LogLog.Fit <- function(x, y, par.init=NULL, w=NULL, fixed=c(NA,NA),
-                              lower=c(-Inf, -Inf),
-                              upper=c(Inf, Inf), ...)
+					   lower=c(-Inf, -Inf),
+					   upper=c(Inf, Inf), ...)
 {
-  valid <- (x > 0) & (y > 0) & is.finite(x) & is.finite(y)
-  x <- x[valid]
-  y <- y[valid]
-  w <- w[valid]
-  # Parameter order is {LL.intercept, LL.slope}
-  if(is.null(par.init))
-  {
-    par.init <- LogLog.InitialGuess(x, y)
-    print(par.init)
-  }
-  ret <- optim(par=par.init[is.na(fixed)],
-               fn=LogLog.SqError.Par,
-               method="L-BFGS-B",
-               lower=lower[is.na(fixed)],
-               upper=upper[is.na(fixed)],
-               fixed=fixed,
-               w=w,
-               x=x,
-               y=y,
-               ...)
-  newPar <- fixed
-  j <- 1
-  for(i in 1:2)
-  {
-    if(is.na(fixed[i]))
-    {
-      newPar[i] <- ret$par[j]
-      j <- j + 1
-    }
-  }
-  ret$par <- newPar
-  return(ret)
+	valid <- (x > 0) & (y > 0) & is.finite(x) & is.finite(y)
+	x <- x[valid]
+	y <- y[valid]
+	w <- w[valid]
+	# Parameter order is {LL.intercept, LL.slope}
+	if(is.null(par.init))
+	{
+		par.init <- LogLog.InitialGuess(x, y)
+		print(par.init)
+	}
+	ret <- optim(par=par.init[is.na(fixed)],
+				 fn=LogLog.SqError.Par,
+				 method="L-BFGS-B",
+				 lower=lower[is.na(fixed)],
+				 upper=upper[is.na(fixed)],
+				 fixed=fixed,
+				 w=w,
+				 x=x,
+				 y=y,
+				 ...)
+	newPar <- fixed
+	j <- 1
+	for(i in 1:2)
+	{
+		if(is.na(fixed[i]))
+		{
+			newPar[i] <- ret$par[j]
+			j <- j + 1
+		}
+	}
+	ret$par <- newPar
+	return(ret)
 }
 
 # 4 parameter Log-Logistic Function
@@ -10138,8 +10140,8 @@ LL4.Inverse.fit <- function(y, fit)
 }
 
 LL4.Fit <- function(x, y, par.init=NULL, w=NULL, fixed=c(NA,NA,NA,NA), transform=c('asinh','log','none'), asinh.cofactor=0.1*max(abs(y)),
-						  lower=c(-Inf, 0, .Machine$double.eps, 0),
-						  upper=c(-1*.Machine$double.neg.eps,Inf,Inf,Inf), ...)
+					lower=c(-Inf, 0, .Machine$double.eps, 0),
+					upper=c(-1*.Machine$double.neg.eps,Inf,Inf,Inf), ...)
 {
 	# Parameter order is {Steepness, LL, UL, logOffset}
 	if(is.null(par.init))
@@ -10148,17 +10150,17 @@ LL4.Fit <- function(x, y, par.init=NULL, w=NULL, fixed=c(NA,NA,NA,NA), transform
 		print(par.init)
 	}
 	ret <- optim(par=par.init[is.na(fixed)],
-		 fn=LL4.SqError.Par,
-		 method="L-BFGS-B",
-		 lower=lower[is.na(fixed)],
-		 upper=upper[is.na(fixed)],
-		 fixed=fixed,
-		 transform=transform,
-		 asinh.cofactor=asinh.cofactor,
-		 w=w,
-		 x=x,
-		 y=y,
-		 ...)
+				 fn=LL4.SqError.Par,
+				 method="L-BFGS-B",
+				 lower=lower[is.na(fixed)],
+				 upper=upper[is.na(fixed)],
+				 fixed=fixed,
+				 transform=transform,
+				 asinh.cofactor=asinh.cofactor,
+				 w=w,
+				 x=x,
+				 y=y,
+				 ...)
 	newPar <- fixed
 	j <- 1
 	for(i in 1:4)
@@ -10175,7 +10177,7 @@ LL4.Fit <- function(x, y, par.init=NULL, w=NULL, fixed=c(NA,NA,NA,NA), transform
 
 LL4.Predict.fit <- function(x, fit)
 {
-  return(LL4.Predict.par(x, fit$par))
+	return(LL4.Predict.par(x, fit$par))
 	# pred <- fit$par[2] + (fit$par[3]-fit$par[2])/(1+exp(fit$par[1]*(log(x)-fit$par[4])))
 	# return(pred)
 }
@@ -10338,33 +10340,33 @@ getThresholdsFrom_pROC <- function(roc.object, actual.neg.pos.vals=c('Neg','Pos'
 	# To get information for "all" the thresholds, set thresholds='all' (default)
 	# To get the Youden threshold only, set thresholds='Youden'
 	# To get the threshold that brings the ROC curve closest to the 100% Sens. 100% Spec. corner of the graph, set thresholds='UpperLeftMost'
-  responses <- unique(roc.object$original.response)
-  responses <- responses[!is.na(responses)]
-  soft <- length(responses) > 2
-  if(soft)
+	responses <- unique(roc.object$original.response)
+	responses <- responses[!is.na(responses)]
+	soft <- length(responses) > 2
+	if(soft)
 	{
-    test_vals_sorted <- sort(unique(roc.object$original.predictor))
-    D <- roc.object$original.response
-	  ret <- data.table(threshold=c(-Inf, head(test_vals_sorted, -1) + diff(test_vals_sorted) / 2, Inf))
-	  ret[, c('TP','FP','TN','FN'):=list(sum((roc.object$original.predictor >= .BY[[1]]) * D),
-	                                     sum((roc.object$original.predictor >= .BY[[1]]) * (1 - D)),
-	                                     sum((1 - (roc.object$original.predictor >= .BY[[1]])) * (1 - D)),
-	                                     sum((1 - (roc.object$original.predictor >= .BY[[1]])) * D)), by=.(threshold)]
-	  ret[, c('sensitivity','specificity'):=list(TP / (TP + FN),
-	                                             TN / (TN + FP))]
-	  setcolorder(ret, neworder=c('threshold','sensitivity','specificity','TP','FP','TN','FN'))
-  }
-  else
-  {
-    # If the roc.object has a binary response variable (i.e., isn't soft), then check that pos.neg.vals match what is in the ROC object
-    responseVals <- unique(roc.object$original.response)
-    if(any(actual.neg.pos.vals %!in% responseVals))
-    {
-      stop(paste('Expected values for positive and negative cases are not found in the roc.object. User specified: (', paste(actual.neg.pos.vals, collapse=','), '). The roc.object contains values: (', paste(responseVals, collapse=','), ').', sep=''))
-    }
-    ret <- data.table(coords(roc.object, x='all', ret=c('threshold','sensitivity','specificity')))
-    ret[, c('TP','FN','TN','FP'):=calculateTprFpr(ifelse(roc.object$original.predictor < .BY[[1]], 'Neg','Pos'), roc.object$original.response, predicted.vals = c('Neg','Pos'), actual.vals = actual.neg.pos.vals)[c('TP','FN','TN','FP')], by=.(threshold)]
-  }
+		test_vals_sorted <- sort(unique(roc.object$original.predictor))
+		D <- roc.object$original.response
+		ret <- data.table(threshold=c(-Inf, head(test_vals_sorted, -1) + diff(test_vals_sorted) / 2, Inf))
+		ret[, c('TP','FP','TN','FN'):=list(sum((roc.object$original.predictor >= .BY[[1]]) * D),
+										   sum((roc.object$original.predictor >= .BY[[1]]) * (1 - D)),
+										   sum((1 - (roc.object$original.predictor >= .BY[[1]])) * (1 - D)),
+										   sum((1 - (roc.object$original.predictor >= .BY[[1]])) * D)), by=.(threshold)]
+		ret[, c('sensitivity','specificity'):=list(TP / (TP + FN),
+												   TN / (TN + FP))]
+		setcolorder(ret, neworder=c('threshold','sensitivity','specificity','TP','FP','TN','FN'))
+	}
+	else
+	{
+		# If the roc.object has a binary response variable (i.e., isn't soft), then check that pos.neg.vals match what is in the ROC object
+		responseVals <- unique(roc.object$original.response)
+		if(any(actual.neg.pos.vals %!in% responseVals))
+		{
+			stop(paste('Expected values for positive and negative cases are not found in the roc.object. User specified: (', paste(actual.neg.pos.vals, collapse=','), '). The roc.object contains values: (', paste(responseVals, collapse=','), ').', sep=''))
+		}
+		ret <- data.table(coords(roc.object, x='all', ret=c('threshold','sensitivity','specificity')))
+		ret[, c('TP','FN','TN','FP'):=calculateTprFpr(ifelse(roc.object$original.predictor < .BY[[1]], 'Neg','Pos'), roc.object$original.response, predicted.vals = c('Neg','Pos'), actual.vals = actual.neg.pos.vals)[c('TP','FN','TN','FP')], by=.(threshold)]
+	}
 	ret[, accuracy:=(TP+TN)/(TP+TN+FP+FN)]
 	ret[, cor_incor_ratio:=(TP+TN)/(FP+FN)]
 	ret[, upperleft_dist:=sqrt((1-sensitivity)^2+(1-specificity)^2)]
@@ -10467,64 +10469,64 @@ suppressNoise2 <- function(x, smooth.fun=roll.median, win.width=1, noise.level=1
 
 
 plot.roc.jay <- function (score,
-				  actualClass,
-				  method = c('Empirical','Binormal','Non-parametric'),
-				  col = c("#2F4F4F", "#BEBEBE"),
-				  legend = FALSE,
-				  legend.args = list(x='bottomright',
-				  			    bty='n',
-				  			    lty = c(1, 2),
-				  			    lwd = 2,
-				  			    col = c("#2F4F4F", "#BEBEBE"),
-				  			    legend=c(paste(method[1], "ROC curve"),"Chance line"),
-				  			    cex=0.8),
-				  stats = TRUE,
-				  stats.args = list(x=.62,
-				  			   y=0.35,
-				  			   vals=c(3,2,4),
-				  			   names=c('Sens.', 'Spec.', 'Thresh.'),
-				  			   cex=legend.args$cex*1.8),
-				  text.args = list(x=0.62,
-				  			  y=0.1,
-				  			  cex=legend.args$cex*1.8,
-				  			  adj=c(0,1),
-				  			  labels=''),
-				  YIndex = TRUE,
-				  YIndex.args = list(x=0.2,
-				  			    y=-0.1,
-				  			    adj=c(0,1),
-				  			    label='Youden Optima'),
-				  par.args = list(mar=c(4,4,1,1), mgp=c(2.7,1,0)),
-				  family = 'Arial',
-				  grid = TRUE,
-				  return.vals = c("method","AUC","thresh","TPR","FPR","YI.value","YI.FPR","YI.TPR","YI.thresh"),
-				  ylab = "Sensitivity (TPR)",
-				  xlab = "1-Specificity (FPR)",
-				  ... = NULL)
+						  actualClass,
+						  method = c('Empirical','Binormal','Non-parametric'),
+						  col = c("#2F4F4F", "#BEBEBE"),
+						  legend = FALSE,
+						  legend.args = list(x='bottomright',
+						  				   bty='n',
+						  				   lty = c(1, 2),
+						  				   lwd = 2,
+						  				   col = c("#2F4F4F", "#BEBEBE"),
+						  				   legend=c(paste(method[1], "ROC curve"),"Chance line"),
+						  				   cex=0.8),
+						  stats = TRUE,
+						  stats.args = list(x=.62,
+						  				  y=0.35,
+						  				  vals=c(3,2,4),
+						  				  names=c('Sens.', 'Spec.', 'Thresh.'),
+						  				  cex=legend.args$cex*1.8),
+						  text.args = list(x=0.62,
+						  				 y=0.1,
+						  				 cex=legend.args$cex*1.8,
+						  				 adj=c(0,1),
+						  				 labels=''),
+						  YIndex = TRUE,
+						  YIndex.args = list(x=0.2,
+						  				   y=-0.1,
+						  				   adj=c(0,1),
+						  				   label='Youden Optima'),
+						  par.args = list(mar=c(4,4,1,1), mgp=c(2.7,1,0)),
+						  family = 'Arial',
+						  grid = TRUE,
+						  return.vals = c("method","AUC","thresh","TPR","FPR","YI.value","YI.FPR","YI.TPR","YI.thresh"),
+						  ylab = "Sensitivity (TPR)",
+						  xlab = "1-Specificity (FPR)",
+						  ... = NULL)
 {
 	legend.args2 = list(x='bottomright',
-					bty='n',
-					lty = c(1, 2),
-					lwd = 2,
-					col = c("#2F4F4F", "#BEBEBE"),
-					legend=c(paste(method[1], "ROC curve"),"Chance line"),
-					cex=0.8)
+						bty='n',
+						lty = c(1, 2),
+						lwd = 2,
+						col = c("#2F4F4F", "#BEBEBE"),
+						legend=c(paste(method[1], "ROC curve"),"Chance line"),
+						cex=0.8)
 	YIndex.args2 = list(x=0.025,
-					y=-0.05,
-					adj=c(0,1),
-					label='Youden Optima')
+						y=-0.05,
+						adj=c(0,1),
+						label='Youden Optima')
 	par.args2 = list(mar=c(4,4,1,1),
-				  mgp=c(2.7,1,0))
+					 mgp=c(2.7,1,0))
 	stats.args2 = list(x=.62,
-				   y=0.35,
-				   vals=c(3,2,4),
-				   names=c('Sens.', 'Spec.', 'Thresh.'),
-				   cex=legend.args$cex*1.8)
+					   y=0.35,
+					   vals=c(3,2,4),
+					   names=c('Sens.', 'Spec.', 'Thresh.'),
+					   cex=legend.args$cex*1.8)
 	text.args2 = list(x=0.62,
-				  y=0.1,
-				  cex=legend.args$cex*1.8,
-				  adj=c(0,1),
-				  labels='')
+					  y=0.1,
+					  cex=legend.args$cex*1.8,
+					  adj=c(0,1),
+					  labels='')
 	legend.args2 <- merge.lists(items=legend.args2, items.to.put = legend.args)
 	YIndex.args2 <- merge.lists(items=YIndex.args2, items.to.put = YIndex.args)
 	par.args2 <- merge.lists(items=par.args2, items.to.put = par.args)
@@ -10552,7 +10554,7 @@ plot.roc.jay <- function (score,
 	y1 <- x$TPR
 	x1 <- x$FPR
 	graphics::plot(x1, y1, type = "l", ylab = ylab,
-				xlab = xlab, col = col[1], lwd = 2)
+				   xlab = xlab, col = col[1], lwd = 2)
 	# axis(1, at=c(0,0.2,0.4,0.6,0.8,1.0), labels=1-c(0,0.2,0.4,0.6,0.8,1.0))
 
 	if(grid)
@@ -10569,9 +10571,9 @@ plot.roc.jay <- function (score,
 		graphics::points(x = xYI, y = yYI, pch = 16, cex = 1)
 		graphics::points(x = xYI, y = yYI, pch = 3, cex = 3)
 		graphics::text(x = (xYI + YIndex.args2$x),
-					y = (yYI + YIndex.args2$y), YIndex.args2$label,
-					adj=YIndex.args2$adj,
-					font = 3)
+					   y = (yYI + YIndex.args2$y), YIndex.args2$label,
+					   adj=YIndex.args2$adj,
+					   font = 3)
 	}
 
 	if (legend) {
@@ -10579,14 +10581,14 @@ plot.roc.jay <- function (score,
 	}
 
 	ret <- list(method = x$method,
-			  AUC = x$AUC,
-			  thresh = x$Cutoff,
-			  TPR = x$TPR,
-			  FPR = x$FPR,
-			  YI.value = max(diff),
-			  YI.FPR = xYI,
-			  YI.TPR = yYI,
-			  YI.thresh = cYI)
+				AUC = x$AUC,
+				thresh = x$Cutoff,
+				TPR = x$TPR,
+				FPR = x$FPR,
+				YI.value = max(diff),
+				YI.FPR = xYI,
+				YI.TPR = yYI,
+				YI.thresh = cYI)
 
 	if(stats)
 	{
@@ -10699,61 +10701,61 @@ cutForMids <- function(x, n, include.lowest=F, ...)
 }
 
 cut2 <- function(x, breaks, labels = NULL, include.lowest = FALSE,
-                                right = TRUE, outer_inclusive = TRUE, dig.lab = 3, ...) {
-  # Step 1: Create full set of bin labels from cut(breaks, breaks, ...)
-  full_bin_factor <- cut(breaks, breaks = breaks, include.lowest = include.lowest,
-                         right = right, labels = FALSE, dig.lab = dig.lab, ...)
+				 right = TRUE, outer_inclusive = TRUE, dig.lab = 3, ...) {
+	# Step 1: Create full set of bin labels from cut(breaks, breaks, ...)
+	full_bin_factor <- cut(breaks, breaks = breaks, include.lowest = include.lowest,
+						   right = right, labels = FALSE, dig.lab = dig.lab, ...)
 
-  # This gives numeric bin IDs; to get default labels:
-  full_labels <- levels(cut(breaks[-length(breaks)] + 1e-8, breaks = breaks, include.lowest = include.lowest,
-                            right = right, dig.lab = dig.lab, ...))
+	# This gives numeric bin IDs; to get default labels:
+	full_labels <- levels(cut(breaks[-length(breaks)] + 1e-8, breaks = breaks, include.lowest = include.lowest,
+							  right = right, dig.lab = dig.lab, ...))
 
-  # Step 2: Bin the actual data
-  bin <- cut(x, breaks = breaks, labels = full_labels, include.lowest = include.lowest,
-             right = right, dig.lab = dig.lab, ...)
+	# Step 2: Bin the actual data
+	bin <- cut(x, breaks = breaks, labels = full_labels, include.lowest = include.lowest,
+			   right = right, dig.lab = dig.lab, ...)
 
-  # Step 3: Ensure all levels are assigned
-  bin <- factor(bin, levels = full_labels)
+	# Step 3: Ensure all levels are assigned
+	bin <- factor(bin, levels = full_labels)
 
-  # Step 4: If not modifying outer brackets, we're done
-  if (!outer_inclusive || is.null(levels(bin))) return(bin)
+	# Step 4: If not modifying outer brackets, we're done
+	if (!outer_inclusive || is.null(levels(bin))) return(bin)
 
-  # Step 5: Parse and adjust only outer brackets
-  parse_interval <- function(lbl) {
-    m <- regexec("^([\\[\\(])([^,]+),([^\\]\\)]+)([\\]\\)])$", lbl, perl = TRUE)
-    parts <- regmatches(lbl, m)[[1]]
-    if (length(parts) != 5) return(NULL)
-    list(
-      left_bracket = parts[2],
-      left = parts[3],
-      right = parts[4],
-      right_bracket = parts[5]
-    )
-  }
+	# Step 5: Parse and adjust only outer brackets
+	parse_interval <- function(lbl) {
+		m <- regexec("^([\\[\\(])([^,]+),([^\\]\\)]+)([\\]\\)])$", lbl, perl = TRUE)
+		parts <- regmatches(lbl, m)[[1]]
+		if (length(parts) != 5) return(NULL)
+		list(
+			left_bracket = parts[2],
+			left = parts[3],
+			right = parts[4],
+			right_bracket = parts[5]
+		)
+	}
 
-  # Get current labels and parse them
-  intervals <- lapply(full_labels, parse_interval)
-  if (any(sapply(intervals, is.null))) stop("Could not parse bin labels")
+	# Get current labels and parse them
+	intervals <- lapply(full_labels, parse_interval)
+	if (any(sapply(intervals, is.null))) stop("Could not parse bin labels")
 
-  # Modify brackets of first and last intervals
-  intervals[[1]]$left_bracket <- "["
-  intervals[[length(intervals)]]$right_bracket <- "]"
+	# Modify brackets of first and last intervals
+	intervals[[1]]$left_bracket <- "["
+	intervals[[length(intervals)]]$right_bracket <- "]"
 
-  # Reconstruct new labels
-  new_labels <- vapply(intervals, function(p) {
-    paste0(p$left_bracket, p$left, ",", p$right, p$right_bracket)
-  }, character(1))
+	# Reconstruct new labels
+	new_labels <- vapply(intervals, function(p) {
+		paste0(p$left_bracket, p$left, ",", p$right, p$right_bracket)
+	}, character(1))
 
-  # Assign new levels
-  levels(bin) <- new_labels
+	# Assign new levels
+	levels(bin) <- new_labels
 
-  # Step 6: Manually include outermost values in correct bins
-  min_x <- min(breaks, na.rm = TRUE)
-  max_x <- max(breaks, na.rm = TRUE)
-  if (any(x == min_x, na.rm = TRUE)) bin[x == min_x] <- new_labels[1]
-  if (any(x == max_x, na.rm = TRUE)) bin[x == max_x] <- new_labels[length(new_labels)]
+	# Step 6: Manually include outermost values in correct bins
+	min_x <- min(breaks, na.rm = TRUE)
+	max_x <- max(breaks, na.rm = TRUE)
+	if (any(x == min_x, na.rm = TRUE)) bin[x == min_x] <- new_labels[1]
+	if (any(x == max_x, na.rm = TRUE)) bin[x == max_x] <- new_labels[length(new_labels)]
 
-  return(bin)
+	return(bin)
 }
 
 
@@ -10806,7 +10808,7 @@ cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.l
 	ret <- rbindlist(list(ret[is.na(bin)], ret[!is.na(bin)][myLevels]))
 	if(hasNA)
 	{
-	  ret[, bin:=factor(bin, levels=c(NA, myLevels), exclude=F)]
+		ret[, bin:=factor(bin, levels=c(NA, myLevels), exclude=F)]
 	}
 	ret[is.na(count), count:=0]
 	setorder(ret, bin)
@@ -10820,12 +10822,12 @@ cutAndCount <- function(x, breaks, labels=NULL, right=F, include.lowest=T, dig.l
 }
 
 PrevalenceSampleSize.1Stage <- function(p0=0, # Null hypothesis prevalence
-													 p1=0.03, # Alternative hypothesis prevalence (e.g., maximum acceptable prevalence if not 0 null prevelance)
-													 alpha=0.1, # Type I error fraction
-													 beta=0.2, # Type II error fraction, Power = 1-beta
-													 Se=0.93, # Test sensitivity
-													 Sp=0.96, # Test specificity
-													 dist=c('binomial','hypergeometric') # binomial for large pop (with replacement), hypergeom for small pop (without replacement)
+										p1=0.03, # Alternative hypothesis prevalence (e.g., maximum acceptable prevalence if not 0 null prevelance)
+										alpha=0.1, # Type I error fraction
+										beta=0.2, # Type II error fraction, Power = 1-beta
+										Se=0.93, # Test sensitivity
+										Sp=0.96, # Test specificity
+										dist=c('binomial','hypergeometric') # binomial for large pop (with replacement), hypergeom for small pop (without replacement)
 )
 {
 	Zalpha = abs(qnorm(alpha))
@@ -11032,7 +11034,7 @@ expFunc <- function(x, tau, A, alpha, offset, increasing)
 # increasing (T if increasing (positive tau) or F if decreasing (negative exponential))
 expFunc.par <- function(x, par, increasing)
 {
-     return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), A=getDefault(par['A'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
+	return(as.vector(expFunc(x=x, tau=getDefault(par['tau'],-1,is.na), A=getDefault(par['A'],1,is.na), alpha=getDefault(par['alpha'],0,is.na), offset=getDefault(par['offset'],0,is.na), increasing=increasing)))
 }
 
 getExpFuncPar <- function(x, y, increasing=NULL)
@@ -11042,7 +11044,7 @@ getExpFuncPar <- function(x, y, increasing=NULL)
 	ylim <- range(y)
 	if(is.null(increasing))
 	{
-	  increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
+		increasing <- mean(y[order(x)][1:(round(length(y)/2))]) < mean(y[order(x)][(round(length(y)/2)):length(y)])
 	}
 
 	A <- ylim[2]-ylim[1]
@@ -11068,11 +11070,11 @@ getExpFuncError <- function(par, x, y, increasing)
 
 fitExpFunc <- function(x, y, par0=NA, increasing=getExpFuncPar(x,y)['increasing'], ...)
 {
-  if(is.na(par0))
-  {
-    par0 <- as.vector(merge.lists(as.list(getExpFuncPar(x, y)), as.list(par0)))
-    # par0 <- getExpFuncPar(x, y, increasing=increasing)
-  }
+	if(is.na(par0))
+	{
+		par0 <- as.vector(merge.lists(as.list(getExpFuncPar(x, y)), as.list(par0)))
+		# par0 <- getExpFuncPar(x, y, increasing=increasing)
+	}
 	daFit <- optim(par=par0, fn=getExpFuncError, x=x, y=y, increasing=increasing, ...)
 	return(merge.lists(daFit$par, list(increasing=increasing)))
 }
@@ -11195,20 +11197,20 @@ getDistErr <- function(shift, test.x, test.y, ref.x, ref.y, adj=c(1,1), bias=0)
 
 #' Standardize a column of data by aligning (brute force gridSearch of offset) and scaling (subtract median, divide by mad) distributions.
 alignDistributions <- function(x,
-						 col,
-						 align.by,
-						 line.color.by,
-						 plot.by,
-						 norm.by,
-						 data.filter.fun,
-						 align.filter.fun,
-						 plot.filter.fun,
-						 adj=c(1,1),
-						 two.pass=T,
-						 bias=0,
-						 xlim.percentiles=c(0.01,0.99),
-						 norm.method=c('subtraction','division'),
-						 norm.percentile=0.5)
+							   col,
+							   align.by,
+							   line.color.by,
+							   plot.by,
+							   norm.by,
+							   data.filter.fun,
+							   align.filter.fun,
+							   plot.filter.fun,
+							   adj=c(1,1),
+							   two.pass=T,
+							   bias=0,
+							   xlim.percentiles=c(0.01,0.99),
+							   norm.method=c('subtraction','division'),
+							   norm.percentile=0.5)
 {
 	# Params:
 	# col = col to normalize
@@ -11282,14 +11284,14 @@ alignDistributions <- function(x,
 	x.d[, temp.grp:=1]
 	setkeyv(x.d, c(norm.by))
 	x[, .w:=approx(x=getDefault(x.d[.BY][[newName]],
-	                            seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2),
-	                            test=function(x){length(x) == 1 && is.na(x[1])}),
-	               y=getDefault(x.d[.BY][['w']],
-	                            rep(1, 2),
-	                            test=function(x){length(x) == 1 && is.na(x[1])}),
-	               xout=get(newName),
-	               yleft=if(bias<0){1}else{0},
-	               yright=if(bias<0){0}else{1})$y,
+								seq(min(x.d[[newName]]), max(x.d[[newName]]), length.out = 2),
+								test=function(x){length(x) == 1 && is.na(x[1])}),
+				   y=getDefault(x.d[.BY][['w']],
+				   			 rep(1, 2),
+				   			 test=function(x){length(x) == 1 && is.na(x[1])}),
+				   xout=get(newName),
+				   yleft=if(bias<0){1}else{0},
+				   yright=if(bias<0){0}else{1})$y,
 	  by=c(norm.by)]
 	if(substr(norm.method[1],1,1)=='s')
 	{
@@ -11314,7 +11316,7 @@ alignDistributions <- function(x,
 	# {
 	# 	data.table.plot.all(x.d[plot.filter.fun(x.d)], xcol=paste0(col, '.norm'), ycol='density', type='l', by=line.color.by, plot.by=plot.by, xlim=xlim)
 	# }
-  return(x.d)
+	return(x.d)
 }
 
 getFirstIndexOfCharInString <- function(x, char='\\.')
@@ -11388,5 +11390,5 @@ makeBasicFormula <- function(lhs, rhs)
 
 weighted.percentile <- function (x, w, percentile=0.5, na.rm = TRUE)
 {
-  unname(weighted.quantile(x, probs = percentile, w = w, na.rm = na.rm))
+	unname(weighted.quantile(x, probs = percentile, w = w, na.rm = na.rm))
 }
