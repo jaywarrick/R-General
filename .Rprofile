@@ -6189,6 +6189,8 @@ facet_jay <- function(facets, ...,                    # Same as for face_nested 
 	}
 
 	# Use facet_nested_custom with custom_labels and label_width parameters
+	print('Passing additional params:')
+	print(list(...))
 	facet_nested_custom(facets, ...,
 						strip = strip,
 						custom_labels = labels,
@@ -6278,11 +6280,10 @@ FacetNestedCustom <- ggproto(
 			# Get theme settings for strip text to match font properties
 			strip_text_element <- theme$strip.text.x %||% theme$strip.text
 
-			# Extract font properties
 			fontsize <- if (!is.null(strip_text_element$size)) {
-				strip_text_element$size
+			  ifelse(inherits(strip_text_element$size, "rel"), theme$base_size * strip_text_element$size, strip_text_element$size)
 			} else {
-				11  # Default if not found in theme
+			  11  # Default if not found in theme
 			}
 
 			fontface <- if (!is.null(strip_text_element$face)) {
@@ -6444,6 +6445,7 @@ facet_nested_custom <- function(
 		label_width_units = label_width_units
 	)
 
+	print(paste('scales =', scales))
 	# Use ggh4x's internal new_grid_facets function
 	ggh4x:::new_grid_facets(
 		rows, cols,
@@ -6719,6 +6721,10 @@ asinh_minor_breaks = function(cofactor, base, intervals.per.decade=ceiling(base)
 	ret <- function(b, limits, n, cofactor2=force(cofactor), intervals.per.decade2=force(intervals.per.decade), base2=force(base))
 	{
 		temp <- sinh(b[b >= 0])*cofactor2
+		if(all(temp < base))
+		{
+			temp <- c(temp, base)
+		}
 		ticks <- sort(unique(unlist(lapply(temp[temp >= base], function(x){rev(seq(from=x, to=x/base2, by=-x/(intervals.per.decade2+1)))}))))
 		toRet <- unique(c(-rev(ticks[ticks > 0]), 0, ticks[ticks > 0]))
 		return(asinh(toRet/cofactor2))
@@ -9026,15 +9032,6 @@ clear.warnings <- function()
 sig.digits <- function(x, nSig=2, trim.spaces=T, trim.zeros=F)
 {
 	ret <- getPrettyNum(x, sigFigs = nSig, dropTrailingZeros = trim.zeros)
-	# ret <- signif(x,digits=nSig)
-	# ret <- format(ret, scientific=F)
-	#
-	# if(trim.zeros)
-	# {
-	# 	# Trim zeros and whitespace and trailing decimal points
-	# 	ret <- gsub('0+$', '', ret)
-	# 	ret[substr(ret, nchar(ret), nchar(ret))=='.'] <- substr(ret[substr(ret, nchar(ret), nchar(ret))=='.'], 1, nchar(ret[substr(ret, nchar(ret), nchar(ret))=='.'])-1)
-	# }
 
 	if(trim.spaces)
 	{
