@@ -65,6 +65,10 @@ install.packages('VGAM')
 install.packages('NMOF')
 install.packages('openssl')
 install.packages('deSolve')
+install.packages('ggh4x')
+install.packages('scales')
+install.packages('colorspace')
+install.packages('gtable')
 
 
 install.packages('qpcR')
@@ -85,6 +89,7 @@ install.packages('Hmisc')
 install.packages('rentrez')
 install.packages('seqinr')
 install.packages('stringr')
+install.packages('reticulate')
 
 # devtools::install_github('nstrayer/shinysense')
 
@@ -100,3 +105,4 @@ y
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 BiocManager::install("pwalign")
 BiocManager::install("Biostrings")
+BiocManager::install("EBImage")
