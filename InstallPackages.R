@@ -17,7 +17,8 @@
 #' package is installed, loaded, and run to load all system and user fonts, such as those
 #' just installed.
 
-
+install.packages('devtools')
+install.packages('later')
 install.packages('party')
 install.packages('rpart')
 install.packages('randomForest')
@@ -65,6 +66,8 @@ install.packages('VGAM')
 install.packages('NMOF')
 install.packages('openssl')
 install.packages('deSolve')
+install.packages('ggplot2')
+install.packages('ggprism')
 install.packages('ggh4x')
 install.packages('scales')
 install.packages('colorspace')
@@ -72,6 +75,9 @@ install.packages('gtable')
 
 
 install.packages('qpcR')
+install.packages('shiny')
+install.packages('shinyFiles')
+install.packages('shinythemes')
 install.packages('shinyjs')
 install.packages('readxl')
 install.packages('writexl')
@@ -100,9 +106,9 @@ install.packages('reticulate')
 library(extrafont)
 # install.packages('extrafontdb') # To reset font table
 font_import()
-y
 
 if (!require("BiocManager", quietly = TRUE)) install.packages("BiocManager")
 BiocManager::install("pwalign")
 BiocManager::install("Biostrings")
 BiocManager::install("EBImage")
+install.packages('bmp')
