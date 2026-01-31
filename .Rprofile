@@ -6126,6 +6126,7 @@ theme_jay <- function(palette = "colorblind_safe",         # pallet name from th
 	library(colorspace)
 	argslist <- list(...)
 	theme.args <- list(plot.background = element_rect(fill = "transparent", colour = NA),
+					   panel.background = element_rect(fill = gray(0.9, 0.5), color = NA),
 					   legend.title = element_text(),   # allow title styling
 					   legend.text = element_text(),    # allow text styling
 					   panel.spacing.x=unit(panel.spacing, 'pt'),
@@ -9556,6 +9557,19 @@ is.even <- function(x)
 is.odd <- function(x)
 {
 	x %% 2 != 0
+}
+
+makeOdd <- function(x, add=T)
+{
+	if(is.even(x) && add)
+	{
+		x <- x + 1
+	}
+	else if(is.even(x) && !add)
+	{
+		x <- x - 1
+	}
+	return(x)
 }
 
 # For use with box plot graphing function
