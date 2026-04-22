@@ -17,6 +17,7 @@
 #' package is installed, loaded, and run to load all system and user fonts, such as those
 #' just installed.
 
+install.packages('runner')
 install.packages('devtools')
 install.packages('later')
 install.packages('party')
@@ -89,6 +90,7 @@ install.packages('R.utils')
 install.packages('httr')
 install.packages('DT')
 
+# Notes
 install.packages('Hmisc')
 
 
