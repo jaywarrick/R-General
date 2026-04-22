@@ -1970,6 +1970,11 @@ data.table.plot.all <- function(data, xcol, ycol=NULL, errcol.upper=NULL, errcol
 {
 	# REMEMBER: las works now to rotate the number labels (0-3)
 	# REMEMBER: mgp is also an option, default is c(3,1,0). Change the 3 to move labels closer or farther from axis.
+	if(any(plot.by %in% by))
+	{
+		stop("Any columns used in 'plot.by' cannot be used in the 'by' argument. Remove it from 'by' and try again.")
+	}
+
 	if('grp' %in% names(data))
 	{
 		stop("'grp' is used internally to help plot. Please change the name of this variable.")
@@ -3162,6 +3167,7 @@ fixColNames <- function(x)
 	replaceSubstringInColNames(x,'function.ops.JEXOps.','')
 	replaceSubstringInColNames(x,' ','')
 	replaceSubstringInColNames(x,':','_')
+	replaceSubstringInColNames(x,'/','_')
 }
 
 getNumericCols <- function(x)
@@ -6113,42 +6119,103 @@ calcTransition <- function(x, base=10, frac=0.15)
 
 ## ggplot stuff
 
-# Define your custom wrapper
-theme_jay <- function(palette = "colorblind_safe",         # pallet name from the ggprism package that is a list of palettes defined in graphpad prism
-					  alpha   = 1,                         # Global alpha value for the palette of colors (probably keep as 1 and use lighten instead to make things lighter, but nice for filled histograms)
-					  lighten = 0.2,                       # Value between 0-1 to lighten the each of the colors in the palette (in case you like colors but they are a bit intense)
-					  legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),  # Possible positions for the legend corner locations are inside the plot area, top, bottom, left, right are outside
-					  panel.spacing = 3,                   # Spacing parameter between the nested panels of data in 'pt' units
-					  ...)                                 # Parameters that are passed on to the standard 'theme()' function of ggplot. So this function replaces that function but with some nice defaults
+# # Define your custom wrapper
+# theme_jay <- function(palette = "colorblind_safe",         # pallet name from the ggprism package that is a list of palettes defined in graphpad prism
+# 					  alpha   = 1,                         # Global alpha value for the palette of colors (probably keep as 1 and use lighten instead to make things lighter, but nice for filled histograms)
+# 					  lighten = 0.2,                       # Value between 0-1 to lighten the each of the colors in the palette (in case you like colors but they are a bit intense)
+# 					  legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),  # Possible positions for the legend corner locations are inside the plot area, top, bottom, left, right are outside
+# 					  panel.spacing = 3,                   # Spacing parameter between the nested panels of data in 'pt' units
+# 					  minor_ticks_x=TRUE,
+# 					  minor_ticks_y=TRUE,
+# 					  ...)                                 # Parameters that are passed on to the standard 'theme()' function of ggplot. So this function replaces that function but with some nice defaults
+# {
+# 	library(ggprism)
+# 	library(scales)
+# 	library(colorspace)
+# 	argslist <- list(...)
+# 	theme.args <- list(plot.background = element_rect(fill = "transparent", colour = NA),
+# 					   panel.background = element_rect(fill = gray(0.9, 0.5), color = NA),
+# 					   legend.title = element_text(),   # allow title styling
+# 					   legend.text = element_text(),    # allow text styling
+# 					   panel.spacing.x=unit(panel.spacing, 'pt'),
+# 					   panel.spacing.y=unit(panel.spacing, 'pt')
+# 	)
+# 	theme.args <- merge.lists(theme.args, argslist)
+# 	# Return a list of ggplot layers that can be added with +
+# 	positions <- list(topleft=c(0,1), topright=c(1,1), bottomright=c(1,0), bottomleft=c(0,0))
+# 	if(legend[1] %in% c('topleft','bottomright','topright','bottomleft'))
+# 	{
+# 		theme.args[['legend.justification']] <- positions[[legend]]
+# 		theme.args[['legend.position']] <- positions[[legend]]
+# 	}
+# 	else
+# 	{
+# 		theme.args[['legend.position']] <- legend[1]
+# 	}
+# 	list(
+# 		scale_fill_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
+# 		scale_color_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
+# 		theme_prism(),
+# 		do.call(theme, theme.args)    # pass all accumulated args to theme
+# 	)
+# }
+
+# --- Updated theme_jay function ---
+theme_jay <- function(palette = "colorblind_safe",
+					  alpha   = 1,
+					  lighten = 0.2,
+					  legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),
+					  panel.spacing = 3,
+					  minor_ticks_length = 3.5,
+					  ...)
 {
 	library(ggprism)
 	library(scales)
 	library(colorspace)
+
 	argslist <- list(...)
-	theme.args <- list(plot.background = element_rect(fill = "transparent", colour = NA),
-					   panel.background = element_rect(fill = gray(0.9, 0.5), color = NA),
-					   legend.title = element_text(),   # allow title styling
-					   legend.text = element_text(),    # allow text styling
-					   panel.spacing.x=unit(panel.spacing, 'pt'),
-					   panel.spacing.y=unit(panel.spacing, 'pt')
+
+	# 1. Base theme settings
+	# We explicitly set minor tick length here so they are visible
+	theme.args <- list(
+		plot.background = element_rect(fill = "transparent", colour = NA),
+		panel.background = element_rect(fill = gray(0.9, 0.5), color = NA),
+		legend.title = element_text(),
+		legend.text = element_text(),
+		panel.spacing.x = unit(panel.spacing, 'pt'),
+		panel.spacing.y = unit(panel.spacing, 'pt'),
+		# Prism look: show ticks, hide grid lines
+		axis.minor.ticks.length = unit(minor_ticks_length, "pt"),
+		panel.grid.minor = element_blank()
 	)
-	theme.args <- merge.lists(theme.args, argslist)
-	# Return a list of ggplot layers that can be added with +
+
+	# Merge custom ... args into our theme list
+	theme.args <- modifyList(theme.args, argslist)
+
+	# 2. Legend Logic
 	positions <- list(topleft=c(0,1), topright=c(1,1), bottomright=c(1,0), bottomleft=c(0,0))
-	if(legend[1] %in% c('topleft','bottomright','topright','bottomleft'))
-	{
+	if(legend[1] %in% c('topleft','bottomright','topright','bottomleft')) {
 		theme.args[['legend.justification']] <- positions[[legend]]
 		theme.args[['legend.position']] <- positions[[legend]]
-	}
-	else
-	{
+	} else {
 		theme.args[['legend.position']] <- legend[1]
 	}
+
+	# 3. Assemble the list of components
+	# We use guide_axis(minor.ticks = TRUE) because it's compatible with ggh4x
+	guide_x <- if(minor_ticks_length > 0) guide_axis(minor.ticks = TRUE) else waiver()
+	guide_y <- if(minor_ticks_length > 0) guide_axis(minor.ticks = TRUE) else waiver()
+
 	list(
+		# Prism color scales
 		scale_fill_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
 		scale_color_prism_adjusted(palette = palette, alpha = alpha, lighten = lighten),
+		# Base Prism theme
 		theme_prism(),
-		do.call(theme, theme.args)    # pass all accumulated args to theme
+		# Our custom overrides
+		do.call(theme, theme.args),
+		# Inject guides directly into the plot call
+		guides(x = guide_x, y = guide_y)
 	)
 }
 
@@ -6282,9 +6349,9 @@ FacetNestedCustom <- ggproto(
 			strip_text_element <- theme$strip.text.x %||% theme$strip.text
 
 			fontsize <- if (!is.null(strip_text_element$size)) {
-			  ifelse(inherits(strip_text_element$size, "rel"), theme$base_size * strip_text_element$size, strip_text_element$size)
+				ifelse(inherits(strip_text_element$size, "rel"), theme$base_size * strip_text_element$size, strip_text_element$size)
 			} else {
-			  11  # Default if not found in theme
+				11  # Default if not found in theme
 			}
 
 			fontface <- if (!is.null(strip_text_element$face)) {
@@ -6665,12 +6732,11 @@ mean_sd <- function(x) {
 	data.frame(y = m, ymin = m - s, ymax = m + s)
 }
 
-asinh_ggtrans = function(cofactor, base=10, n.lin=1, intervals.per.decade=ceiling(base)-1)
+asinh_ggtrans = function(cofactor, base=10, baseDivisor=base)
 {
 	force(cofactor)
-	force(n.lin)
 	force(base)
-	force(intervals.per.decade)
+	force(baseDivisor)
 	transform = function(x, cofactor2=cofactor)
 	{
 		asinh(x/cofactor2)
@@ -6681,9 +6747,10 @@ asinh_ggtrans = function(cofactor, base=10, n.lin=1, intervals.per.decade=ceilin
 		sinh(x)*cofactor2
 	}
 
-	breaks = asinh_breaks(cofactor=cofactor, n.lin=n.lin, intervals.per.decade=1, base=base)
-	minor_breaks = asinh_minor_breaks(cofactor=cofactor, base=base, intervals.per.decade=intervals.per.decade)
+	breaks = asinh_breaks_fun(cofactor=cofactor, base=base)
+	minor_breaks = asinh_minor_breaks_fun(cofactor=cofactor, base=base, baseDivisor=baseDivisor)
 
+	# browser()
 	force(breaks)
 	force(minor_breaks)
 	force(inverse)
@@ -6691,46 +6758,71 @@ asinh_ggtrans = function(cofactor, base=10, n.lin=1, intervals.per.decade=ceilin
 	scales::trans_new('asinh', transform=transform, inverse=inverse, breaks=breaks, minor_breaks = minor_breaks)
 }
 
-asinh_breaks = function(cofactor, n.lin=1, intervals.per.decade=1, base=10)
+asinh_breaks <- function(limits, cofactor, base=10, n=5)
 {
-	force(n.lin)
-	force(cofactor)
-	force(intervals.per.decade)
-	force(base)
-	ret <- function(x, cofactor2=cofactor, n.lin2=n.lin, intervals.per.decade2=intervals.per.decade, base2=base)
+	if(max(limits) < (cofactor * base))
 	{
-		lin.ticks <- seq(-cofactor2, cofactor2, length.out=1 + n.lin2*2)
-		log.range <- c(floor(log(cofactor2, base=base2)), ceiling(log(max(max(x, na.rm=T), -min(x, na.rm=T))+1, base=base2)))
-		log.ticks <- seq(log.range[1], log.range[2], by=1)
-		log.ticks <- base2^log.ticks
-		log.ticks <- sort(unique(unlist(lapply(log.ticks[-1], function(x){rev(seq(x, x/base2, by=-x/(intervals.per.decade2)))}))))
-		ret <- c(lin.ticks, log.ticks)
-		if(!is.null(log.ticks))
-		{
-			ret <- c(-rev(log.ticks), ret)
-		}
-		return(unique(ret))
+		return(breaks_extended(n=n)(limits))
+	}
+	upperDecade <- ceiling(log(c(max(abs(limits), cofactor*base)), base=base))
+	lowerDecade <- round(log(cofactor, base=base))
+	decades <- seq(lowerDecade, upperDecade, by=1)
+	ticks <- base^(decades)
+	ret <- c(-rev(ticks), 0, ticks)
+	return(ret)
+}
+
+asinh_breaks_fun <- function(cofactor, base=10)
+{
+	force(cofactor)
+	force(base)
+	return(function(limits){return(asinh_breaks(limits, cofactor=cofactor, base=base))})
+}
+
+asinh_minor_breaks <- function(b, limits, n, cofactor, base=10, baseDivisor=base)
+{
+	b <- asinh_breaks(limits=sinh(limits)*cofactor, cofactor=cofactor, base=base, n=5)
+	if(max(abs(sinh(limits)*cofactor)) < (cofactor * base))
+	{
+		ticks <- seq(min(b), max(b), by=median(diff(b))/baseDivisor)
+	}
+	else
+	{
+		b1 <- log(b[b > 0], base=base)
+		b2 <- log(-b[b < 0], base=base)
+		b <- uniqueo(c(b1, b2)) # Make a list of decades that extends far enough along both + and - axes
+		interval <- 1/baseDivisor
+		ticks <- as.numeric(sapply(base^(b), function(x){x*seq(interval,1,interval)}))
+		ticks <- c(-rev(ticks), 0, ticks)
+	}
+	return(asinh(ticks/cofactor))
+}
+
+asinh_minor_breaks_fun <- function(cofactor, base=10, baseDivisor=base)
+{
+	force(cofactor)
+	force(base)
+	force(baseDivisor)
+	ret <- function(b, limits, n){
+		asinh_minor_breaks(b, limits, n, cofactor, base=10, baseDivisor=baseDivisor)
 	}
 	return(ret)
 }
 
-asinh_minor_breaks = function(cofactor, base, intervals.per.decade=ceiling(base)-1)
+penalizeOddShapeBasedOnTargetGroup <- function(x, shape, target_group, max_penalty=mean(x[!target_group]), Z_score=3, cutoff_sharpness=4, mean_fun=mean, sd_fun=sd)
 {
-	force(intervals.per.decade)
-	force(cofactor)
-	force(base)
-	ret <- function(b, limits, n, cofactor2=force(cofactor), intervals.per.decade2=force(intervals.per.decade), base2=force(base))
-	{
-		temp <- sinh(b[b >= 0])*cofactor2
-		if(all(temp < base))
-		{
-			temp <- c(temp, base)
-		}
-		ticks <- sort(unique(unlist(lapply(temp[temp >= base], function(x){rev(seq(from=x, to=x/base2, by=-x/(intervals.per.decade2+1)))}))))
-		toRet <- unique(c(-rev(ticks[ticks > 0]), 0, ticks[ticks > 0]))
-		return(asinh(toRet/cofactor2))
-	}
-	return(ret)
+	penalty <- x
+	penalty[penalty > max_penalty] <- max_penalty
+	target_shape_mean <- mean_fun(shape[target_group])
+	target_shape_sigma <- sd_fun(shape[target_group])
+	return(penalizeOddShape(x=x, shape=shape, penalty=penalty, target_shape_mean=target_shape_mean, target_shape_sigma=target_shape_sigma, Z_score=Z_score, cutoff_sharpness=cutoff_sharpness))
+}
+
+penalizeOddShape <- function(x, shape, penalty, target_shape_mean, target_shape_sigma, Z_score=3, cutoff_sharpness=4)
+{
+	ret <- abs(shape-target_shape_mean)/(Z_score*target_shape_sigma)
+	ret <- penalty*(1-exp(-(ret^cutoff_sharpness)))
+	return(x-ret)
 }
 
 get.logicle <- function(x, y, log, logicle.params, neg.rm=T, na.rm=T, trans.logit=c(F,F))
@@ -10678,7 +10770,7 @@ sd.robust <- function(x, na.rm=T)
 	}
 	da.mad <- mad(x, na.rm=na.rm, constant=1.4826)
 	da.sd <- sd(x, na.rm=na.rm)
-	da.iqr <- IQR(x, na.rm=na.rm)/1.34
+	da.iqr <- IQR(x, na.rm=na.rm)/1.349
 	temp <- c(da.mad, da.sd, da.iqr)
 	if(all(temp[is.finite(temp)] == 0))
 	{
@@ -11402,4 +11494,104 @@ makeBasicFormula <- function(lhs, rhs)
 weighted.percentile <- function (x, w, percentile=0.5, na.rm = TRUE)
 {
 	unname(weighted.quantile(x, probs = percentile, w = w, na.rm = na.rm))
+}
+
+latex <- function(format_string, ..., x = 0.5, y = 0.5, size = 5, hjust = 0.5, vjust = 0.5, lineheight=0.06, nSig=3, trim.spaces=TRUE, trim.zeros=FALSE) {
+	library(ggpp)       # For putting the expression into the plot at the right place
+	library(latex2exp)  # For making the latex expressions (only need a single \)
+
+	# Example Usage:
+	# library(ggplot2)
+	# ggplot(x[Conc > 1 & Curve==1], aes(x=Conc, y=CT, group=Curve, color=Curve)) +
+	# 	geom_line() +
+	# 	geom_point() +
+	# 	latex(c(r'($y=a \,log_{2}(x)$)',
+	# 	    r'(Eff = e\%, blah = $\frac{1}{2}$, $R^2= r$)'), a=x.s$a[1], e=100*x.s$Eff[1], r=x.s$r2[1], x='upperright', size=5) +
+	# 	scale_x_continuous(transform='log', breaks=c(10,100,1000,10000)) +
+	# 	theme_jay(legend='none') +
+	# 	labs(x='Copies / Reaction')
+
+	# 1. Positioning logic (Keywords)
+	# If x is character, override x, y, hjust, vjust.
+	# If numeric, the user-supplied hjust/vjust are preserved.
+	if (is.character(x)) {
+		pos <- tolower(gsub("[ _-]", "", x))
+		if (pos %in% c("topleft", "upperleft")) {
+			x <- 0.05; y <- 0.95; hjust <- 0; vjust <- 1
+		} else if (pos %in% c("topright", "upperright")) {
+			x <- 0.95; y <- 0.95; hjust <- 1; vjust <- 1
+		} else if (pos %in% c("bottomleft", "lowerleft")) {
+			x <- 0.05; y <- 0.05; hjust <- 0; vjust <- 0
+		} else if (pos %in% c("bottomright", "lowerright")) {
+			x <- 0.95; y <- 0.05; hjust <- 1; vjust <- 0
+		} else if (pos %in% c("top", "upper")) {
+			x <- 0.5;  y <- 0.95; hjust <- 0.5; vjust <- 1
+		} else if (pos %in% c("bottom", "lower")) {
+			x <- 0.5;  y <- 0.05; hjust <- 0.5; vjust <- 0
+		} else if (pos == "left") {
+			x <- 0.05; y <- 0.5;  hjust <- 0; vjust <- 0.5
+		} else if (pos == "right") {
+			x <- 0.95; y <- 0.5;  hjust <- 1; vjust <- 0.5
+		} else if (pos %in% c("center", "middle")) {
+			x <- 0.5;  y <- 0.5;  hjust <- 0.5; vjust <- 0.5
+		} else {
+			stop("Invalid position string.")
+		}
+	}
+
+	# 2. Treat input directly as a vector of expressions
+	lines <- format_string
+
+	# 3. Calculate dynamic Y-coordinates so the lines stack cleanly
+	if (vjust == 1) {
+		# Pinned to the top: text grows downwards
+		y_coords <- y - (seq_along(lines) - 1) * lineheight
+	} else if (vjust == 0) {
+		# Pinned to the bottom: reverse the vector and grow upwards
+		lines <- rev(lines)
+		y_coords <- y + (seq_along(lines) - 1) * lineheight
+	} else {
+		# Centered vertically: text grows outwards from the middle
+		y_offsets <- (seq_along(lines) - 1) * lineheight
+		y_coords <- y + (max(y_offsets) / 2) - y_offsets
+	}
+
+	# 4. Process the Named Variables
+	raw_args <- list(...)
+	formatted_args <- list()
+	if (length(raw_args) > 0) {
+		if (is.null(names(raw_args)) || any(names(raw_args) == "")) {
+			stop("All variables must be named (e.g., slope = 1.23).")
+		}
+		formatted_args <- lapply(raw_args, sig.digits, nSig=nSig, trim.spaces=trim.spaces, trim.zeros=trim.zeros)
+	}
+
+	# 5. Loop through each line, build the layer, and store it in a list
+	layer_list <- lapply(seq_along(lines), function(i) {
+
+		current_line <- lines[i]
+
+		# Substitute variables for this specific line
+		if (length(formatted_args) > 0) {
+			for (var_name in names(formatted_args)) {
+				pattern <- paste0("\\b", var_name, "\\b")
+				current_line <- gsub(pattern, formatted_args[[var_name]], current_line)
+			}
+		}
+
+		# Parse and build the ggplot layer
+		parsed_latex <- TeX(current_line, output = "character")
+
+		ggpp::annotate(geom = "text_npc",
+					   npcx = x,
+					   npcy = y_coords[i],
+					   label = parsed_latex,
+					   parse = TRUE,
+					   size = size,
+					   hjust = hjust,
+					   vjust = vjust)
+	})
+
+	# Return the list of layers to ggplot2
+	return(layer_list)
 }
