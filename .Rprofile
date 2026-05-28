@@ -6228,14 +6228,29 @@ theme_jay <- function(palette = "colorblind_safe",
 facet_jay <- function(facets, ...,                    # Same as for face_nested from ggh4x, formula for facets like . ~ User + Method + Conc
 					  rows = NULL,                    # Same as for facet_nested
 					  cols = NULL,                    # Same as for facet_nested
-					  strip = ggh4x::strip_nested(    # Some convenient default values for the strip to draw boxes around the values
-					  	text_x = element_text(vjust = 0),
-					  	background_x = element_rect(color = 'black', linewidth = 1)
-					  ),
+					  strip = c('default','blank'),
 					  labels = NULL,                  # User-defined labels for the rows of the strip (otherwise pulled from the formula)
 					  label_width_units = 'mm',       # Technically can change the units of the label padding but shouldn't need to
 					  label_padding = 3)              # Estimate of space between the longest label and the right edge of the plot (without a right legend... right legends are added on further right)
 {
+
+	if (is.character(strip))
+	{
+		if(strip[1] == 'blank')
+		{
+			strip <- ggh4x::strip_nested(    # Some convenient default values for the strip to draw boxes around the values
+				text_x = element_blank(),
+				background_x = element_blank()
+			)
+		}
+		else
+		{
+			strip <- ggh4x::strip_nested(    # Some convenient default values for the strip to draw boxes around the values
+				text_x = element_text(vjust = 0),
+				background_x = element_rect(color = 'black', linewidth = 1)
+			)
+		}
+	}
 
 	# Determine which syntax was used
 	if (!is.null(facets)) {
