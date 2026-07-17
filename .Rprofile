@@ -9,6 +9,8 @@ library(ggh4x)  # if you're using facet_nested
 library(ggpubr)
 library(grid)
 library(gtable)
+library(stringr)
+library(patchwork)
 
 ##### Basics #####
 
@@ -2893,6 +2895,80 @@ if.else <- function(condition, if.true, if.false)
 	return(ret)
 }
 
+parseVals <- function(x, valsToFind, outputVals=valsToFind, makeFactor=T, na.val=NA, ...)
+{
+  ## Usage:
+  # dt <- data.table(condition=c('Buffer1_Bead1','Buffer2_Bead1','Buffer1_Bead2','Buffer2_Bead2'))
+  # parseCon
+
+  if(length(valsToFind) != length(outputVals))
+  {
+    stop("valsToFind and outputVals must be the same length.")
+  }
+
+  ret <- x
+  ret[] <- na.val
+
+  n <- length(valsToFind)
+  for(index in 1:n)
+  {
+    matches <- grepl(valsToFind[index], x)
+    if(sum(matches) == 0)
+    {
+      warning(paste0("No matches for '", valsToFind[index], "' found in sourceCol."))
+    }
+    ret[matches] <- outputVals[index]
+  }
+
+  if(makeFactor)
+  {
+    ret <- factor(ret, levels=unique(c(outputVals, na.val)))
+  }
+  return(ret)
+}
+
+parseNthNumber <- function(text_column, nth = 1, collapse_with = ", ", na.val=NA, ignore=c()) {
+	# Regex to capture integers, decimals, and leading dots
+	number_regex <- "-?(?:\\d+\\.?\\d*|\\.\\d+)"
+
+	# First eliminate all the text that should be ignored
+	for(toIgnore in ignore)
+	{
+		text_column <- gsub(toIgnore, '', text_column)
+	}
+
+	# 1. Extract all matching number strings
+	extracted_list <- str_extract_all(text_column, number_regex)
+
+	# 2. Process and format using base R's vapply
+	formatted_strings <- vapply(extracted_list, function(x) {
+		if (length(x) == 0) {
+			return(NA_character_) # Return NA if no numbers are found
+		}
+
+		# Convert to numeric and sort ascending
+		sorted_nums <- sort(as.numeric(x))
+
+		# 3. Handle the 'nth' logic
+		if (nth != -1) {
+			# Check if the requested index exists in the sorted numbers
+			if (nth > length(sorted_nums) || nth < 1) {
+				return(NA_character_) # Return NA if index is out of bounds
+			}
+			sorted_nums <- sorted_nums[nth] # Keep only the nth number
+		}
+
+		# Format to enforce leading zero for decimals < 1 (e.g., 0.25)
+		formatted_nums <- sprintf("%g", sorted_nums)
+
+		# 4. Collapse the vector into a single string
+		return(paste(formatted_nums, collapse = collapse_with))
+	}, FUN.VALUE = character(1))
+
+	formatted_strings[is.na(formatted_strings)] <- na.val
+	return(formatted_strings)
+}
+
 splitColumnAtString <- function(x, colToSplit, newColNames, fixed=T, sep='.', keep=NULL)
 {
 	x[, (newColNames) := tstrsplit(get(colToSplit), split=sep, fixed=fixed, keep=keep)]
@@ -3213,7 +3289,7 @@ toUpper <- function(x)
 	return(toupper(enc2utf8(x)))
 }
 
-normalizeNames <- function(names, case=c('title','lower','upper','none'), sep=" ", split=NULL, fixed=F, n=1, removeNumbers=T, charsToRemove=c('\\.','/','-',','))
+normalizeNames <- function(names, case=c('title','lower','upper','none'), sep=c(' '), split=NULL, fixed=F, n=1, removeNumbers=T, charsToRemove=c('\\.','/','-',',','_'))
 {
 	library(stringr)
 
@@ -6120,7 +6196,7 @@ calcTransition <- function(x, base=10, frac=0.15)
 ## ggplot stuff
 
 # # Define your custom wrapper
-# theme_jay <- function(palette = "colorblind_safe",         # pallet name from the ggprism package that is a list of palettes defined in graphpad prism
+# jay_theme <- function(palette = "colorblind_safe",         # pallet name from the ggprism package that is a list of palettes defined in graphpad prism
 # 					  alpha   = 1,                         # Global alpha value for the palette of colors (probably keep as 1 and use lighten instead to make things lighter, but nice for filled histograms)
 # 					  lighten = 0.2,                       # Value between 0-1 to lighten the each of the colors in the palette (in case you like colors but they are a bit intense)
 # 					  legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),  # Possible positions for the legend corner locations are inside the plot area, top, bottom, left, right are outside
@@ -6160,8 +6236,8 @@ calcTransition <- function(x, base=10, frac=0.15)
 # 	)
 # }
 
-# --- Updated theme_jay function ---
-theme_jay <- function(palette = "colorblind_safe",
+# --- Updated jay_theme function ---
+jay_theme <- function(palette = "colorblind_safe",
 					  alpha   = 1,
 					  lighten = 0.2,
 					  legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),
@@ -6225,7 +6301,7 @@ theme_jay <- function(palette = "colorblind_safe",
 # IMPLEMENTATION CODE 2: facet_jay (wrapper function)
 # ================================================================
 
-facet_jay <- function(facets, ...,                    # Same as for face_nested from ggh4x, formula for facets like . ~ User + Method + Conc
+jay_facet <- function(facets, ...,                    # Same as for face_nested from ggh4x, formula for facets like . ~ User + Method + Conc
 					  rows = NULL,                    # Same as for facet_nested
 					  cols = NULL,                    # Same as for facet_nested
 					  strip = c('default','blank'),
@@ -6540,205 +6616,281 @@ facet_nested_custom <- function(
 	)
 }
 
+# Define the ultra-short alias
+w <- function(plot) patchwork::wrap_elements(panel = plot)
+
+StatJaySummaryError <- ggproto("StatJaySummaryError", Stat,
+                               required_aes = c("x", "y"),
+
+                               compute_panel = function(data, scales, fun = "sd", direction = "both") {
+
+                                 # 1. Resolve the error function
+                                 error_fun <- if (is.character(fun)) {
+                                   if (fun == "sd") {
+                                     function(x) stats::sd(x, na.rm = TRUE)
+                                   } else if (fun == "se") {
+                                     function(x) stats::sd(x, na.rm = TRUE) / sqrt(sum(!is.na(x)))
+                                   } else {
+                                     stop("Invalid string shortcut. Choose 'sd' or 'se'.")
+                                   }
+                                 } else if (is.function(fun)) {
+                                   fun
+                                 } else {
+                                   stop("'fun' must be a function or a string shortcut ('sd', 'se').")
+                                 }
+
+                                 # 2. CRITICAL FIX: Split data by BOTH x-axis position AND grouping aesthetics
+                                 data$split_id <- interaction(data$x, data$group, drop = TRUE)
+                                 list_dfs <- split(data, data$split_id)
+
+                                 # 3. Compute summary statistics for each distinct x/group sub-block
+                                 res_dfs <- lapply(list_dfs, function(sub_df) {
+                                   if (nrow(sub_df) == 0) return(NULL)
+
+                                   mean_y <- mean(sub_df$y, na.rm = TRUE)
+                                   err_value <- error_fun(sub_df$y)
+
+                                   if (is.na(err_value)) err_value <- 0
+
+                                   # Retain structural row data to preserve aesthetics (color, x, panel, etc.)
+                                   out <- sub_df[1, , drop = FALSE]
+                                   out$y <- mean_y
+                                   out$ymin <- if (direction %in% c("both", "lower")) mean_y - err_value else mean_y
+                                   out$ymax <- if (direction %in% c("both", "upper")) mean_y + err_value else mean_y
+
+                                   return(out)
+                                 })
+
+                                 # 4. Bind it all back together
+                                 res <- do.call(rbind, res_dfs)
+                                 rownames(res) <- NULL
+                                 res$split_id <- NULL
+                                 return(res)
+                               }
+)
+
+jay_error <- function(mapping = NULL, data = NULL,
+                      fun = "sd", direction = "both",
+                      position = "identity", ..., na.rm = FALSE,
+                      show.legend = NA, inherit.aes = TRUE) {
+
+  if (!direction %in% c("both", "upper", "lower")) {
+    stop("direction must be 'both', 'upper', or 'lower'")
+  }
+
+  layer(
+    stat = StatJaySummaryError,
+    data = data,
+    mapping = mapping,
+    geom = "errorbar",
+    position = position,
+    show.legend = show.legend,
+    inherit.aes = inherit.aes,
+    params = list(fun = fun, direction = direction, na.rm = na.rm, ...)
+  )
+}
+
 ###### geom_prism #####
 
-geom_prism <- function(mapping = NULL,
-					   data = NULL,
-					   dodge_width = 0.7,             # Same as other geom_ functions, defines dodge widths in response to color and group etc
-					   mean_linewidth = 1,            # Linewidth/weight of the mean line
-					   mean_width = 0.4,              # Width of the mean line relative to the data panel
-					   errorbar_type = c('sd','se'),  # Calculation type for the error bars either sd or se = sd/sqrt(n_pts)
-					   errorbar_mult = 1,             # How much to multiply the sd or se calculation for plotting errorbars
-					   errorbar_linewidth = 0.4,      # Linewidth/weight of the errobar lines
-					   errorbar_width = 0.2,          # Width of the horizontal errorbar lines relative to the data panel
-					   jitter_width = 0.3,            # Width of the jitter of the points relative to the data panel
-					   jitter_seed = NULL,            # random seed to keep the jitter consistent from call to call
-					   inherit.aes = TRUE,            # Same as for any other geom_ function
-					   ...)                           # Parameters passed onto the geom_point function used within here (i.e., won't get passed to the functions for the mean or errorbar lines)
+jay_prism <- function(mapping = NULL,
+                      data = NULL,
+                      dodge_width = 0.7,             # Same as other geom_ functions, defines dodge widths in response to color and group etc
+                      mean_linewidth = 1,            # Linewidth/weight of the mean line
+                      mean_width = 0.4,              # Width of the mean line relative to the data panel
+                      calc = c('sd','se'),           # Calculation type for the error bars either sd or se = sd/sqrt(n_pts), or quantile value between 0.5 and 1 (mean line will turn to median)
+                      upper = TRUE,                  # Whether to plot the upper error bars
+                      lower = TRUE,                  # Whether to plot the lower error bars
+                      errorbar_mult = 1,             # How much to multiply the sd or se calculation for plotting errorbars
+                      errorbar_linewidth = 0.4,      # Linewidth/weight of the errobar lines
+                      errorbar_width = 0.2,          # Width of the horizontal errorbar lines relative to the data panel
+                      show_points = TRUE,            # Whether to plot the individual data points
+                      jitter_width = 0.3,            # Width of the jitter of the points relative to the data panel
+                      jitter_seed = NULL,            # random seed to keep the jitter consistent from call to call
+                      inherit.aes = TRUE,            # Same as for any other geom_ function
+                      ...)                           # Parameters passed onto the geom_point function used within here (i.e., won't get passed to the functions for the mean or errorbar lines)
 {
+  # Custom function check for data.table %!in% equivalent
+  `%!in%` <- Negate(`%in%`)
 
-	if(errorbar_type[1] %!in% c('sd','se'))
-	{
-		stop("errorbar_type must be either 'sd' or 'se'")
-	}
-	# Create custom stat function
-	mean_sd_stat <- function(x) {
-		m <- mean(x, na.rm = TRUE)
-		s <- sd(x, na.rm = TRUE)
-		if(errorbar_type[1]=='se')
-		{
-			s <- s/sqrt(sum(!is.na(x)))
-		}
-		data.frame(
-			y = m,
-			ymin = m - errorbar_mult*s,
-			ymax = m + errorbar_mult*s
-		)
-	}
+  if((is.character(calc) && calc[1] %!in% c('sd','se')) | (is.numeric(calc[1]) & (calc[1] < 0.5 | calc[1] > 1)))
+  {
+    stop("calc must be either 'sd' or 'se' or a quantile value between 0.5 and 1")
+  }
 
-	# Prepare params for mean line
-	mean_params <- list(
-		fun.data = function(x) {
-			m <- mean(x, na.rm = TRUE)
-			data.frame(y = m, ymin = m, ymax = m)
-		},
-		width = mean_width,
-		linewidth = mean_linewidth
-	)
+  # Create custom stat function
+  mean_sd_stat <- function(x) {
+    if(is.numeric(calc[1]))
+    {
+      m <- median(x, na.rm = TRUE)
+      s <- c(m-ifelse(lower, quantile(x, 1-calc[1], na.rm = TRUE), 0),
+             ifelse(upper, quantile(x, calc[1], na.rm = TRUE)-m, 0))
+    }
+    else
+    {
+      m <- mean(x, na.rm = TRUE)
+      s <- sd(x, na.rm = TRUE)
+      s <- c(s,s)
+      if(calc[1]=='se')
+      {
+        s <- s/sqrt(sum(!is.na(x)))
+      }
+    }
 
-	# Create dodge position
-	dodge_pos <- position_dodge(width = dodge_width)
+    data.frame(
+      y = m,
+      ymin = m - errorbar_mult*s[1],
+      ymax = m + errorbar_mult*s[2]
+    )
+  }
 
-	PositionDodgeSpread <- ggplot2::ggproto(
-		"PositionDodgeSpread", ggplot2::Position,
+  # Prepare params for mean line
+  mean_params <- list(
+    fun.data = function(x) {
+      m <- ifelse(is.numeric(calc[1]), median(x, na.rm=TRUE), mean(x, na.rm = TRUE))
+      data.frame(y = m, ymin = m, ymax = m)
+    },
+    width = mean_width,
+    linewidth = mean_linewidth
+  )
 
-		required_aes = c("x", "group"),
+  # Create dodge position
+  dodge_pos <- position_dodge(width = dodge_width)
 
-		setup_params = function(self, data) {
-			list(
-				dodge_width = self$dodge_width,
-				jitter_width = self$jitter_width,
-				jitter_seed = self$jitter_seed,
-				reverse = FALSE
-			)
-		},
+  PositionDodgeSpread <- ggplot2::ggproto(
+    "PositionDodgeSpread", ggplot2::Position,
 
-		compute_panel = function(data, params, scales) {
-			# Check if data.table is available
-			if (!requireNamespace("data.table", quietly = TRUE)) {
-				stop("data.table package is required for geom_prism2")
-			}
+    required_aes = c("x", "group"),
 
-			# Set seed if provided
-			if (!is.null(params$jitter_seed)) {
-				withr::local_preserve_seed()
-				set.seed(params$jitter_seed)
-			}
+    setup_params = function(self, data) {
+      list(
+        dodge_width = self$dodge_width,
+        jitter_width = self$jitter_width,
+        jitter_seed = self$jitter_seed,
+        reverse = FALSE
+      )
+    },
 
-			# Convert to data.table
-			dt <- data.table::as.data.table(data)
+    compute_panel = function(data, params, scales) {
+      if (!requireNamespace("data.table", quietly = TRUE)) {
+        stop("data.table package is required for geom_prism2")
+      }
 
-			# Store original row order and all columns
-			dt[, row_id := .I]
-			all_cols <- names(dt)
+      if (!is.null(params$jitter_seed)) {
+        withr::local_preserve_seed()
+        set.seed(params$jitter_seed)
+      }
 
-			# Convert x to numeric position
-			if (is.factor(dt$x)) {
-				dt[, x_numeric := as.numeric(x)]
-			} else if (is.character(dt$x)) {
-				dt[, x_numeric := as.numeric(factor(x))]
-			} else {
-				dt[, x_numeric := x]
-			}
+      dt <- data.table::as.data.table(data)
+      dt[, row_id := .I]
+      all_cols <- names(dt)
 
-			# CORRECTED DODGE FORMULA (matches ggplot's position_dodge exactly):
-			# x_center = x + (group_index - (n_groups + 1)/2) * width / n_groups
-			dt[, group_id := as.numeric(factor(group)), by = .(PANEL, x_numeric)]
-			dt[, n_groups := data.table::uniqueN(group), by = .(PANEL, x_numeric)]
+      if (is.factor(dt$x)) {
+        dt[, x_numeric := as.numeric(x)]
+      } else if (is.character(dt$x)) {
+        dt[, x_numeric := as.numeric(factor(x))]
+      } else {
+        dt[, x_numeric := x]
+      }
 
-			# This is the formula that matches ggplot's position_dodge
-			dt[, x_center := x_numeric + (group_id - (n_groups + 1)/2) * params$dodge_width / n_groups]
+      dt[, group_id := as.numeric(factor(group)), by = .(PANEL, x_numeric)]
+      dt[, n_groups := data.table::uniqueN(group), by = .(PANEL, x_numeric)]
 
-			# DEBUG: Uncomment to see calculations
-			# print(dt[, .(x_numeric, group_id, n_groups, x_center)])
+      dt[, x_center := x_numeric + (group_id - (n_groups + 1)/2) * params$dodge_width / n_groups]
 
-			# Apply jitter around centers
-			dt[, n_points := .N, by = .(PANEL, x_center, group)]
+      dt[, n_points := .N, by = .(PANEL, x_center, group)]
+      dt[, space_per_group := params$dodge_width / n_groups]
+      dt[, jitter_range := space_per_group * params$jitter_width]
 
-			# Jitter range should be based on the space available per group
-			# The space per group is dodge_width / n_groups
-			dt[, space_per_group := params$dodge_width / n_groups]
-			dt[, jitter_range := space_per_group * params$jitter_width]
+      result <- dt[, {
+        n_pts <- .N
+        center <- x_center[1]
+        jitter_val <- jitter_range[1]
 
-			# Create jittered positions
-			result <- dt[, {
-				n_pts <- .N
-				center <- x_center[1]
-				jitter_val <- jitter_range[1]
+        if (n_pts == 1) {
+          x_pos <- center
+        } else {
+          positions <- seq(
+            center - jitter_val/2,
+            center + jitter_val/2,
+            length.out = n_pts
+          )
+          x_pos <- sample(positions)
+        }
 
-				if (n_pts == 1) {
-					x_pos <- center
-				} else {
-					# Uniformly spaced positions within jitter range
-					positions <- seq(
-						center - jitter_val/2,
-						center + jitter_val/2,
-						length.out = n_pts
-					)
-					x_pos <- sample(positions)
-				}
+        modified <- copy(.SD)
+        modified[, x := x_pos]
+        modified
+      }, by = .(PANEL, x_center, group)]
 
-				# Update x in a copy of the data
-				modified <- copy(.SD)
-				modified[, x := x_pos]
-				modified
-			}, by = .(PANEL, x_center, group)]
+      temp_cols <- c("row_id", "x_numeric", "group_id", "n_groups",
+                     "x_center", "n_points", "space_per_group", "jitter_range")
+      result[, (temp_cols) := NULL]
 
-			# Clean up temporary columns
-			temp_cols <- c("row_id", "x_numeric", "group_id", "n_groups",
-						   "x_center", "n_points", "space_per_group", "jitter_range")
-			result[, (temp_cols) := NULL]
+      missing_cols <- setdiff(all_cols, names(result))
+      if (length(missing_cols) > 0) {
+        result[, (missing_cols) := NA]
+      }
 
-			# Ensure all original columns are present
-			missing_cols <- setdiff(all_cols, names(result))
-			if (length(missing_cols) > 0) {
-				result[, (missing_cols) := NA]
-			}
+      setcolorder(result, all_cols)
+      return(as.data.frame(result))
+    }
+  )
 
-			# Reorder to match original
-			setcolorder(result, all_cols)
+  # Initialize position object
+  dodge_jitter_pos <- PositionDodgeSpread
+  dodge_jitter_pos$dodge_width <- dodge_width
+  dodge_jitter_pos$jitter_width <- jitter_width
+  dodge_jitter_pos$jitter_seed <- jitter_seed
 
-			return(as.data.frame(result))
-		}
-	)
+  # EDIT: Initialize list with baseline errorbar and mean line layers
+  plot_layers <- list(
+    # Error bars
+    ggplot2::layer(
+      geom = "errorbar",
+      stat = "summary",
+      data = data,
+      mapping = mapping,
+      position = dodge_pos,
+      params = list(
+        fun.data = mean_sd_stat,
+        width = errorbar_width,
+        linewidth = errorbar_linewidth
+      ),
+      inherit.aes = inherit.aes,
+      show.legend = FALSE
+    ),
 
-	# Initialize position object
-	dodge_jitter_pos <- PositionDodgeSpread
-	dodge_jitter_pos$dodge_width <- dodge_width
-	dodge_jitter_pos$jitter_width <- jitter_width
-	dodge_jitter_pos$jitter_seed <- jitter_seed
+    # Mean line
+    ggplot2::layer(
+      geom = "errorbar",
+      stat = "summary",
+      data = data,
+      mapping = mapping,
+      position = dodge_pos,
+      params = mean_params,
+      inherit.aes = inherit.aes,
+      show.legend = ifelse(show_points, FALSE, TRUE)
+    )
+  )
 
-	list(
-		# Error bars
-		ggplot2::layer(
-			geom = "errorbar",
-			stat = "summary",
-			data = data,
-			mapping = mapping,
-			position = dodge_pos,
-			params = list(
-				fun.data = mean_sd_stat,
-				width = errorbar_width,
-				linewidth = errorbar_linewidth
-			),
-			inherit.aes = inherit.aes,
-			show.legend = FALSE
-		),
+  # EDIT: Conditionally append the points layer only if show_points is TRUE
+  if (show_points) {
+    plot_layers <- c(plot_layers, list(
+      # Points
+      ggplot2::layer(
+        geom = "point",
+        stat = "identity",
+        data = data,
+        mapping = mapping,
+        position = dodge_jitter_pos,
+        params = list(...),
+        inherit.aes = inherit.aes,
+        show.legend = TRUE
+      )
+    ))
+  }
 
-		# Mean line
-		ggplot2::layer(
-			geom = "errorbar",
-			stat = "summary",
-			data = data,
-			mapping = mapping,
-			position = dodge_pos,
-			params = mean_params,
-			inherit.aes = inherit.aes,
-			show.legend = FALSE
-		),
-
-		# Points
-		ggplot2::layer(
-			geom = "point",
-			stat = "identity",
-			data = data,
-			mapping = mapping,
-			position = dodge_jitter_pos,
-			params = list(...),
-			inherit.aes = inherit.aes,
-			show.legend = TRUE
-		)
-	)
+  return(plot_layers)
 }
 
 mean_sd <- function(x) {
@@ -8709,7 +8861,7 @@ uniqueo <- function(x, rev=F)
 	}
 	if(rev)
 	{
-		ret <- ret[orderfun(-ret)]
+		ret <- ret[orderfun(ret, decreasing=T)]
 	}
 	else
 	{
@@ -11523,7 +11675,7 @@ latex <- function(format_string, ..., x = 0.5, y = 0.5, size = 5, hjust = 0.5, v
 	# 	latex(c(r'($y=a \,log_{2}(x)$)',
 	# 	    r'(Eff = e\%, blah = $\frac{1}{2}$, $R^2= r$)'), a=x.s$a[1], e=100*x.s$Eff[1], r=x.s$r2[1], x='upperright', size=5) +
 	# 	scale_x_continuous(transform='log', breaks=c(10,100,1000,10000)) +
-	# 	theme_jay(legend='none') +
+	# 	jay_theme(legend='none') +
 	# 	labs(x='Copies / Reaction')
 
 	# 1. Positioning logic (Keywords)
