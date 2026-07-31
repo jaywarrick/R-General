@@ -6616,7 +6616,7 @@ facet_nested_custom <- function(
 	)
 }
 
-# Define the ultra-short alias
+# Define the ultra-short alias for using prism themed ggplots with patchwork
 w <- function(plot) patchwork::wrap_elements(panel = plot)
 
 StatJaySummaryError <- ggproto("StatJaySummaryError", Stat,
