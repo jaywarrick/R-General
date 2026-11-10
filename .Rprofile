@@ -6520,6 +6520,10 @@ jay_theme <- function(palette = "colorblind_safe",
                       legend  = c('right','left','top','bottom','none','topleft','topright','bottomleft','bottomright'),
                       panel.spacing = 3,
                       minor_ticks_length = 3.5,
+                      base_size = 14,
+                      base_family = "sans",
+                      base_fontface = "bold",
+                      theme_palette = "black_and_white",
                       ...)
 {
   library(ggprism)
@@ -6544,6 +6548,9 @@ jay_theme <- function(palette = "colorblind_safe",
 
   # Merge custom ... args into our theme list
   theme.args <- modifyList(theme.args, argslist)
+  if (!is.null(argslist$text$colour) && is.null(argslist$strip.text)) {
+    theme.args[['strip.text']] <- element_text(colour = argslist$text$colour)
+  }
 
   # 2. Legend Logic
   positions <- list(topleft=c(0,1), topright=c(1,1), bottomright=c(1,0), bottomleft=c(0,0))
@@ -6564,7 +6571,7 @@ jay_theme <- function(palette = "colorblind_safe",
     scale_fill_prism_adjusted(palette = palette, drop_colors = drop_colors, select_colors = select_colors, alpha = alpha, lighten = lighten),
     scale_color_prism_adjusted(palette = palette, drop_colors = drop_colors, select_colors = select_colors, alpha = alpha, lighten = lighten),
     # Base Prism theme
-    theme_prism(),
+    theme_prism(palette = theme_palette, base_size = base_size, base_family = base_family, base_fontface = base_fontface),
     # Our custom overrides
     do.call(theme, theme.args),
     # Inject guides directly into the plot call
@@ -6583,6 +6590,7 @@ jay_facet <- function(facets, ...,                    # Same as for face_nested 
                       cols = NULL,                    # Same as for facet_nested
                       strip = c('default','blank'),
                       labels = NULL,                  # User-defined labels for the rows of the strip (otherwise pulled from the formula)
+                      label_color = 'auto',           # 'auto', 'strip', 'text', or explicit color(s) (e.g. 'white', c('white', 'grey80'))
                       label_width_units = 'mm',       # Technically can change the units of the label padding but shouldn't need to
                       label_padding = 3)              # Estimate of space between the longest label and the right edge of the plot (without a right legend... right legends are added on further right)
 {
@@ -6630,6 +6638,7 @@ jay_facet <- function(facets, ...,                    # Same as for face_nested 
   facet_nested_custom(facets, ...,
                       strip = strip,
                       custom_labels = labels,
+                      label_color = label_color,
                       label_width_units = label_width_units,
                       label_padding = label_padding)
 }
@@ -6654,6 +6663,41 @@ calculate_text_width <- function(text, fontsize = 11, fontface = "bold", width_u
   text_width + 2 * unit(padding, width_units)
 }
 
+# Helper function to compute relative sRGB luminance (0 = black, 1 = white, NA = transparent/invalid)
+.jay_get_luminance <- function(col) {
+  if (is.null(col) || length(col) == 0 || is.na(col[1]) || identical(col[1], "transparent") || !nzchar(as.character(col[1]))) {
+    return(NA_real_)
+  }
+  rgb_val <- tryCatch(grDevices::col2rgb(col[1], alpha = TRUE), error = function(e) NULL)
+  if (is.null(rgb_val) || rgb_val["alpha", 1] == 0) {
+    return(NA_real_)
+  }
+  rgb_norm <- rgb_val[1:3, 1] / 255
+  rgb_lin <- ifelse(rgb_norm <= 0.03928, rgb_norm / 12.92, ((rgb_norm + 0.055) / 1.055)^2.4)
+  unname(0.2126 * rgb_lin[1] + 0.7152 * rgb_lin[2] + 0.0722 * rgb_lin[3])
+}
+
+# Helper function to convert grid gpar font/fontface into a clean fontface value
+.jay_extract_fontface <- function(gp, default_face = "bold") {
+  if (!is.null(gp$fontface) && length(gp$fontface) > 0 && !is.na(gp$fontface[1])) {
+    return(gp$fontface[1])
+  }
+  if (!is.null(gp$font) && length(gp$font) > 0 && !is.na(gp$font[1])) {
+    if (!is.null(names(gp$font)) && nzchar(names(gp$font)[1])) {
+      return(names(gp$font)[1])
+    }
+    faces <- c("plain", "bold", "italic", "bold.italic")
+    idx <- as.integer(gp$font[1])
+    if (!is.na(idx) && idx >= 1 && idx <= 4) {
+      return(faces[idx])
+    }
+  }
+  if (!is.null(default_face) && length(default_face) > 0 && !is.na(default_face[1])) {
+    return(default_face[1])
+  }
+  "bold"
+}
+
 # 1. Create the new Facet ggproto class
 FacetNestedCustom <- ggproto(
   "FacetNestedCustom",
@@ -6668,9 +6712,12 @@ FacetNestedCustom <- ggproto(
       ranges, coord, data, theme, params
     )
 
-    # --- STEP 2: Find all strip grobs ---
+    # --- STEP 2: Find all horizontal strip grobs (top or switched bottom) ---
     table_layout <- panel_table$layout
     strip_indices <- which(grepl("^strip-t-", table_layout$name))
+    if (length(strip_indices) == 0) {
+      strip_indices <- which(grepl("^strip-b-", table_layout$name))
+    }
 
     if (length(strip_indices) == 0) {
       return(panel_table)
@@ -6690,10 +6737,11 @@ FacetNestedCustom <- ggproto(
       return(panel_table)
     }
 
-    # --- STEP 4: Get custom labels and label width from params ---
+    # --- STEP 4: Get custom labels and parameters ---
     custom_labels <- params$custom_labels
     label_padding <- getDefault(params$label_padding, 3)
     label_width_units <- getDefault(params$label_width_units, 'mm')
+    label_color_param <- getDefault(params$label_color, 'auto')
 
     # Validate custom labels if provided
     if (!is.null(custom_labels)) {
@@ -6703,109 +6751,229 @@ FacetNestedCustom <- ggproto(
       }
     }
 
-    # --- STEP 5: Calculate or use provided label width ---
-    # Determine which labels to use for width calculation
     labels_for_width <- if (!is.null(custom_labels)) {
       custom_labels
     } else {
       col_vars
     }
 
-    # Calculate width based on the longest label
-    if (length(labels_for_width) > 0) {
-      # Get theme settings for strip text to match font properties
-      strip_text_element <- theme$strip.text.x %||% theme$strip.text
+    # --- STEP 5: Resolve theme inheritance + per-level strip grob styles ---
+    # 5a. Baseline from ggplot2's full theme hierarchy (text -> strip.text -> strip.text.x -> strip.text.x.top)
+    strip_text_el <- tryCatch(
+      ggplot2::calc_element("strip.text.x.top", theme),
+      error = function(e) tryCatch(
+        ggplot2::calc_element("strip.text.x", theme),
+        error = function(e2) theme$strip.text.x %||% theme$strip.text
+      )
+    )
+    base_text_el <- tryCatch(ggplot2::calc_element("text", theme), error = function(e) theme$text)
+    strip_bg_el  <- tryCatch(
+      ggplot2::calc_element("strip.background.x", theme),
+      error = function(e) tryCatch(
+        ggplot2::calc_element("strip.background", theme),
+        error = function(e2) theme$strip.background
+      )
+    )
+    plot_bg_el   <- tryCatch(ggplot2::calc_element("plot.background", theme), error = function(e) theme$plot.background)
 
-      fontsize <- if (!is.null(strip_text_element$size)) {
-        ifelse(inherits(strip_text_element$size, "rel"), theme$base_size * strip_text_element$size, strip_text_element$size)
-      } else {
-        11  # Default if not found in theme
+    default_fontsize <- if (!is.null(strip_text_el$size) && is.numeric(strip_text_el$size) &&
+                            length(strip_text_el$size) > 0 && !is.na(strip_text_el$size[1])) {
+      as.numeric(strip_text_el$size[1])
+    } else if (!is.null(base_text_el$size) && is.numeric(base_text_el$size) &&
+               length(base_text_el$size) > 0 && !is.na(base_text_el$size[1])) {
+      as.numeric(base_text_el$size[1])
+    } else {
+      11
+    }
+    default_fontface   <- .jay_extract_fontface(list(fontface = strip_text_el$face %||% base_text_el$face), "bold")
+    default_fontfamily <- strip_text_el$family %||% base_text_el$family %||% ""
+    default_strip_col  <- strip_text_el$colour %||% base_text_el$colour %||% "black"
+    default_lineheight <- strip_text_el$lineheight %||% base_text_el$lineheight %||% 0.9
+    default_strip_bg   <- if (inherits(strip_bg_el, "element_rect")) strip_bg_el$fill else NA
+    base_text_col      <- base_text_el$colour %||% "black"
+    plot_bg_fill       <- if (inherits(plot_bg_el, "element_rect")) plot_bg_el$fill else NA
+
+    # Order strip_indices from rightmost to leftmost so we prioritize the strip closest to the category labels
+    ordered_strip_indices <- strip_indices[order(table_layout$r[strip_indices], decreasing = TRUE)]
+
+    # 5b. Extract per-level resolved gpar from rendered strip grobs (captures strip_nested overrides too)
+    level_styles <- vector("list", n_levels)
+    ref_strip_heights <- NULL
+
+    for (i in seq_len(n_levels)) {
+      style_i <- list(
+        fontsize   = default_fontsize,
+        fontface   = default_fontface,
+        fontfamily = default_fontfamily,
+        strip_col  = default_strip_col,
+        lineheight = default_lineheight,
+        strip_bg   = default_strip_bg
+      )
+
+      for (s_idx in ordered_strip_indices) {
+        sg <- panel_table$grobs[[s_idx]]
+        if (!inherits(sg, "gtable") || is.null(sg$layout) || nrow(sg$layout) == 0) {
+          next
+        }
+        if (is.null(ref_strip_heights) && length(sg$heights) == n_levels) {
+          ref_strip_heights <- sg$heights
+        }
+        # Find grob(s) inside this strip gtable that sit on row i (level i)
+        row_matches <- which(sg$layout$t <= i & sg$layout$b >= i)
+        if (length(row_matches) == 0) {
+          next
+        }
+
+        found_text <- FALSE
+        for (rm_idx in row_matches) {
+          cell_grob <- sg$grobs[[rm_idx]]
+          if (is.null(cell_grob) || inherits(cell_grob, "zeroGrob")) {
+            next
+          }
+          children_list <- cell_grob$children
+          if (is.null(children_list)) {
+            next
+          }
+          for (ch in children_list) {
+            if (inherits(ch, "rect") && !is.null(ch$gp$fill)) {
+              style_i$strip_bg <- ch$gp$fill
+            }
+            if (inherits(ch, "titleGrob") && !is.null(ch$children) && length(ch$children) > 0) {
+              txt_child <- ch$children[[1]]
+              if (!is.null(txt_child$gp)) {
+                tgp <- txt_child$gp
+                if (!is.null(tgp$fontsize) && !is.na(tgp$fontsize[1])) style_i$fontsize <- as.numeric(tgp$fontsize[1])
+                if (!is.null(tgp$fontfamily)) style_i$fontfamily <- tgp$fontfamily[1]
+                style_i$fontface <- .jay_extract_fontface(tgp, style_i$fontface)
+                if (!is.null(tgp$col) && !is.na(tgp$col[1])) style_i$strip_col <- tgp$col[1]
+                if (!is.null(tgp$lineheight) && !is.na(tgp$lineheight[1])) style_i$lineheight <- as.numeric(tgp$lineheight[1])
+                found_text <- TRUE
+              }
+            } else if (inherits(ch, "text") && !is.null(ch$gp)) {
+              tgp <- ch$gp
+              if (!is.null(tgp$fontsize) && !is.na(tgp$fontsize[1])) style_i$fontsize <- as.numeric(tgp$fontsize[1])
+              if (!is.null(tgp$fontfamily)) style_i$fontfamily <- tgp$fontfamily[1]
+              style_i$fontface <- .jay_extract_fontface(tgp, style_i$fontface)
+              if (!is.null(tgp$col) && !is.na(tgp$col[1])) style_i$strip_col <- tgp$col[1]
+              if (!is.null(tgp$lineheight) && !is.na(tgp$lineheight[1])) style_i$lineheight <- as.numeric(tgp$lineheight[1])
+              found_text <- TRUE
+            }
+          }
+          if (found_text) break
+        }
+        if (found_text) break
       }
 
-      fontface <- if (!is.null(strip_text_element$face)) {
-        strip_text_element$face
+      # 5c. Resolve final label color for level i
+      if (length(label_color_param) == 1 && identical(label_color_param, "strip")) {
+        style_i$col <- style_i$strip_col
+      } else if (length(label_color_param) == 1 && identical(label_color_param, "text")) {
+        style_i$col <- base_text_col
+      } else if (length(label_color_param) == 1 && identical(label_color_param, "auto")) {
+        lum_plot_bg   <- .jay_get_luminance(plot_bg_fill)
+        lum_strip_bg  <- .jay_get_luminance(style_i$strip_bg)
+        lum_strip_col <- .jay_get_luminance(style_i$strip_col)
+
+        # If plot.background is opaque AND strip.background has contrasting brightness (e.g. dark strip box on
+        # an opaque white plot.background) such that strip_col would be invisible against plot.background,
+        # fall back to base_text_col (or a contrasting color against plot.background).
+        if (!is.na(lum_plot_bg) && !is.na(lum_strip_bg) && !is.na(lum_strip_col) &&
+            abs(lum_strip_bg - lum_plot_bg) > 0.4 && abs(lum_strip_col - lum_plot_bg) < 0.25) {
+          lum_base_text <- .jay_get_luminance(base_text_col)
+          if (!is.na(lum_base_text) && abs(lum_base_text - lum_plot_bg) >= 0.25) {
+            style_i$col <- base_text_col
+          } else {
+            style_i$col <- if (lum_plot_bg > 0.5) "black" else "white"
+          }
+        } else {
+          style_i$col <- style_i$strip_col
+        }
       } else {
-        "bold"  # Default
+        recycled_cols <- rep(label_color_param, length.out = n_levels)
+        style_i$col <- recycled_cols[i]
       }
 
-      fontfamily <- if (!is.null(strip_text_element$family)) {
-        strip_text_element$family
-      } else {
-        ""  # Default
-      }
+      level_styles[[i]] <- style_i
+    }
 
-      # Calculate width for each label and take the maximum
-      label_widths <- sapply(labels_for_width, function(label) {
+    # --- STEP 6: Calculate or use provided label width ---
+    if (!is.null(params$label_width)) {
+      label_width <- if (grid::is.unit(params$label_width)) {
+        params$label_width
+      } else {
+        unit(params$label_width, label_width_units)
+      }
+    } else {
+      label_widths <- sapply(seq_len(n_levels), function(i) {
         calculate_text_width(
-          label,
-          fontsize = fontsize,
-          fontface = fontface,
+          labels_for_width[i],
+          fontsize = level_styles[[i]]$fontsize,
+          fontface = level_styles[[i]]$fontface,
           width_units = label_width_units,
           padding = label_padding,
-          fontfamily = fontfamily
+          fontfamily = level_styles[[i]]$fontfamily
         )
       })
-
-      # Use the maximum width plus some extra padding
       max_width <- max(label_widths)
       label_width <- unit(max_width, label_width_units)
     }
 
-    # --- STEP 6: Add a new column to the main panel table ---
+    # --- STEP 7: Add a new column to the main panel table ---
     panel_table <- gtable::gtable_add_cols(panel_table, widths = label_width, pos = -1)
     new_col_index <- ncol(panel_table)
 
-    # --- STEP 7: Get strip row information ---
+    # --- STEP 8: Get strip row information ---
     strip_rows <- unique(table_layout$t[strip_indices])
 
     if (length(strip_rows) == 0) {
       return(panel_table)
     }
 
-    # --- STEP 8: Create a gtable for the labels column ---
+    # --- STEP 9: Create a gtable for the labels column and add level labels ---
     strip_pos <- table_layout[strip_indices[1], ]
     strip_height <- strip_pos$b - strip_pos$t + 1
 
-    # Create a gtable for our labels with the same height as the strip
-    label_gtable <- gtable(widths = label_width,
-                           heights = panel_table$heights[strip_pos$t:strip_pos$b])
+    # Use per-level strip row heights if available for exact vertical alignment; otherwise fallback
+    use_per_row_heights <- !is.null(ref_strip_heights) && length(ref_strip_heights) == n_levels
+    if (use_per_row_heights) {
+      label_gtable <- gtable(widths = label_width, heights = ref_strip_heights)
+    } else {
+      label_gtable <- gtable(widths = label_width,
+                             heights = panel_table$heights[strip_pos$t:strip_pos$b])
+    }
 
-    # --- STEP 9: Add labels at different vertical positions (OUTER FIRST) ---
     for (i in seq_len(n_levels)) {
-      # Use custom label if provided, otherwise use variable name
-      var_name <- if (!is.null(custom_labels)) {
-        custom_labels[i]
-      } else {
-        col_vars[i]
-      }
+      var_name <- labels_for_width[i]
+      style_i  <- level_styles[[i]]
 
-      # Calculate vertical position within the strip
-      if (n_levels == 1) {
+      if (use_per_row_heights) {
         y_pos <- 0.5
+        row_t <- i
+        row_b <- i
       } else {
-        # Distribute labels from top (outer) to bottom (inner)
-        y_pos <- 1 - (i - 0.5) / n_levels
+        y_pos <- if (n_levels == 1) 0.5 else 1 - (i - 0.5) / n_levels
+        row_t <- 1
+        row_b <- strip_height
       }
 
-      # Create text grob (use theme font properties if available)
       text_grob <- textGrob(
         label = var_name,
         x = unit(0.1, "npc"),
         y = unit(y_pos, "npc"),
         just = c("left", "center"),
         gp = gpar(
-          fontsize = fontsize,
-          col = "black",
-          fontface = fontface,
-          fontfamily = fontfamily
+          fontsize = style_i$fontsize,
+          col = style_i$col,
+          fontface = style_i$fontface,
+          fontfamily = style_i$fontfamily,
+          lineheight = style_i$lineheight
         )
       )
 
-      # Add to label gtable
       label_gtable <- gtable_add_grob(
         label_gtable,
         grobs = text_grob,
-        t = 1, l = 1, b = strip_height, r = 1,
+        t = row_t, l = 1, b = row_b, r = 1,
         name = paste0("label-", i)
       )
     }
@@ -6845,6 +7013,7 @@ facet_nested_custom <- function(
     strip = "nested",
     bleed = NULL,
     custom_labels = NULL,   # Custom labels for facet variables
+    label_color = "auto",   # 'auto', 'strip', 'text', or explicit color(s)
     label_width = NULL,      # Optional: fixed width for label column
     label_padding = 3,
     label_width_units = 'mm'
@@ -6870,12 +7039,13 @@ facet_nested_custom <- function(
     nest_line <- element_blank()
   }
 
-  # Create params list including custom_labels and label_width
+  # Create params list including custom_labels, label_color, and label_width
   params <- list(
     nest_line = nest_line,
     solo_line = isTRUE(solo_line),
     resect = resect,
     custom_labels = custom_labels,
+    label_color = label_color,
     label_width = label_width,  # Pass label_width to params
     label_padding = label_padding,
     label_width_units = label_width_units
